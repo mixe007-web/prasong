@@ -7,8 +7,8 @@ const urlsToCache = [
   './index.html',
   './TripA-B.html',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -45,24 +45,21 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-
-  const url = new URL(event.request.url);
-
-  // 🚫 ข้าม request จาก Chrome extensions
-  if (url.protocol.startsWith('chrome-extension')) return;
+  const reqURL = new URL(event.request.url);
+  if (reqURL.protocol.startsWith('chrome-extension://')) return; // ข้าม extension
 
   event.respondWith(
-    caches.match(event.request).then(cached =>
-      cached ||
-      fetch(event.request)
-        .then(resp => {
-          if (!resp || resp.status !== 200) return resp;
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
-          return resp;
-        })
-        .catch(() => caches.match('./TripA-B.html'))
-    )
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(resp => {
+        if (!resp || resp.status !== 200) return resp;
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return resp;
+      }).catch(() => {
+        return caches.match('./TripA-B.html');
+      });
+    })
   );
 });
 
