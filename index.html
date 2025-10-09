@@ -6,17 +6,17 @@
   <title>TripA-B Tracker</title>
 
   <!-- PWA Manifest -->
-  <link rel="manifest" href="./manifest.json">
+  <link rel="manifest" href="./manifest.json" />
 
-  <!-- Icons (optional) -->
+  <!-- Icons -->
   <link rel="icon" href="./icons/icon-192.png" type="image/png" />
 
-  <!-- Meta for mobile -->
+  <!-- Meta -->
   <meta name="theme-color" content="#0d6efd" />
   <meta name="description" content="TripA-B Tracking Progressive Web App" />
 
   <!-- Style -->
-  <link rel="stylesheet" href="./TripA-B.css">
+  <link rel="stylesheet" href="./TripA-B.css" />
 </head>
 
 <body>
@@ -27,28 +27,24 @@
     <h3>🚗 กำลังโหลด TripA-B...</h3>
   </div>
 
-  <!-- Main content -->
-  <iframe 
-    src="./TripA-B.html" 
-    id="mainApp"
-    style="width:100%; height:100vh; border:none; display:none;">
-  </iframe>
-
   <script>
-    // โหลด TripA-B หลังจาก DOM พร้อม
-    window.addEventListener('DOMContentLoaded', () => {
-      const iframe = document.getElementById('mainApp');
-      iframe.onload = () => {
-        document.getElementById('loading').style.display = 'none';
-        iframe.style.display = 'block';
-      };
-    });
-
-    // สมัคร Service Worker
+    // ✅ โหลด Service Worker ก่อนเข้าแอป
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js')
-        .then(reg => console.log('[SW] Registered:', reg.scope))
-        .catch(err => console.warn('[SW] Failed:', err));
+      navigator.serviceWorker
+        .register('./service-worker.js')
+        .then(() => {
+          console.log('[SW] Registered');
+          // หน่วงเล็กน้อยให้ service worker ติดก่อน
+          setTimeout(() => {
+            window.location.href = './TripA-B.html';
+          }, 600);
+        })
+        .catch(err => {
+          console.warn('[SW] Failed:', err);
+          window.location.href = './TripA-B.html';
+        });
+    } else {
+      window.location.href = './TripA-B.html';
     }
   </script>
 </body>
