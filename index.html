@@ -5,18 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TripA-B Tracker</title>
 
-  <!-- PWA Manifest -->
+  <!-- ✅ PWA Manifest -->
   <link rel="manifest" href="./manifest.json" />
 
-  <!-- Icons -->
-  <link rel="icon" href="./icons/icon-192.png" type="image/png" />
+  <!-- ✅ Icons -->
+  <link rel="icon" href="./icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="./icon-512.png" />
 
-  <!-- Meta -->
+  <!-- ✅ Meta -->
   <meta name="theme-color" content="#0d6efd" />
   <meta name="description" content="TripA-B Tracking Progressive Web App" />
-
-  <!-- Style -->
-  <link rel="stylesheet" href="./TripA-B.css" />
 </head>
 
 <body>
@@ -34,7 +32,7 @@
         .register('./service-worker.js')
         .then(() => {
           console.log('[SW] Registered');
-          // หน่วงเล็กน้อยให้ service worker ติดก่อน
+          // รอให้ service worker ทำงานก่อน redirect
           setTimeout(() => {
             window.location.href = './TripA-B.html';
           }, 600);
