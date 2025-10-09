@@ -1,1 +1,55 @@
-<meta http-equiv="refresh" content="0; url=TripA-B.html">
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TripA-B Tracker</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="./manifest.json">
+
+  <!-- Icons (optional) -->
+  <link rel="icon" href="./icons/icon-192.png" type="image/png" />
+
+  <!-- Meta for mobile -->
+  <meta name="theme-color" content="#0d6efd" />
+  <meta name="description" content="TripA-B Tracking Progressive Web App" />
+
+  <!-- Style -->
+  <link rel="stylesheet" href="./TripA-B.css">
+</head>
+
+<body>
+  <noscript>ต้องเปิดใช้งาน JavaScript เพื่อให้เว็บทำงานได้</noscript>
+
+  <!-- Loader -->
+  <div id="loading" style="text-align:center; margin-top:40vh;">
+    <h3>🚗 กำลังโหลด TripA-B...</h3>
+  </div>
+
+  <!-- Main content -->
+  <iframe 
+    src="./TripA-B.html" 
+    id="mainApp"
+    style="width:100%; height:100vh; border:none; display:none;">
+  </iframe>
+
+  <script>
+    // โหลด TripA-B หลังจาก DOM พร้อม
+    window.addEventListener('DOMContentLoaded', () => {
+      const iframe = document.getElementById('mainApp');
+      iframe.onload = () => {
+        document.getElementById('loading').style.display = 'none';
+        iframe.style.display = 'block';
+      };
+    });
+
+    // สมัคร Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(reg => console.log('[SW] Registered:', reg.scope))
+        .catch(err => console.warn('[SW] Failed:', err));
+    }
+  </script>
+</body>
+</html>
