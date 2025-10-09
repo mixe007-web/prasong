@@ -1,18 +1,21 @@
 // ===============================
-// TripA-B Service Worker (for Drv.tw)
+// TripA-B Service Worker (Fixed)
 // ===============================
 
-const CACHE_NAME = 'trip-ab-cache-v10';
+const CACHE_NAME = 'trip-ab-cache-v11';
 const urlsToCache = [
+  './index.html',
   './TripA-B.html',
-  './manifest.json'
+  './manifest.json',
+  './TripA-B.css',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
   console.log('[SW] Installing...');
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    console.log('[SW] Caching files...');
     for (const url of urlsToCache) {
       try {
         await cache.add(url);
@@ -21,7 +24,6 @@ self.addEventListener('install', event => {
         console.warn(`[SW] ⚠️ Skipped: ${url}`, err);
       }
     }
-    console.log('[SW] Install complete.');
   })());
   self.skipWaiting();
 });
@@ -29,12 +31,14 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.map(key => {
-        if (key !== CACHE_NAME) {
-          console.log('[SW] Deleting old cache:', key);
-          return caches.delete(key);
-        }
-      }))
+      Promise.all(
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', key);
+            return caches.delete(key);
+          }
+        })
+      )
     )
   );
   self.clients.claim();
@@ -42,6 +46,12 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  // 🚫 ข้าม request จาก Chrome extensions
+  if (url.protocol.startsWith('chrome-extension')) return;
+
   event.respondWith(
     caches.match(event.request).then(cached =>
       cached ||
@@ -58,9 +68,8 @@ self.addEventListener('fetch', event => {
 });
 
 // ===============================
-// IndexedDB สำหรับเก็บข้อมูลออฟไลน์ (ไม่มี backend จริง)
+// IndexedDB สำหรับเก็บข้อมูลออฟไลน์
 // ===============================
-
 function saveTripOffline(tripData) {
   const request = indexedDB.open('tripDataDB', 1);
   request.onupgradeneeded = e => {
@@ -101,10 +110,8 @@ self.addEventListener('sync', event => {
 self.addEventListener('message', event => {
   if (event.data && event.data.action === 'manualSync') {
     console.log('[SW] Manual sync triggered — static host, skipping server sync.');
-    getOfflineTrips().then(data => {
-      console.log('[SW] Offline trips:', data);
-    });
+    getOfflineTrips().then(data => console.log('[SW] Offline trips:', data));
   }
 });
 
-console.log('[SW] TripA-B Service Worker v8 ready.');
+console.log('[SW] TripA-B Service Worker v11 ready.');
