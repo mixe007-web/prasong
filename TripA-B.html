@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 22.69</h2>
+<h2>Trip A-B Version 22.70</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1260,7 +1260,11 @@ function clearTrip(index) {
   };
 });
 }
-  const startIcon = L.divIcon({
+// =============================
+// 🚗 SHOW HISTORY MAP (MODAL)
+// =============================
+
+const startIcon = L.divIcon({
   html: '🚗',
   className: '',
   iconSize: [30, 30],
@@ -1283,13 +1287,19 @@ function showLeafletMapFromTrip(trip) {
   const mapModal = document.getElementById('mapModal');
   mapModal.style.display = "block";
 
-  if (window.mapLeaflet) {
-    window.mapLeaflet.remove();
+  if (window.replayMap) {
+    window.replayMap.remove();
+    window.replayMap = null;
   }
-  window.mapLeaflet = L.map('leafletMap').setView([13.7563, 100.5018], 13);
+
+  const m = L.map('leafletMap').setView([13.7563, 100.5018], 13);
+  window.replayMap = m;
+
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>',
-}).addTo(window.mapLeaflet);
+    noWrap: true,
+    attribution: '&copy; OpenStreetMap contributors, &copy; CARTO'
+  }).addTo(m);
+
   const latlngs = [];
   for (let i = 0; i < trip.path.length; i++) {
     if (!trip.path[i].coord) continue;
@@ -1305,28 +1315,26 @@ function showLeafletMapFromTrip(trip) {
       color,
       weight: 5,
       opacity: 0.9
-    }).bindPopup(`ความเร็ว: ${speed.toFixed(1)} km/h`)
-      .addTo(window.mapLeaflet);
+    }).addTo(m);
   }
 
   if (latlngs.length >= 2) {
-    window.mapLeaflet.fitBounds(latlngs);
+    m.fitBounds(latlngs);
   } else if (latlngs.length === 1) {
-    window.mapLeaflet.setView(latlngs[0], 15);
+    m.setView(latlngs[0], 15);
   }
 
   const [startLat, startLng] = latlngs[0];
   const [endLat, endLng] = latlngs[latlngs.length - 1];
 
-  L.marker([startLat, startLng], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(window.mapLeaflet);
-  L.marker([endLat, endLng], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(window.mapLeaflet);
+  L.marker([startLat, startLng], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(m);
+  L.marker([endLat, endLng], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(m);
 
   const tripInfo = document.getElementById("mapTripInfo");
   tripInfo.innerHTML = `
     <strong>ระยะทาง:</strong> ${trip.distance.toFixed(3)} km<br/>
-	<strong>พลังงานรีเจน: </strong> ${(trip.totalRegenEnergy || 0).toFixed(2)} kWh<br/>
     <strong>เวลาหยุดนิ่ง:</strong> ${formatTime(trip.idleTimeSeconds)}<br/>
-	<strong>เวลาเดินทาง:</strong> ${formatTime(trip.elapsedTime)}<br/>
+    <strong>เวลาเดินทาง:</strong> ${formatTime(trip.elapsedTime)}<br/>
     <strong>ความเร็วสูงสุด:</strong> ${trip.maxSpeed.toFixed(1)} km/h<br/>
     <strong>ความเร็วเฉลี่ย:</strong> ${trip.avgSpeed.toFixed(1)} km/h<br/>
     <strong>พลังงานใช้เฉลี่ย:</strong> ${trip.energyPer100km.toFixed(2)} kWh/100km<br/>
@@ -1336,24 +1344,24 @@ function showLeafletMapFromTrip(trip) {
 
   document.querySelector(".close-map-modal").onclick = () => {
     mapModal.style.display = "none";
-    if (window.mapLeaflet) {
-      window.mapLeaflet.remove();
-      window.mapLeaflet = null;
+    if (window.replayMap) {
+      window.replayMap.remove();
+      window.replayMap = null;
     }
   };
 
   window.onclick = function (event) {
     if (event.target === mapModal) {
       mapModal.style.display = "none";
-      if (window.mapLeaflet) {
-        window.mapLeaflet.remove();
-        window.mapLeaflet = null;
+      if (window.replayMap) {
+        window.replayMap.remove();
+        window.replayMap = null;
       }
     }
   };
 
   setTimeout(() => {
-    window.mapLeaflet.invalidateSize();
+    m.invalidateSize();
   }, 200);
 }
 
@@ -1362,7 +1370,6 @@ function getSpeedColor(speed) {
   if (speed < 50) return 'orange';
   return 'green';
 }
-
 // =============================
 // 🚗 MAP TRACKING CORE (CLEAN)
 // =============================
@@ -1600,71 +1607,62 @@ function destroyMap() {
 
 function initMap(lat, lon) {
   destroyMap();
-  const bounds = L.latLngBounds([5.5, 97.3], [20.5, 106.0]);
-  map = L.map('map', { center: [lat, lon], zoom: 17, maxBounds: bounds, zoomControl: false });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { noWrap: true }).addTo(map);
+  const container = document.getElementById('map');
+  if (container && container._leaflet_id) container._leaflet_id = null; // ✅ FIX
 
+  map = L.map('map', { center: [lat, lon], zoom: 17, zoomControl: false });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { noWrap: true }).addTo(map);
   routeLayer = L.layerGroup().addTo(map);
-  vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon, rotationAngle: 0, rotationOrigin: 'center center' }).addTo(map);
+  vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon }).addTo(map);
 
   map.whenReady(() => {
     isMapReady = true;
     setMapPaneTransformOriginToCenter();
     attachMapEventListeners();
-	setTimeout(() => { map.invalidateSize(); }, 300);
+    setTimeout(() => map.invalidateSize(), 300);
+    setTimeout(updateVehicleIconSize, 500); // ✅ FIX
   });
 }
 
 function updateVehicleIconSize() {
-if (!map || !isMapReady) return;
+  if (!map || !vehicleMarker) return;
   const zoom = map.getZoom();
   let size;
   if (zoom >= 17) size = 25;
   else if (zoom >= 16) size = 19;
   else if (zoom >= 15) size = 15;
   else size = 13;
-  if (!vehicleMarker) return;
-  const currentIconSize = vehicleMarker.options.icon.options.iconSize[0];
-  if (currentIconSize === size) return;
-  const updatedIcon = L.icon({
+  const icon = L.icon({
     iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2]
   });
-  vehicleMarker.setIcon(updatedIcon);
+  vehicleMarker.setIcon(icon);
 }
 
 // --- ฟังชันติด event map ---
 function attachMapEventListeners() {
   if (!map || mapListenersAttached) return;
 
-  // 🧭 ผู้ใช้แตะ / ลาก / ซูม = ปิด auto-follow ชั่วคราว
   map.on('dragstart zoomstart touchstart', () => {
-  isUserInteracting = true;
-  autoFollow = false;
-  autoFollowHandler._lastManual = Date.now();
-
-    // ⏳ ตั้งเวลาให้กลับ auto หลัง 15 วินาที (ถ้ายังไม่กดปุ่ม)
+    isUserInteracting = true;
+    autoFollow = false;
     clearTimeout(autoFollowTimeout);
     autoFollowTimeout = setTimeout(() => {
-      if (!isUserInteracting) {
-        autoFollow = true;
-        console.log("🔄 Auto-follow กลับอัตโนมัติหลัง timeout");
-      }
+      if (!isUserInteracting) autoFollow = true;
     }, 15000);
   });
 
-  // 👇 ปล่อยนิ้วออกจากจอ — ให้ flag หยุด แต่ไม่เปิด auto-follow เอง
-  map.on('dragend zoomend touchend', () => {
-    isUserInteracting = false;
+  map.on('dragend zoomend touchend', () => { isUserInteracting = false; });
+
+  // ✅ FIX: เพิ่ม moveend + resize เพื่อให้ icon update และ origin คงที่
+  map.on('zoomend moveend resize', () => {
+    setMapPaneTransformOriginToCenter();
+    updateVehicleIconSize();
   });
 
-  map.on('resize move', setMapPaneTransformOriginToCenter);
-  map.on('zoomend moveend resize', setMapPaneTransformOriginToCenter);
-  map.on('zoomend', throttledUpdateVehicleIconSize);
   mapListenersAttached = true;
 }
-
 
 // --- อัปเดตเส้นทางเดินทาง ---
 function updateRoute(lat, lon, speedKmh) {
@@ -2011,7 +2009,7 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
   if (vehicleMarker && vehicleMarker.getLatLng()) {
     const latlng = vehicleMarker.getLatLng();
     map.panTo(latlng, { animate: true, duration: 0.5 });
-    console.log("🎯 กลับสู่โหมดติดตามรถ");
+   
   }
 });
 
