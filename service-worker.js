@@ -1,8 +1,8 @@
 // ===============================
-// TripA-B Service Worker (v13 Auto-Update)
+// 🚀 TripA-B Service Worker (v15 Auto-Update + Popup Notice)
 // ===============================
 
-const CACHE_VERSION = 'v13'; // 🆕 เปลี่ยนเลขนี้ทุกครั้งที่อัปโหลด
+const CACHE_VERSION = 'v15';
 const CACHE_NAME = `trip-ab-cache-${CACHE_VERSION}`;
 const urlsToCache = [
   './index.html',
@@ -28,25 +28,33 @@ self.addEventListener('install', event => {
       }
     }
   })());
-  self.skipWaiting(); // ✅ ติดตั้งทันที
+  self.skipWaiting();
 });
 
 // -------------------------------
-// ♻️ ACTIVATE (ล้าง cache เก่า)
+// ♻️ ACTIVATE + AUTO REFRESH
 // -------------------------------
 self.addEventListener('activate', event => {
   console.log(`[SW] Activating ${CACHE_NAME}...`);
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
         keys.map(key => {
           if (key !== CACHE_NAME) {
-            console.log('[SW] 🧹 Deleting old cache:', key);
+            console.log('[SW] 🧹 Removing old cache:', key);
             return caches.delete(key);
           }
         })
-      )
-    ).then(() => self.clients.claim())
+      );
+      await self.clients.claim();
+
+      // 🔄 แจ้งทุกแท็บให้แสดง popup + รีโหลดอัตโนมัติ
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
+        client.postMessage({ action: 'showUpdatePopup' });
+      }
+    })()
   );
 });
 
@@ -56,9 +64,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  let url;
   try {
-    url = new URL(event.request.url);
+    const url = new URL(event.request.url);
     if (!url.protocol.startsWith('http')) return;
   } catch {
     return;
@@ -67,7 +74,6 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
-
       return fetch(event.request)
         .then(resp => {
           if (!resp || resp.status !== 200 || resp.type !== 'basic') return resp;
@@ -81,13 +87,13 @@ self.addEventListener('fetch', event => {
 });
 
 // -------------------------------
-// 🔄 AUTO-UPDATE LOGIC
+// 🔄 MESSAGE HANDLER
 // -------------------------------
 self.addEventListener('message', event => {
   if (event.data === 'SKIP_WAITING') {
-    console.log('[SW] 🚀 Skipping waiting, activating new version now...');
+    console.log('[SW] 🚀 Forcing new version activation...');
     self.skipWaiting();
   }
 });
 
-console.log(`[SW] TripA-B Service Worker ${CACHE_VERSION} ready.`);
+console.log(`[SW] ✅ TripA-B Service Worker ${CACHE_VERSION} ready.`);

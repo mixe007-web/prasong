@@ -525,31 +525,62 @@
 // ===============================
 // 🔁 Force Update Service Worker
 // ===============================
+<script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const reg = await navigator.serviceWorker.register('./service-worker.js');
-      console.log('[PWA] Service Worker registered:', reg.scope);
+  navigator.serviceWorker.register('./service-worker.js').then(reg => {
+    console.log('[PWA] Service Worker registered:', reg.scope);
 
-      // ✅ บังคับอัปเดตทุกครั้งที่มีไฟล์ใหม่
-      if (reg.waiting) {
-        reg.waiting.postMessage({ action: 'skipWaiting' });
+    // ฟังข้อความจาก SW
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data.action === 'showUpdatePopup') {
+        showUpdatePopup();
       }
+    });
+  });
 
-      reg.addEventListener('updatefound', () => {
-        const newSW = reg.installing;
-        newSW.addEventListener('statechange', () => {
-          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[PWA] 🎯 New version detected, reloading...');
-            window.location.reload();
-          }
-        });
-      });
-    } catch (err) {
-      console.warn('[PWA] Service Worker registration failed:', err);
+  // 🔁 Force reload ถ้า SW ตัวใหม่ waiting
+  navigator.serviceWorker.ready.then(reg => {
+    if (reg.waiting) {
+      reg.waiting.postMessage('SKIP_WAITING');
     }
   });
 }
+
+// ===============================
+// 🪧 Popup แจ้งเตือนอัปเดตเวอร์ชันใหม่
+// ===============================
+function showUpdatePopup() {
+  const popup = document.createElement('div');
+  popup.textContent = '🔄 พบเวอร์ชันใหม่ กำลังอัปเดต...';
+  popup.style.position = 'fixed';
+  popup.style.bottom = '20px';
+  popup.style.left = '50%';
+  popup.style.transform = 'translateX(-50%)';
+  popup.style.background = '#323232';
+  popup.style.color = '#fff';
+  popup.style.padding = '12px 20px';
+  popup.style.borderRadius = '8px';
+  popup.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+  popup.style.fontFamily = 'Rubik, sans-serif';
+  popup.style.fontSize = '0.95rem';
+  popup.style.zIndex = '9999';
+  popup.style.transition = 'opacity 0.3s ease';
+  popup.style.opacity = '0';
+  document.body.appendChild(popup);
+
+  // แสดง popup
+  setTimeout(() => popup.style.opacity = '1', 100);
+  // ปิด popup + reload
+  setTimeout(() => {
+    popup.style.opacity = '0';
+    setTimeout(() => {
+      popup.remove();
+      location.reload();
+    }, 500);
+  }, 2000);
+}
+</script>
+
 </script>
 <script>
 (() => {

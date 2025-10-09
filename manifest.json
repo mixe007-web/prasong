@@ -7,7 +7,7 @@
   "background_color": "#121212",
   "theme_color": "#007bff",
   "description": "ระบบติดตามการเดินทางแบบเรียลไทม์ Trip A-B Tracker",
-  "version": "13", 
+  "version": "15", 
   "id": "tripab-tracker",
   "icons": [
     { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
