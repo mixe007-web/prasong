@@ -1,7 +1,7 @@
 {
   "name": "TripA-B Tracker",
   "short_name": "TripA-B",
-  "start_url": "./index.html",
+  "start_url": "./TripA-B.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#121212",
