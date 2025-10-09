@@ -45,8 +45,19 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  const reqURL = new URL(event.request.url);
-  if (reqURL.protocol.startsWith('chrome-extension://')) return; // ข้าม extension
+
+  try {
+    const reqURL = new URL(event.request.url);
+    if (
+      reqURL.protocol.startsWith('chrome-extension') ||
+      reqURL.protocol.startsWith('moz-extension') ||
+      reqURL.protocol.startsWith('edge-extension')
+    ) {
+      return; // ข้ามทุก extension scheme
+    }
+  } catch (e) {
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then(cached => {
