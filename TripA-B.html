@@ -522,6 +522,36 @@
   </div>
 </div>
 <script>
+// ===============================
+// 🔁 Force Update Service Worker
+// ===============================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('./service-worker.js');
+      console.log('[PWA] Service Worker registered:', reg.scope);
+
+      // ✅ บังคับอัปเดตทุกครั้งที่มีไฟล์ใหม่
+      if (reg.waiting) {
+        reg.waiting.postMessage({ action: 'skipWaiting' });
+      }
+
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('[PWA] 🎯 New version detected, reloading...');
+            window.location.reload();
+          }
+        });
+      });
+    } catch (err) {
+      console.warn('[PWA] Service Worker registration failed:', err);
+    }
+  });
+}
+</script>
+<script>
 (() => {
   let updateEndTimeInterval = null;
   let tripStartTime = null;
