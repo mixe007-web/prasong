@@ -1,8 +1,8 @@
 // ===============================
-// TripA-B Service Worker (Fixed)
+// TripA-B Service Worker (v12 Final)
 // ===============================
 
-const CACHE_NAME = 'trip-ab-cache-v11';
+const CACHE_NAME = 'trip-ab-cache-v12';
 const urlsToCache = [
   './index.html',
   './TripA-B.html',
@@ -11,6 +11,9 @@ const urlsToCache = [
   './icon-512.png'
 ];
 
+// -------------------------------
+// 📦 INSTALL
+// -------------------------------
 self.addEventListener('install', event => {
   console.log('[SW] Installing...');
   event.waitUntil((async () => {
@@ -27,6 +30,9 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
+// -------------------------------
+// ♻️ ACTIVATE
+// -------------------------------
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -43,40 +49,45 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+// -------------------------------
+// 🌐 FETCH HANDLER (แก้จุดหลักตรงนี้)
+// -------------------------------
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
+  let url;
   try {
-    const reqURL = new URL(event.request.url);
-    if (
-      reqURL.protocol.startsWith('chrome-extension') ||
-      reqURL.protocol.startsWith('moz-extension') ||
-      reqURL.protocol.startsWith('edge-extension')
-    ) {
-      return; // ข้ามทุก extension scheme
-    }
+    url = new URL(event.request.url);
+
+    // ✅ กันทุก protocol ที่ไม่ใช่ http(s)
+    if (!url.protocol.startsWith('http')) return;
+
   } catch (e) {
+    // URL แปลก เช่น data:, blob:
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
-      return fetch(event.request).then(resp => {
-        if (!resp || resp.status !== 200) return resp;
-        const clone = resp.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return resp;
-      }).catch(() => {
-        return caches.match('./TripA-B.html');
-      });
+
+      return fetch(event.request)
+        .then(resp => {
+          // ✅ cache เฉพาะ response ที่ปกติเท่านั้น
+          if (!resp || resp.status !== 200 || resp.type !== 'basic') return resp;
+
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          return resp;
+        })
+        .catch(() => caches.match('./TripA-B.html'));
     })
   );
 });
 
-// ===============================
-// IndexedDB สำหรับเก็บข้อมูลออฟไลน์
-// ===============================
+// -------------------------------
+// 💾 IndexedDB สำหรับเก็บข้อมูลออฟไลน์
+// -------------------------------
 function saveTripOffline(tripData) {
   const request = indexedDB.open('tripDataDB', 1);
   request.onupgradeneeded = e => {
@@ -121,4 +132,4 @@ self.addEventListener('message', event => {
   }
 });
 
-console.log('[SW] TripA-B Service Worker v11 ready.');
+console.log('[SW] TripA-B Service Worker v12 ready.');
