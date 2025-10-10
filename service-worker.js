@@ -1,8 +1,8 @@
 // ===============================
-// 🚀 TripA-B Service Worker (v18.1 Auto-Update + Smart Cache)
+// 🚀 TripA-B Service Worker (v19 Stable + Smart Auto-Update)
 // ===============================
 
-const CACHE_VERSION = 'v18.1';
+const CACHE_VERSION = 'v19';
 const CACHE_NAME = `trip-ab-cache-${CACHE_VERSION}`;
 const urlsToCache = [
   './TripA-B.html',
@@ -19,7 +19,7 @@ self.addEventListener('install', event => {
       const cache = await caches.open(CACHE_NAME);
       await cache.addAll(urlsToCache);
 
-      // แจ้ง client เมื่อ SW ใหม่พร้อม (หลัง cache เสร็จ)
+      // แจ้ง client ว่ามี SW ใหม่
       const clients = await self.clients.matchAll({ includeUncontrolled: true });
       for (const client of clients) {
         client.postMessage({ type: 'NEW_VERSION_AVAILABLE' });
@@ -35,26 +35,29 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(
-        keys.map(key => key !== CACHE_NAME && caches.delete(key))
-      );
+      await Promise.all(keys.map(k => k !== CACHE_NAME && caches.delete(k)));
       await self.clients.claim();
     })()
   );
 });
 
-// 🌐 FETCH (stale-while-revalidate strategy)
+// 🌐 FETCH (stale-while-revalidate + safe index)
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+
+  // 🚫 ข้าม request ที่ไม่ใช่ http/https
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-  // อย่า cache index.html → โหลดสดเสมอ
-  if (url.pathname.endsWith('index.html')) {
-    event.respondWith(fetch(event.request).catch(() => caches.match('./TripA-B.html')));
+  // ✅ โหลดสดสำหรับ index.html หรือ root path (เช่น /)
+  if (url.pathname === '/' || url.pathname.endsWith('index.html')) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('./TripA-B.html'))
+    );
     return;
   }
 
+  // ✅ cache-first + update เบื้องหลัง
   event.respondWith(
     caches.match(event.request).then(cached => {
       const fetchPromise = fetch(event.request)
