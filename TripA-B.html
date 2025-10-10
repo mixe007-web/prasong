@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 22.88</h2>
+<h2>Trip A-B Version 22.89</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -545,17 +545,21 @@ function showUpdatePopup() {
     transition: 'opacity 0.3s ease'
   });
   document.body.appendChild(popup);
+
   setTimeout(() => popup.style.opacity = '1', 100);
   setTimeout(() => {
     popup.style.opacity = '0';
     setTimeout(() => {
       popup.remove();
-      location.reload(); // 🔁 โหลดใหม่อัตโนมัติ
+      // รีโหลดเฉพาะถ้ายังไม่ได้ reload จาก controllerchange
+      if (!window.__reloading) {
+        window.__reloading = true;
+        location.reload();
+      }
     }, 400);
   }, 2000);
 }
 
-// ✅ ฟังข้อความจาก Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
@@ -564,6 +568,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
 
 
 <!-- =============================== -->

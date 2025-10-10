@@ -1,11 +1,10 @@
 // ===============================
-// 🚀 TripA-B Service Worker (v17 Auto-Update)
+// 🚀 TripA-B Service Worker (v18.1 Auto-Update + Smart Cache)
 // ===============================
 
-const CACHE_VERSION = 'v17';
+const CACHE_VERSION = 'v18.1';
 const CACHE_NAME = `trip-ab-cache-${CACHE_VERSION}`;
 const urlsToCache = [
-  './index.html',
   './TripA-B.html',
   './manifest.json',
   './icon-192.png',
@@ -16,16 +15,18 @@ const urlsToCache = [
 self.addEventListener('install', event => {
   console.log(`[SW] Installing ${CACHE_NAME}...`);
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
-  );
-  self.skipWaiting(); // ⏩ เข้าทำงานทันที
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(urlsToCache);
 
-  // 📢 แจ้งเตือน client ว่ามี SW ใหม่
-  self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
-    for (const client of clients) {
-      client.postMessage({ type: 'NEW_VERSION_AVAILABLE' });
-    }
-  });
+      // แจ้ง client เมื่อ SW ใหม่พร้อม (หลัง cache เสร็จ)
+      const clients = await self.clients.matchAll({ includeUncontrolled: true });
+      for (const client of clients) {
+        client.postMessage({ type: 'NEW_VERSION_AVAILABLE' });
+      }
+    })()
+  );
+  self.skipWaiting();
 });
 
 // ♻️ ACTIVATE
@@ -34,23 +35,38 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.map(key => key !== CACHE_NAME && caches.delete(key)));
+      await Promise.all(
+        keys.map(key => key !== CACHE_NAME && caches.delete(key))
+      );
       await self.clients.claim();
     })()
   );
 });
 
-// 🌐 FETCH
+// 🌐 FETCH (stale-while-revalidate strategy)
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+  // อย่า cache index.html → โหลดสดเสมอ
+  if (url.pathname.endsWith('index.html')) {
+    event.respondWith(fetch(event.request).catch(() => caches.match('./TripA-B.html')));
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then(resp => {
-      return resp || fetch(event.request).then(networkResp => {
-        if (!networkResp || networkResp.status !== 200) return networkResp;
-        const respClone = networkResp.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, respClone));
-        return networkResp;
-      });
+    caches.match(event.request).then(cached => {
+      const fetchPromise = fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => cached);
+      return cached || fetchPromise;
     })
   );
 });

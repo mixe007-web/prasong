@@ -26,24 +26,28 @@
   </div>
 
   <script>
-    // ✅ โหลด Service Worker ก่อนเข้าแอป
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('./service-worker.js')
-        .then(() => {
-          console.log('[SW] Registered');
-          // รอให้ service worker ทำงานก่อน redirect
-          setTimeout(() => {
-            window.location.href = './TripA-B.html';
-          }, 600);
-        })
-        .catch(err => {
-          console.warn('[SW] Failed:', err);
-          window.location.href = './TripA-B.html';
-        });
-    } else {
-      window.location.href = './TripA-B.html';
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js').then(reg => {
+    reg.onupdatefound = () => {
+      const newWorker = reg.installing;
+      newWorker.onstatechange = () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          if (confirm('🔄 มีเวอร์ชันใหม่ของแอป ต้องการรีโหลดไหม?')) {
+            newWorker.postMessage('SKIP_WAITING');
+          }
+        }
+      };
+    };
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!window.__reloading) {
+      window.__reloading = true;
+      window.location.reload();
     }
+  });
+}
+</script>
   </script>
 </body>
 </html>
