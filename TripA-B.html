@@ -554,7 +554,17 @@ function showUpdatePopup() {
     }, 400);
   }, 2000);
 }
+
+// ✅ ฟังข้อความจาก Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
+      showUpdatePopup();
+    }
+  });
+}
 </script>
+
 
 <!-- =============================== -->
 <!-- 🚗 TripA-B App Logic -->

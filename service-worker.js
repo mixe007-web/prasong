@@ -1,8 +1,8 @@
 // ===============================
-// 🚀 TripA-B Service Worker (v16 Auto-Update)
+// 🚀 TripA-B Service Worker (v17 Auto-Update)
 // ===============================
 
-const CACHE_VERSION = 'v16';
+const CACHE_VERSION = 'v17';
 const CACHE_NAME = `trip-ab-cache-${CACHE_VERSION}`;
 const urlsToCache = [
   './index.html',
@@ -19,6 +19,13 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
   self.skipWaiting(); // ⏩ เข้าทำงานทันที
+
+  // 📢 แจ้งเตือน client ว่ามี SW ใหม่
+  self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
+    for (const client of clients) {
+      client.postMessage({ type: 'NEW_VERSION_AVAILABLE' });
+    }
+  });
 });
 
 // ♻️ ACTIVATE
@@ -29,12 +36,6 @@ self.addEventListener('activate', event => {
       const keys = await caches.keys();
       await Promise.all(keys.map(key => key !== CACHE_NAME && caches.delete(key)));
       await self.clients.claim();
-
-      // แจ้งทุก client ให้แสดง popup แล้ว reload
-      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      for (const client of clients) {
-        client.postMessage({ action: 'showUpdatePopup' });
-      }
     })()
   );
 });
