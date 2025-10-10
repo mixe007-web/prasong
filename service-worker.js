@@ -1,8 +1,8 @@
 // ===============================
-// 🚀 TripA-B Service Worker (v15 Auto-Update + Popup Notice)
+// 🚀 TripA-B Service Worker (v16 Auto-Update)
 // ===============================
 
-const CACHE_VERSION = 'v15';
+const CACHE_VERSION = 'v16';
 const CACHE_NAME = `trip-ab-cache-${CACHE_VERSION}`;
 const urlsToCache = [
   './index.html',
@@ -12,44 +12,25 @@ const urlsToCache = [
   './icon-512.png'
 ];
 
-// -------------------------------
 // 📦 INSTALL
-// -------------------------------
 self.addEventListener('install', event => {
   console.log(`[SW] Installing ${CACHE_NAME}...`);
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    for (const url of urlsToCache) {
-      try {
-        await cache.add(url);
-        console.log(`[SW] ✅ Cached: ${url}`);
-      } catch (err) {
-        console.warn(`[SW] ⚠️ Skipped: ${url}`, err);
-      }
-    }
-  })());
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+  );
+  self.skipWaiting(); // ⏩ เข้าทำงานทันที
 });
 
-// -------------------------------
-// ♻️ ACTIVATE + AUTO REFRESH
-// -------------------------------
+// ♻️ ACTIVATE
 self.addEventListener('activate', event => {
   console.log(`[SW] Activating ${CACHE_NAME}...`);
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            console.log('[SW] 🧹 Removing old cache:', key);
-            return caches.delete(key);
-          }
-        })
-      );
+      await Promise.all(keys.map(key => key !== CACHE_NAME && caches.delete(key)));
       await self.clients.claim();
 
-      // 🔄 แจ้งทุกแท็บให้แสดง popup + รีโหลดอัตโนมัติ
+      // แจ้งทุก client ให้แสดง popup แล้ว reload
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of clients) {
         client.postMessage({ action: 'showUpdatePopup' });
@@ -58,42 +39,25 @@ self.addEventListener('activate', event => {
   );
 });
 
-// -------------------------------
-// 🌐 FETCH HANDLER
-// -------------------------------
+// 🌐 FETCH
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-
-  try {
-    const url = new URL(event.request.url);
-    if (!url.protocol.startsWith('http')) return;
-  } catch {
-    return;
-  }
-
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then(resp => {
-          if (!resp || resp.status !== 200 || resp.type !== 'basic') return resp;
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          return resp;
-        })
-        .catch(() => caches.match('./TripA-B.html'));
+    caches.match(event.request).then(resp => {
+      return resp || fetch(event.request).then(networkResp => {
+        if (!networkResp || networkResp.status !== 200) return networkResp;
+        const respClone = networkResp.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, respClone));
+        return networkResp;
+      });
     })
   );
 });
 
-// -------------------------------
-// 🔄 MESSAGE HANDLER
-// -------------------------------
+// 💬 MESSAGE
 self.addEventListener('message', event => {
   if (event.data === 'SKIP_WAITING') {
-    console.log('[SW] 🚀 Forcing new version activation...');
+    console.log('[SW] 🚀 Forcing activation of new SW...');
     self.skipWaiting();
   }
 });
-
-console.log(`[SW] ✅ TripA-B Service Worker ${CACHE_VERSION} ready.`);

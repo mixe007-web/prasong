@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 22.75</h2>
+<h2>Trip A-B Version 22.76</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -521,65 +521,44 @@
     <div id="mapTripInfo" style="margin-top: 10px; font-size: 14px;"></div>
   </div>
 </div>
+<!-- =============================== -->
+<!-- 🪧 Popup แจ้งเตือนอัปเดตเวอร์ชันใหม่ -->
+<!-- =============================== -->
 <script>
-// ===============================
-// 🔁 Force Update Service Worker
-// ===============================
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./service-worker.js').then(reg => {
-    console.log('[PWA] Service Worker registered:', reg.scope);
-
-    // ฟังข้อความจาก SW
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data.action === 'showUpdatePopup') {
-        showUpdatePopup();
-      }
-    });
-  });
-
-  // 🔁 Force reload ถ้า SW ตัวใหม่ waiting
-  navigator.serviceWorker.ready.then(reg => {
-    if (reg.waiting) {
-      reg.waiting.postMessage('SKIP_WAITING');
-    }
-  });
-}
-
-// ===============================
-// 🪧 Popup แจ้งเตือนอัปเดตเวอร์ชันใหม่
-// ===============================
 function showUpdatePopup() {
   const popup = document.createElement('div');
-  popup.textContent = '🔄 พบเวอร์ชันใหม่ กำลังอัปเดต...';
-  popup.style.position = 'fixed';
-  popup.style.bottom = '20px';
-  popup.style.left = '50%';
-  popup.style.transform = 'translateX(-50%)';
-  popup.style.background = '#323232';
-  popup.style.color = '#fff';
-  popup.style.padding = '12px 20px';
-  popup.style.borderRadius = '8px';
-  popup.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
-  popup.style.fontFamily = 'Rubik, sans-serif';
-  popup.style.fontSize = '0.95rem';
-  popup.style.zIndex = '9999';
-  popup.style.transition = 'opacity 0.3s ease';
-  popup.style.opacity = '0';
+  popup.textContent = '🔄 กำลังอัปเดต Trip A-B เป็นเวอร์ชันใหม่...';
+  Object.assign(popup.style, {
+    position: 'fixed',
+    bottom: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: '#323232',
+    color: '#fff',
+    padding: '12px 20px',
+    borderRadius: '8px',
+    boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+    fontFamily: 'Rubik, sans-serif',
+    fontSize: '0.95rem',
+    zIndex: '9999',
+    opacity: '0',
+    transition: 'opacity 0.3s ease'
+  });
   document.body.appendChild(popup);
-
-  // แสดง popup
   setTimeout(() => popup.style.opacity = '1', 100);
-  // ปิด popup + reload
   setTimeout(() => {
     popup.style.opacity = '0';
     setTimeout(() => {
       popup.remove();
-      location.reload();
-    }, 500);
+      location.reload(); // 🔁 โหลดใหม่อัตโนมัติ
+    }, 400);
   }, 2000);
 }
 </script>
 
+<!-- =============================== -->
+<!-- 🚗 TripA-B App Logic -->
+<!-- =============================== -->
 <script>
 (() => {
   let updateEndTimeInterval = null;
