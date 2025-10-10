@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 22.76</h2>
+<h2>Trip A-B Version 22.88</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1309,7 +1309,7 @@ function clearTrip(index) {
 });
 }
 // =============================
-// 🚗 SHOW HISTORY MAP (MODAL)
+// 🚗 SHOW HISTORY MAP (MODAL) — FINAL FIXED VERSION
 // =============================
 
 const startIcon = L.divIcon({
@@ -1332,12 +1332,11 @@ function showLeafletMapFromTrip(trip) {
     return;
   }
 
+  console.log("📍 เปิดดูแผนที่ย้อนหลัง (SHOW HISTORY MAP)");
+
   const mapModal = document.getElementById('mapModal');
   const tripInfo = document.getElementById("mapTripInfo");
-
-  // แสดง modal และป้องกัน scroll ซ้อน
-  mapModal.style.display = "block";
-  document.body.classList.add('modal-open');
+  const mapContainer = document.getElementById("leafletMap");
 
   // 🔒 ปิด autoFollow / autoRotate ชั่วคราว (กันชนกับ map สด)
   const prevAutoFollow = window.autoFollow;
@@ -1345,10 +1344,32 @@ function showLeafletMapFromTrip(trip) {
   window.autoFollow = false;
   window.autoRotate = false;
 
-  // เคลียร์ map เดิมก่อนสร้างใหม่
+  // 🔒 ปิดการควบคุมของ MAP TRACKING CORE ชั่วคราว
+  if (window.map) {
+    try {
+      window.map.dragging.disable();
+      window.map.scrollWheelZoom.disable();
+      window.map.doubleClickZoom.disable();
+      window.map.boxZoom.disable();
+      window.map.keyboard.disable();
+      document.getElementById("map").style.pointerEvents = "none";
+    } catch (err) {
+      console.warn("ไม่สามารถปิด interaction ของ map หลัก:", err);
+    }
+  }
+
+  // แสดง modal และป้องกัน scroll ซ้อน
+  window.isHistoryModalOpen = true;
+  mapModal.style.display = "block";
+  document.body.classList.add('modal-open');
+
+  // 🧹 ล้าง container เดิม (กัน map ซ้อน)
   if (window.replayMap) {
     window.replayMap.remove();
     window.replayMap = null;
+  }
+  if (mapContainer && mapContainer._leaflet_id) {
+    mapContainer._leaflet_id = null;
   }
 
   // ✅ สร้างแผนที่ใหม่ใน modal
@@ -1359,12 +1380,13 @@ function showLeafletMapFromTrip(trip) {
   });
   window.replayMap = m;
 
+  // ✅ เพิ่ม Tile Layer
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     noWrap: true,
     attribution: '&copy; OpenStreetMap contributors, &copy; CARTO'
   }).addTo(m);
 
-  // ✅ สร้าง latlngs อย่างปลอดภัย
+  // ✅ แปลงข้อมูลตำแหน่งอย่างปลอดภัย
   const latlngs = trip.path
     .map(p => {
       if (!p.coord) return null;
@@ -1378,7 +1400,7 @@ function showLeafletMapFromTrip(trip) {
     return;
   }
 
-  // ✅ วาด polyline ตามความเร็ว
+  // ✅ วาดเส้นสีตามความเร็ว (Speed Color)
   for (let i = 0; i < latlngs.length - 1; i++) {
     const speed = trip.path[i + 1]?.speed ?? 0;
     const color = getSpeedColor(speed);
@@ -1415,26 +1437,47 @@ function showLeafletMapFromTrip(trip) {
   `;
 
   // ✅ ปรับขนาดแผนที่หลัง modal แสดงผล
-  requestAnimationFrame(() => {
+  setTimeout(() => {
     if (m && m.invalidateSize) m.invalidateSize();
-  });
+  }, 300);
 
   // ✅ ฟังก์ชันปิด modal อย่างปลอดภัย
   const closeModal = () => {
+    window.isHistoryModalOpen = false;
     mapModal.style.display = "none";
     document.body.classList.remove('modal-open');
-    tripInfo.innerHTML = ''; // ล้างข้อมูล trip เดิม
-    mapModal.scrollTop = 0; // reset scroll
+    tripInfo.innerHTML = '';
+    mapModal.scrollTop = 0;
+
     if (window.replayMap) {
       window.replayMap.remove();
       window.replayMap = null;
     }
+
+    // คืนค่า autoFollow / autoRotate เดิม
     window.autoFollow = prevAutoFollow;
     window.autoRotate = prevAutoRotate;
+
+    // ✅ คืนการควบคุมให้ MAP CORE
+    if (window.map) {
+      try {
+        window.map.dragging.enable();
+        window.map.scrollWheelZoom.enable();
+        window.map.doubleClickZoom.enable();
+        window.map.boxZoom.enable();
+        window.map.keyboard.enable();
+        document.getElementById("map").style.pointerEvents = "auto";
+      } catch (err) {
+        console.warn("ไม่สามารถเปิด interaction ของ map หลัก:", err);
+      }
+    }
   };
 
-  // ✅ ผูก event ปิด modal
-  document.querySelector(".close-map-modal").onclick = closeModal;
+  // ✅ ปุ่มปิด modal
+  const closeBtn = document.querySelector(".close-map-modal");
+  if (closeBtn) closeBtn.onclick = closeModal;
+
+  // ✅ ปิด modal เมื่อคลิกนอกกรอบ
   window.removeEventListener('click', window._mapModalClickHandler);
   window._mapModalClickHandler = (event) => {
     if (event.target === mapModal) closeModal();
@@ -1442,10 +1485,12 @@ function showLeafletMapFromTrip(trip) {
   window.addEventListener('click', window._mapModalClickHandler);
 }
 
+// ✅ ฟังก์ชันกำหนดสีตามความเร็ว
 function getSpeedColor(speed) {
-  if (speed < 20) return 'red';
-  if (speed < 50) return 'orange';
-  return 'green';
+  if (speed < 20) return '#FF0000'; // แดง - ช้า
+  if (speed < 50) return '#FFA500'; // ส้ม - ปานกลาง
+  if (speed < 80) return '#FFFF00'; // เหลือง - เร็ว
+  return '#00FF00'; // เขียว - เร็วมาก
 }
 
 // =============================
@@ -1529,69 +1574,43 @@ function setMapPaneTransformOriginToCenter() {
   const c = map.getSize().divideBy(2);
   mapPane.style.transformOrigin = `${c.x}px ${c.y}px`;
 }
-
-// --- การหมุนแผนที่แบบ smooth ---
+// --- การหมุนแผนที่และรถแบบ Smooth + Adaptive ---
 function rotateMapSmoothly(headingDeg, speedKmh = 0) {
-  if (speedKmh < 1.5 && Math.abs(headingDeg - lastRotation) < 1) return;
-  if (!isFinite(headingDeg)) return;
-  if (!map || !isMapReady || isResettingRotation || !autoRotate || !vehicleMarker) return;
-
-  const now = Date.now();
-  if (now - (rotateMapSmoothly._lastCall || 0) < ROTATE_THROTTLE_MS) return;
-  rotateMapSmoothly._lastCall = now;
-
-  headingDeg = (headingDeg + 360) % 360;
+if (window.isHistoryModalOpen) return;
+  if (!map || !isMapReady || !vehicleMarker) return;
+  if (speedKmh < 3) return;
   const mapPane = map.getPane('mapPane');
   if (!mapPane) return;
 
-  const angleDiff = normalizeAngleDifference(headingDeg - lastRotation);
-  if (Math.abs(angleDiff) < MIN_ROTATE_DIFF) return;
+  headingDeg = (headingDeg + 360) % 360;
+  const diff = normalizeAngleDifference(headingDeg - lastRotation);
+  if (Math.abs(diff) < 0.2) return;
 
-  // ปรับความเร็วตาม speed (adaptive)
-  let baseSpeed;
-  if (speedKmh < 10) baseSpeed = 0.15;
-  else if (speedKmh < 30) baseSpeed = 0.25;
-  else if (speedKmh < 60) baseSpeed = 0.35;
-  else if (speedKmh < 100) baseSpeed = 0.45;
-  else baseSpeed = 0.55;
-
-  let factor = baseSpeed * (1 - Math.exp(-Math.abs(angleDiff) / 50));
-  factor = Math.min(factor, 0.35);
-
-  isRotationAnimating = true;
-  targetRotation = headingDeg;
+  // หมุนเร็วขึ้นเมื่อรถเร็วขึ้น
+  const rotateFactor = speedKmh < 10 ? 0.08 :
+                     speedKmh < 40 ? 0.12 :
+                     speedKmh < 80 ? 0.18 : 0.25;
 
   cancelAnimationFrame(rotationAnimationFrame);
+  targetRotation = headingDeg;
 
-  // ✅ เพิ่มตรงนี้
-  mapPane.style.willChange = 'transform';
-  mapPane.style.transformStyle = 'preserve-3d';
-
-  function animate() {
-    const diff = normalizeAngleDifference(targetRotation - lastRotation);
-    if (Math.abs(diff) < 0.3) {
-  mapPane.style.transform = `rotate(${-targetRotation}deg)`;
-  lastRotation = targetRotation;
-  isRotationAnimating = false;
-  isMapRotated = true;
-
-  // ✅ คืนค่า style กลับปกติ
-  mapPane.style.willChange = '';
-  mapPane.style.transformStyle = '';
-  mapPane.offsetHeight; // <-- ย้ายมาไว้ตรงนี้ก่อน return
-  return;
-}
-
-    lastRotation = (lastRotation + diff * factor + 360) % 360;
-    mapPane.style.transform = `rotate(${-lastRotation}deg)`;
-
-    if (vehicleMarker?.setRotationAngle) {
-      const relative = normalizeAngleDifference(headingDeg - lastRotation);  // รถชี้ขึ้นจอเสมอ, แผนที่หมุนตามทิศ
-      vehicleMarker.setRotationAngle(-relative);
+  const animate = () => {
+    const delta = normalizeAngleDifference(targetRotation - lastRotation);
+    if (Math.abs(delta) < 0.3) {
+      lastRotation = targetRotation;
+      mapPane.style.transform = `rotate(${-targetRotation}deg)`;
+      if (vehicleMarker?.setRotationAngle) vehicleMarker.setRotationAngle(0);
+      return;
     }
 
+    lastRotation = (lastRotation + delta * rotateFactor + 360) % 360;
+    mapPane.style.transform = `rotate(${-lastRotation}deg)`;
+    if (vehicleMarker?.setRotationAngle) {
+      vehicleMarker.setRotationAngle(-normalizeAngleDifference(headingDeg - lastRotation));
+    }
     rotationAnimationFrame = requestAnimationFrame(animate);
-  }
+  };
+
   animate();
 }
 
@@ -1627,21 +1646,13 @@ function resetMapRotation(callback) {
 // --- แพนตามรถ ---
 function autoFollowHandler(lat, lon, speedKmh, headingDeg) {
   if (!map || !vehicleMarker || !isMapReady) return;
-  if (isUserInteracting || Date.now() - (autoFollowHandler._lastManual || 0) < 2000) return;
-
-const now = Date.now();
-const interval = speedKmh > 60 ? 200 : FOLLOW_INTERVAL;
-if (now - lastFollowTime < interval) return;
-lastFollowTime = now;
 
   const latlng = L.latLng(lat, lon);
   updateMarkerPositionIfChanged(vehicleMarker, lat, lon);
 
-  if (autoFollow) {
-    try {
-      map.panTo(latlng, { animate: true, duration: 0.4, easeLinearity: 0.25 });
-    } catch (e) {}
-  }
+  // ✅ ให้รถอยู่กลางจอเสมอ (แทน panTo)
+  map.setView(latlng, map.getZoom(), { animate: false });
+
 }
 
 // --- ปรับตำแหน่ง marker ถ้าขยับ ---
@@ -1652,70 +1663,95 @@ function updateMarkerPositionIfChanged(marker, lat, lon) {
     marker.setLatLng([lat, lon]);
   }
 }
-
 // --- ตั้งค่าและทำลาย map ---
-function destroyMap() {
-  if (!map) return;
-  try {
-    if (rotationAnimationFrame) cancelAnimationFrame(rotationAnimationFrame);
-    // ✅ คืนค่า style ของ mapPane ให้ปกติ
-    const mapPane = map.getPane && map.getPane('mapPane');
-    if (mapPane) {
-      mapPane.style.willChange = '';
-      mapPane.style.transformStyle = '';
-      mapPane.style.transform = '';
-      mapPane.style.transition = '';
-	  mapPane.style.removeProperty('transform');
-    }
-    if (watchId) navigator.geolocation.clearWatch(watchId);
-  } catch (e) {
-    console.warn("⚠️ destroyMap error:", e);
-  }
+function destroyMap(){
+ if (!map) return;
+ try {
+ if (rotationAnimationFrame) cancelAnimationFrame(rotationAnimationFrame);
+ const mapPane = map.getPane && map.getPane('mapPane');
+ if (mapPane) {
+ mapPane.style.willChange = '';
+ mapPane.style.transformStyle = '';
+ mapPane.style.transform = '';
+ mapPane.style.transition = '';
+ mapPane.style.removeProperty('transform');
+ }
+ if (watchId) navigator.geolocation.clearWatch(watchId);
+ } 
+ catch (e) { console.warn("⚠️ destroyMap error:", e);
+ } 
+ map.off(); map.remove();
+ map = null;
+ vehicleMarker = null;
+ routeLayer = null;
+ pathCoordinates = [];
+ pathSegments = [];
+ isMapReady = false;
+ watchId = null;
+ mapListenersAttached = false;
+windowResizeAttached = false;
+isUserInteracting = false;
+autoFollow = true;
+autoRotate = true;
+ }
 
-  map.off();
-  map.remove();
-  map = null;
-  vehicleMarker = null;
-  routeLayer = null;
-  pathCoordinates = [];
-  pathSegments = [];
-  isMapReady = false;
-  watchId = null;
-}
 
 function initMap(lat, lon) {
-  destroyMap();
-  const container = document.getElementById('map');
-  if (container && container._leaflet_id) container._leaflet_id = null; // ✅ FIX
+ destroyMap();
+ const container = document.getElementById('map');
+ if (container && container._leaflet_id) container._leaflet_id = null;
+ map = L.map('map', { center: [lat, lon], zoom: 17, zoomControl: false });
+ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { noWrap: true }).addTo(map);
+ routeLayer = L.layerGroup().addTo(map);
+ vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon }).addTo(map);
+ map.whenReady(() => {
+ isMapReady = true;
+ setMapPaneTransformOriginToCenter();
+ attachMapEventListeners();
+ setTimeout(() => map.invalidateSize(), 300);
+ setTimeout(updateVehicleIconSize, 500); // ✅ FIX
+ });
+ }
+ 
+function updateAutoZoom(speedKmh) {
+  if (!map || !isMapReady) return;
 
-  map = L.map('map', { center: [lat, lon], zoom: 17, zoomControl: false });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { noWrap: true }).addTo(map);
-  routeLayer = L.layerGroup().addTo(map);
-  vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon }).addTo(map);
+  let targetZoom;
+  if (speedKmh < 5) targetZoom = 18;
+  else if (speedKmh < 30) targetZoom = 17;
+  else if (speedKmh < 80) targetZoom = 16;
+  else if (speedKmh < 120) targetZoom = 15;
+  else targetZoom = 14;
 
-  map.whenReady(() => {
-    isMapReady = true;
-    setMapPaneTransformOriginToCenter();
-    attachMapEventListeners();
-    setTimeout(() => map.invalidateSize(), 300);
-    setTimeout(updateVehicleIconSize, 500); // ✅ FIX
-  });
+  const currentZoom = map.getZoom();
+  if (Math.abs(targetZoom - currentZoom) > 0.2) {
+    map.setZoom(targetZoom, { animate: true });
+  }
 }
 
-function updateVehicleIconSize() {
+// --- ปรับขนาดไอคอนรถตามความเร็ว ---
+function updateVehicleIconBySpeed(speedKmh) {
   if (!map || !vehicleMarker) return;
-  const zoom = map.getZoom();
-  let size;
-  if (zoom >= 17) size = 25;
-  else if (zoom >= 16) size = 19;
-  else if (zoom >= 15) size = 15;
-  else size = 13;
+
+  let baseSize = speedKmh < 5 ? 22 :
+                 speedKmh < 30 ? 28 :
+                 speedKmh < 60 ? 34 :
+                 speedKmh < 100 ? 38 : 44;
+
   const icon = L.icon({
     iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2]
+    iconSize: [baseSize, baseSize],
+    iconAnchor: [baseSize / 2, baseSize / 2],
   });
   vehicleMarker.setIcon(icon);
+}
+
+// --- อัปเดตขนาดไอคอนรถตาม zoom หรือ resize ---
+// ✅ FIX: ป้องกัน error และให้ปรับขนาดรถอัตโนมัติเมื่อ zoom
+function updateVehicleIconSize() {
+  if (!map || !vehicleMarker) return;
+  const speedKmh = window.lastFinalSpeed ?? 0;
+  updateVehicleIconBySpeed(speedKmh);
 }
 
 // --- ฟังชันติด event map ---
@@ -1955,28 +1991,12 @@ function startTracking() {
       updateMarkerPositionIfChanged(vehicleMarker, latitude, longitude);
       updateRoute(latitude, longitude, speedKmh);
 
-      // ✅ หมุนต่อเนื่องทุกเฟรม (ตาม heading + ความเร็ว)
-      // ✅ หมุนต่อเนื่องทุกเฟรม (ตาม heading + ความเร็ว)
-if (autoRotate && typeof headingDeg === "number" && !isNaN(headingDeg)) {
-  // 🔧 Anti-jitter filter: ถ้าเปลี่ยนน้อยกว่า 0.5° ไม่ต้องหมุน
-  if (Math.abs(headingDeg - (lastRotation ?? 0)) < 0.5) {
-    // แต่ยังอัปเดตมุมล่าสุดไว้
-    lastRotation = headingDeg;
-  } else {
-    // 🔧 หมุนต่อเนื่องทุกเฟรมจริง 100%
-    rotateMapSmoothly(headingDeg, speedKmh);
-  }
+if (typeof headingDeg === "number" && !isNaN(headingDeg)) {
+  rotateMapSmoothly(headingDeg, speedKmh);     // หมุนแผนที่ตามทิศทาง
 }
-
-      // ✅ แพนตาม marker ให้สมูธ
-      autoFollowHandler(
-        latitude,
-        longitude,
-        speedKmh,
-        prevPos?.latitude,
-        prevPos?.longitude,
-        headingDeg
-      );
+updateVehicleIconBySpeed(speedKmh);             // เปลี่ยนขนาด/รูปรถตามความเร็ว
+updateAutoZoom(speedKmh);                       // ปรับระดับ Zoom ตามความเร็ว
+autoFollowHandler(latitude, longitude, speedKmh, headingDeg);  // แพนให้รถอยู่กลางจอ
 
       // --- Idle / Energy ---
       if (speedKmh < 3) {
