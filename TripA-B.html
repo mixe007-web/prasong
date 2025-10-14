@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.04</h2>
+<h2>Trip A-B Version 23.06</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1562,7 +1562,7 @@ const MIN_SET_VIEW_INTERVAL = 400;
 const FOLLOW_INTERVAL = 500;
 const MIN_ROTATE_DIFF = 0.5;
 const ROTATE_THROTTLE_MS = 100;
-const MAX_IDLE_TIME_BEFORE_SKIP_LINE = 15000;
+const MAX_IDLE_TIME_BEFORE_SKIP_LINE = 30000;
 
 const vehicleIcon = L.icon({
   iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
@@ -1603,18 +1603,22 @@ function setMapPaneTransformOriginToCenter() {
 }
 // --- การหมุนแผนที่และรถแบบ Smooth + Adaptive ---
 function rotateMapSmoothly(headingDeg, speedKmh = 0) {
+  if (isRotationAnimating) return;
+  isRotationAnimating = true;
   if (window.isHistoryModalOpen) return;
   if (!map || !isMapReady || !vehicleMarker) return;
+
   const mapPane = map.getPane('mapPane');
   if (!mapPane) return;
 
   headingDeg = (headingDeg + 360) % 360;
   const diff = normalizeAngleDifference(headingDeg - lastRotation);
-  if (Math.abs(diff) < 0.2) return;
+  if (Math.abs(diff) < 0.2) {
+    isRotationAnimating = false;
+    return;
+  }
 
-  // ใหม่: factor ตามความเร็ว (linear) แต่ clamp ไม่ให้เกิน 0.7
-  const rotateFactor = Math.min(0.7, 0.04 + (speedKmh / 200)); 
-
+  const rotateFactor = Math.min(0.7, 0.04 + (speedKmh / 200));
   cancelAnimationFrame(rotationAnimationFrame);
   targetRotation = headingDeg;
 
@@ -1623,16 +1627,13 @@ function rotateMapSmoothly(headingDeg, speedKmh = 0) {
     if (Math.abs(delta) < 0.3) {
       lastRotation = targetRotation;
       mapPane.style.transform = `rotate(${-targetRotation}deg)`;
-      const relativeAngle = normalizeAngleDifference(headingDeg - lastRotation);
-      vehicleMarker?.setRotationAngle(-relativeAngle);
+      vehicleMarker?.setRotationAngle(headingDeg);
+      isRotationAnimating = false;   
       return;
     }
-
     lastRotation = (lastRotation + delta * rotateFactor + 360) % 360;
     mapPane.style.transform = `rotate(${-lastRotation}deg)`;
-    const relativeAngle = normalizeAngleDifference(headingDeg - lastRotation);
-    vehicleMarker?.setRotationAngle(-relativeAngle);
-
+    vehicleMarker?.setRotationAngle(headingDeg);
     rotationAnimationFrame = requestAnimationFrame(animate);
   };
 
@@ -1679,8 +1680,8 @@ function autoFollowHandler(lat, lon, speedKmh, headingDeg) {
 
   // ✅ ให้รถอยู่กลางจอเสมอ
   if (autoFollow && !isUserInteracting) {
-    map.panTo(latlng, { animate: true, duration: 0.5 });
-  }
+  map.panTo(latlng, { animate: true });  // ✅ ให้รถอยู่กลางจอ
+}
 }
 
 // --- ปรับตำแหน่ง marker ถ้าขยับ ---
@@ -1743,7 +1744,7 @@ function initMap(lat, lon) {
 
   map.whenReady(() => {
     isMapReady = true;
-
+    rotateMapSmoothly(headingDeg ?? 0, 0);
     // ✅ ตั้งจุดหมุนให้อยู่ตรงกลางจอ
     setMapPaneTransformOriginToCenter();
 
@@ -1934,6 +1935,7 @@ function startTracking() {
   isAutoFollowTemporarilyDisabled = false;
   autoFollowInProgress = false;
   autoFollow = true;
+  autoRotate = true;
   prevTimestamp = null;
   totalEnergyWh = 0;
   document.getElementById("energyConsumption").textContent = "0.00 kWh";
@@ -2051,7 +2053,15 @@ function startTracking() {
       updatePosition(latitude, longitude, altitude, speedKmh);
       updateMarkerPositionIfChanged(vehicleMarker, latitude, longitude);
       updateRoute(latitude, longitude, speedKmh);
-
+      if (lastLat !== null && lastLon !== null) {
+  L.polyline([[lastLat, lastLon], [latitude, longitude]], {
+    color: '#00FFFF',
+    weight: 4,
+    opacity: 0.8
+  }).addTo(routeLayer);
+}
+lastLat = latitude;
+lastLon = longitude;
 if (typeof headingDeg === "number" && !isNaN(headingDeg)) {
   rotateMapSmoothly(headingDeg, speedKmh);     // หมุนแผนที่ตามทิศทาง
 }
@@ -2167,7 +2177,7 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
 
   if (vehicleMarker && vehicleMarker.getLatLng()) {
     const latlng = vehicleMarker.getLatLng();
-    map.panTo(latlng, { animate: true, duration: 0.5 });
+    map.panTo(latlng, { animate: true });
    
   }
 });
@@ -2187,7 +2197,7 @@ function stopTracking() {
     clearInterval(updateEndTimeInterval);
     updateEndTimeInterval = null;
   }
-
+  
   isTracking = false;
   startBtn.disabled = false;
   stopBtn.disabled = true;
@@ -2277,6 +2287,7 @@ function stopTracking() {
   isInitialZooming = false;
   idleStartTime = null;
   autoFollow = false;
+  autoRotate = false;
   isAutoFollowTemporarilyDisabled = false;
 
   if (vehicleMarker) {
