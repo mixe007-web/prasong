@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.07</h2>
+<h2>Trip A-B Version 23.09</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1655,6 +1655,20 @@ function rotateMapSmoothly(headingDeg, speedKmh = 0) {
   animate();
 }
 
+// ✅ รวมการหมุนและแพนให้นุ่มพร้อมกัน (Smooth Sync)
+function updateMapViewSmooth(lat, lon, headingDeg, speedKmh) {
+  if (!map || !isMapReady || !vehicleMarker) return;
+  if (window.isHistoryModalOpen) return;
+
+  // --- smooth follow ---
+  autoFollowHandler(lat, lon, speedKmh, headingDeg);
+
+  // --- smooth rotate ---
+  if (autoRotate && typeof headingDeg === 'number') {
+    rotateMapSmoothly(headingDeg, speedKmh);
+  }
+}
+
 // --- ล้าง rotation ---
 function resetMapRotation(callback) {
   if (!map || !isMapRotated) return;
@@ -1684,13 +1698,52 @@ function resetMapRotation(callback) {
 }, 500);
 }
 // --- แพนตามรถ ---
+// --- แพนตามรถแบบ Smooth เหมือน GPS Navigator ---
+// ✅ ปรับปรุงให้ลื่นและสัมพันธ์กับความเร็วรถ
 function autoFollowHandler(lat, lon, speedKmh, headingDeg) {
   if (!map || !vehicleMarker || !isMapReady) return;
-  const latlng = L.latLng(lat, lon);
+  const targetLatLng = L.latLng(lat, lon);
+
+  // ✅ อัปเดตตำแหน่ง marker เสมอ
   updateMarkerPositionIfChanged(vehicleMarker, lat, lon);
-  if (autoFollow && !isUserInteracting && !autoRotate) {
-    map.panTo(latlng, { animate: true });
+
+  // ✅ ทำงานเฉพาะเมื่อเปิด autoFollow และผู้ใช้ไม่ได้ลาก
+  if (!autoFollow || isUserInteracting) return;
+
+  // --- ป้องกันการเรียกซ้ำซ้อน ---
+  if (window._isSmoothingPan) return;
+  window._isSmoothingPan = true;
+
+  const start = map.getCenter();
+  const end = targetLatLng;
+  const startTime = performance.now();
+
+  // 🚗 ปรับระยะเวลาเคลื่อนไหวให้นุ่มขึ้นตามความเร็ว
+  const duration = Math.max(400, 1300 - Math.min(speedKmh * 4, 900));
+
+  // 🎯 ฟังก์ชัน easing แบบ cubic (ลื่นกว่า quad)
+  const easeInOutCubic = (t) => t < 0.5 
+    ? 4 * t * t * t 
+    : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  function animatePan(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = easeInOutCubic(progress);
+
+    const newLat = start.lat + (end.lat - start.lat) * ease;
+    const newLng = start.lng + (end.lng - start.lng) * ease;
+
+    map.setView([newLat, newLng], map.getZoom(), { animate: false });
+
+    if (progress < 1) {
+      requestAnimationFrame(animatePan);
+    } else {
+      window._isSmoothingPan = false;
+    }
   }
+
+  requestAnimationFrame(animatePan);
 }
 
 // --- ปรับตำแหน่ง marker ถ้าขยับ ---
@@ -2059,12 +2112,11 @@ function startTracking() {
 }
 lastLat = latitude;
 lastLon = longitude;
-if (typeof headingDeg === "number" && !isNaN(headingDeg)) {
-  rotateMapSmoothly(headingDeg, speedKmh);
-}
+
 updateVehicleIconBySpeed(speedKmh);
 updateAutoZoom(speedKmh);
-autoFollowHandler(latitude, longitude, speedKmh, headingDeg);
+updateMapViewSmooth(latitude, longitude, headingDeg, speedKmh);
+
 
       // --- Idle / Energy ---
       if (speedKmh < 3) {
