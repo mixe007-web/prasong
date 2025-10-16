@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.13</h2>
+<h2>Trip A-B Version 23.14</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1467,18 +1467,18 @@ const closeModal = () => {
 
   // ✅ คืนการควบคุมให้ MAP CORE
   if (window.map) {
-    try {
-      window.map.dragging.enable();
-      window.map.scrollWheelZoom.enable();
-      window.map.doubleClickZoom.enable();
-      window.map.boxZoom.enable();
-      window.map.keyboard.enable();
-      document.getElementById("map").style.pointerEvents = "auto";
-    } catch (err) {
-      console.warn("ไม่สามารถเปิด interaction ของ map หลัก:", err);
-    }
+  try {
+    window.map.dragging?.enable?.();
+    window.map.scrollWheelZoom?.enable?.();
+    window.map.doubleClickZoom?.enable?.();
+    window.map.boxZoom?.enable?.();
+    window.map.keyboard?.enable?.();
+    const mapElem = document.getElementById("map");
+    if (mapElem) mapElem.style.pointerEvents = "auto";
+  } catch (err) {
+    console.warn("⚠️ ไม่สามารถเปิด interaction ของ map หลัก (safeguard):", err);
   }
-
+}
 
 
   // ✅ ปรับขนาดและคืน zoom หลัง modal ปิด
