@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.11</h2>
+<h2>Trip A-B Version 23.13</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1352,17 +1352,17 @@ currentTargetZoom = BASE_ZOOM;
 
   // 🔒 ปิดการควบคุมของ MAP TRACKING CORE ชั่วคราว
   if (window.map) {
-    try {
-      window.map.dragging.disable();
-      window.map.scrollWheelZoom.disable();
-      window.map.doubleClickZoom.disable();
-      window.map.boxZoom.disable();
-      window.map.keyboard.disable();
-      document.getElementById("map").style.pointerEvents = "none";
-    } catch (err) {
-      console.warn("ไม่สามารถปิด interaction ของ map หลัก:", err);
-    }
+  try {
+    if (map.dragging) map.dragging.enable();
+    if (map.scrollWheelZoom) map.scrollWheelZoom.enable();
+    if (map.doubleClickZoom) map.doubleClickZoom.enable();
+    if (map.boxZoom) map.boxZoom.enable();
+    if (map.keyboard) map.keyboard.enable();
+    document.getElementById("map").style.pointerEvents = "auto";
+  } catch (err) {
+    console.warn("⚠️ ไม่สามารถเปิด interaction ของ map หลัก:", err);
   }
+}
 
   // แสดง modal และป้องกัน scroll ซ้อน
   window.isHistoryModalOpen = true;
@@ -1446,7 +1446,7 @@ currentTargetZoom = BASE_ZOOM;
     if (m && m.invalidateSize) m.invalidateSize();
   }, 300);
 
-// --- ปิด modal และคืนค่า map สด (เพิ่ม resetMapRotation) ---
+// --- ปิด modal และคืนค่า map
 const closeModal = () => {
   window.isHistoryModalOpen = false;
   const mapModal = document.getElementById('mapModal');
@@ -1462,8 +1462,8 @@ const closeModal = () => {
   }
 
   // ✅ คืนค่า autoFollow / autoRotate เดิม
-  window.autoFollow = true;
-  window.autoRotate = true;
+  window.autoFollow = prevAutoFollow;
+  window.autoRotate = prevAutoRotate;
 
   // ✅ คืนการควบคุมให้ MAP CORE
   if (window.map) {
@@ -1479,10 +1479,7 @@ const closeModal = () => {
     }
   }
 
-  // ✅ คืนค่า rotation ถ้ามี
-  if (map && isMapRotated) {
-    resetMapRotation();
-  }
+
 
   // ✅ ปรับขนาดและคืน zoom หลัง modal ปิด
   setTimeout(() => {
@@ -1531,12 +1528,6 @@ let isTracking = false;
 let isTrackingStarted = false;
 let isMapReady = false;
 
-let isRotationAnimating = false;
-let rotationAnimationFrame = null;
-let targetRotation = null;
-let isResettingRotation = false;
-let isMapRotated = false;
-
 let headingDeg = 0;
 let lastFollowTime = 0;
 let lastSetViewTime = 0;
@@ -1552,8 +1543,6 @@ let isAutoFollowTemporarilyDisabled = false;
 
 const MIN_SET_VIEW_INTERVAL = 400;
 const FOLLOW_INTERVAL = 500;
-const MIN_ROTATE_DIFF = 0.5;
-const ROTATE_THROTTLE_MS = 100;
 const MAX_IDLE_TIME_BEFORE_SKIP_LINE = 30000;
 
 const vehicleIcon = L.icon({
@@ -1584,6 +1573,83 @@ function normalizeAngleDifference(angle) {
   if (a < -180) a += 360;
   return a;
 }
+// --- กล้องรวมแบบ Full Sync (หมุน + แพน + ซูม ในเฟรมเดียว) ---
+let cameraAnimationFrame = null;
+let lastCameraRotation = 0;
+let lastZoomLevel = BASE_ZOOM;
+let lastSpeedForZoom = 0;
+let zoomVelocity = 0;
+
+function updateMapCamera(lat, lon, speedKmh = 0, headingDeg = 0) {
+  if (!map || !isMapReady || !vehicleMarker) return;
+  if (window.isHistoryModalOpen) return;
+
+  cancelAnimationFrame(cameraAnimationFrame);
+  const mapPane = map.getPane('mapPane');
+  if (!mapPane) return;
+
+  headingDeg = (headingDeg + 360) % 360;
+  const rotationDiff = normalizeAngleDifference(headingDeg - lastCameraRotation);
+
+  const speed = Math.min(Math.max(speedKmh, 0), 160);
+  const targetZoom = 17.5 - 3.5 * (1 / (1 + Math.exp(-0.05 * (speed - 40))));
+
+  const deltaSpeed = speed - lastSpeedForZoom;
+  zoomVelocity += deltaSpeed * 0.002;
+  zoomVelocity *= 0.9;
+  lastSpeedForZoom = speed;
+  const adjustedZoom = targetZoom + zoomVelocity;
+
+  const startCenter = map.project(map.getCenter());
+  const targetCenter = map.project(L.latLng(lat, lon));
+  const deltaCenter = targetCenter.subtract(startCenter);
+
+  const startRotation = lastCameraRotation;
+  const startZoom = lastZoomLevel;
+  const duration = Math.max(400, 1000 - Math.min(speed * 5, 800));
+  const startTime = performance.now();
+
+  const easeInOutCubic = (t) =>
+    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = easeInOutCubic(progress);
+
+    // 🔄 หมุนแผนที่
+    if (autoRotate) {
+      const newRotation = (startRotation + rotationDiff * ease + 360) % 360;
+      mapPane.style.transform = `rotate(${-newRotation}deg)`;
+      lastCameraRotation = newRotation;
+    }
+    vehicleMarker.setRotationAngle(headingDeg);
+
+    // 🧭 แพนแบบ smooth แต่ใช้ panBy แทน setView (ลดการ redraw)
+    if (autoFollow && !isUserInteracting) {
+      const move = deltaCenter.multiplyBy(ease - (progress === 1 ? 1 : 0));
+      if (move.x !== 0 || move.y !== 0) map.panBy([move.x, move.y], { animate: false });
+    }
+
+    // 🔍 ซูมแบบ smooth แต่ไม่เรียกซ้ำถ้าเปลี่ยน <0.02 ระดับ
+    const newZoom = startZoom + (adjustedZoom - startZoom) * ease;
+    const smoothZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+    if (Math.abs(smoothZoom - lastZoomLevel) > 0.02) {
+      map.setZoom(smoothZoom, { animate: false });
+      lastZoomLevel = smoothZoom;
+      currentTargetZoom = smoothZoom;
+    }
+
+    if (progress < 1) {
+      cameraAnimationFrame = requestAnimationFrame(animate);
+    } else {
+      cameraAnimationFrame = null;
+    }
+  }
+
+  cameraAnimationFrame = requestAnimationFrame(animate);
+}
+
 // --- ตั้งจุดหมุนของแผนที่ไว้กลางจอ (สำคัญมากเวลาหมุนแผนที่) ---
 function setMapPaneTransformOriginToCenter() {
   if (!map) return;
@@ -1597,161 +1663,10 @@ function setMapPaneTransformOriginToCenter() {
   }
 }
 
-// --- หมุนและแพนพร้อมกันแบบซิงค์ (Smooth + Real Navigator) ---
-// --- หมุนและแพนพร้อมกันแบบซิงค์ (Smooth + No Flicker) ---
-function rotateMapSmoothly(headingDeg, speedKmh = 0) {
-  if (speedKmh < 3) return; // ไม่หมุนตอนหยุดนิ่ง
-  if (!map || !isMapReady || !vehicleMarker) return;
-  if (window.isHistoryModalOpen) return;
-  if (isRotationAnimating) return;
-
-  const mapPane = map.getPane('mapPane');
-  if (!mapPane) return;
-
-  isRotationAnimating = true;
-  isMapRotated = true;
-
-  headingDeg = (headingDeg + 360) % 360;
-  const diff = normalizeAngleDifference(headingDeg - lastRotation);
-  if (Math.abs(diff) < 0.2) {
-    isRotationAnimating = false;
-    return;
-  }
-
-  const rotateFactor = Math.min(0.7, 0.04 + (speedKmh / 200));
-  cancelAnimationFrame(rotationAnimationFrame);
-  targetRotation = headingDeg;
-
-  // ✅ เตรียมข้อมูลแพนแบบ smooth โดยใช้ offset แทน setView
-  const startCenter = map.project(map.getCenter());
-  const endCenter = map.project(vehicleMarker.getLatLng());
-  const delta = endCenter.subtract(startCenter);
-  const startTime = performance.now();
-  const duration = Math.max(400, 1300 - Math.min(speedKmh * 4, 900));
-
-  const easeInOutCubic = (t) =>
-    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-  const animate = (now) => {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const ease = easeInOutCubic(progress);
-
-    // --- หมุน ---
-    const deltaAngle = normalizeAngleDifference(targetRotation - lastRotation);
-    lastRotation = (lastRotation + deltaAngle * rotateFactor + 360) % 360;
-    mapPane.style.transform = `rotate(${-lastRotation}deg)`;
-    vehicleMarker?.setRotationAngle(headingDeg);
-
-    // --- แพน (ใช้ panBy ป้องกัน flicker)
-    if (autoFollow && !isUserInteracting) {
-      const moveBy = delta.multiplyBy(ease).subtract(map.project(map.getCenter()).subtract(startCenter));
-      map.panBy(moveBy, { animate: false });
-    }
-
-    if (progress < 1) {
-      rotationAnimationFrame = requestAnimationFrame(animate);
-    } else {
-      mapPane.style.transform = `rotate(${-targetRotation}deg)`;
-      vehicleMarker?.setRotationAngle(headingDeg);
-      isRotationAnimating = false;
-    }
-  };
-
-  rotationAnimationFrame = requestAnimationFrame(animate);
-}
-
-// --- ล้าง rotation ---
-function resetMapRotation(callback) {
-  if (!map || !isMapRotated) return;
-  const mapPane = map.getPane('mapPane');
-  if (!mapPane) return;
-
-  cancelAnimationFrame(rotationAnimationFrame);
-  isResettingRotation = true;
-
-  mapPane.style.transition = 'transform 0.3s ease-out';
-  mapPane.style.transform = 'rotate(0deg)';
-
-  const done = () => {
-    mapPane.style.removeProperty('transform');
-    mapPane.style.transition = '';
-    mapPane.style.transform = '';
-    isResettingRotation = false;
-    isRotationAnimating = false;
-    isMapRotated = false;
-    lastRotation = 0;
-    if (callback) callback();
-  };
-
-  mapPane.addEventListener('transitionend', done, { once: true });
-  setTimeout(() => {
-  if (isResettingRotation) done();
-}, 500);
-}
-
-// --- ฟังก์ชันแพนลื่น ๆ (Smooth Pan พร้อม restart ได้) ---
-function smoothPanTo(targetLatLng, speedKmh = 0) {
-  if (window._panAnimationFrame) cancelAnimationFrame(window._panAnimationFrame);
-  window._isPanningSmoothly = true;
-
-  const startCenter = map.getCenter();
-  const endCenter = targetLatLng;
-  const startTime = performance.now();
-  const duration = Math.max(400, 1300 - Math.min(speedKmh * 4, 900)); // ยิ่งเร็ว ยิ่งสั้น
-
-  const easeInOutCubic = (t) =>
-    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-  function animate(now) {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const ease = easeInOutCubic(progress);
-
-    const newLat = startCenter.lat + (endCenter.lat - startCenter.lat) * ease;
-    const newLng = startCenter.lng + (endCenter.lng - startCenter.lng) * ease;
-    map.setView([newLat, newLng], map.getZoom(), { animate: false });
-
-    if (progress < 1) {
-      window._panAnimationFrame = requestAnimationFrame(animate);
-    } else {
-      window._isPanningSmoothly = false;
-      window._panAnimationFrame = null;
-    }
-  }
-
-  window._panAnimationFrame = requestAnimationFrame(animate);
-}
-// --- แพนตามรถ (ลื่นและอยู่กลางจอ) ---
-function autoFollowHandler(lat, lon, speedKmh = 0, headingDeg = 0) {
-  if (!map || !vehicleMarker || !isMapReady) return;
-
-  const targetLatLng = L.latLng(lat, lon);
-
-  updateMarkerPositionIfChanged(vehicleMarker, lat, lon);
-
-  if (!autoFollow || isUserInteracting) return;
-  if (autoRotate) {
-    const center = map.getCenter();
-    vehicleMarker.setLatLng(center);
-    return;
-  }
-  smoothPanTo(targetLatLng, speedKmh);
-}
-
-// --- ปรับตำแหน่ง marker ถ้าขยับ ---
-function updateMarkerPositionIfChanged(marker, lat, lon) {
-  if (!marker) return;
-  const curr = marker.getLatLng();
-  if (map.distance(curr, L.latLng(lat, lon)) > 1) {
-    marker.setLatLng([lat, lon]);
-  }
-}
 // --- ตั้งค่าและทำลาย map ---
 function destroyMap(){
  if (!map) return;
  try {
- if (rotationAnimationFrame) cancelAnimationFrame(rotationAnimationFrame);
  if (window._zoomAnimationFrame) cancelAnimationFrame(window._zoomAnimationFrame);
  const mapPane = map.getPane && map.getPane('mapPane');
  if (mapPane) {
@@ -1800,7 +1715,6 @@ function initMap(lat, lon) {
 
   map.whenReady(() => {
     isMapReady = true;
-    rotateMapSmoothly(headingDeg ?? 0, 0);
     setMapPaneTransformOriginToCenter();
     if (!mapListenersAttached) {
       attachMapEventListeners();
@@ -1822,46 +1736,6 @@ function initMap(lat, lon) {
     setTimeout(() => map.invalidateSize(), 300);
     setTimeout(updateVehicleIconSize, 500);
   });
-}
-
-let lastZoom = BASE_ZOOM;
-let zoomAnimationFrame = null;
-let lastSpeedForZoom = 0;
-let zoomVelocity = 0;
-
-function updateAdaptiveZoom(speedKmh) {
-  if (!map || !isMapReady) return;
-  const speed = Math.min(Math.max(speedKmh, 0), 160);
-  const targetZoom = 17.5 - 3.5 * (1 / (1 + Math.exp(-0.05 * (speed - 40))));
-  const deltaSpeed = speed - lastSpeedForZoom;
-  zoomVelocity += deltaSpeed * 0.002; // acceleration-based inertia
-  zoomVelocity *= 0.9; // damping
-  lastSpeedForZoom = speed;
-
-  const adjustedTarget = targetZoom + zoomVelocity;
-  const startZoom = lastZoom;
-  const endZoom = adjustedTarget;
-  const duration = 800; // ระยะเวลาการปรับ zoom 0.8 วินาที
-  const startTime = performance.now();
-
-  if (zoomAnimationFrame) cancelAnimationFrame(zoomAnimationFrame);
-
-  function animate(now) {
-    const progress = Math.min((now - startTime) / duration, 1);
-    const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
-    const newZoom = startZoom + (endZoom - startZoom) * ease;
-    map.setZoom(newZoom, { animate: false });
-    lastZoom = newZoom;
-
-    if (progress < 1) {
-      zoomAnimationFrame = requestAnimationFrame(animate);
-    } else {
-      currentTargetZoom = endZoom;
-      zoomAnimationFrame = null;
-    }
-  }
-
-  zoomAnimationFrame = requestAnimationFrame(animate);
 }
 
 function updateVehicleIconBySpeed(speedKmh) {
@@ -1896,9 +1770,7 @@ function attachMapEventListeners() {
     isUserInteracting = true;
     autoFollow = false;
     clearTimeout(autoFollowTimeout);
-    autoFollowTimeout = setTimeout(() => {
-      if (!isUserInteracting) autoFollow = true;
-    }, 15000);
+    
   });
 
   map.on('dragend zoomend touchend', () => { isUserInteracting = false; });
@@ -1960,7 +1832,7 @@ function throttle(func, delay) {
 }
 
 const throttledUpdateVehicleIconSize = throttle(updateVehicleIconSize, 500);
-
+const throttledUpdateCamera = throttle(updateMapCamera, 200);
 const digitalSpeed = document.getElementById("digitalSpeed");
 
 function updateSpeedometer(speed) {
@@ -2055,11 +1927,9 @@ function startTracking() {
   map.setView([latitude, longitude], BASE_ZOOM); // ✅ ใช้ zoom กลางเดียวกัน
   currentTargetZoom = BASE_ZOOM;
   isInitialZooming = false;
-  rotateMapSmoothly(headingDeg ?? 0, 0);
 });
-      autoFollowHandler(latitude, longitude, 0, null, null, 0);
+      
       tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
-
       prevPos = { latitude, longitude };
       startCoordSpan.textContent = coordText;
       startTimeSpan.textContent = new Date(pos.timestamp).toLocaleString();
@@ -2121,23 +1991,13 @@ function startTracking() {
       updateSpeedometer(speedKmh);
       updateSpeed(finalSpeedKmh);
       updatePosition(latitude, longitude, altitude, speedKmh);
-      updateMarkerPositionIfChanged(vehicleMarker, latitude, longitude);
       updateRoute(latitude, longitude, speedKmh);
-      if (lastLat !== null && lastLon !== null) {
-  L.polyline([[lastLat, lastLon], [latitude, longitude]], {
-    color: '#00FFFF',
-    weight: 4,
-    opacity: 0.8
-  }).addTo(routeLayer);
-}
+      
 lastLat = latitude;
 lastLon = longitude;
-if (typeof headingDeg === "number" && !isNaN(headingDeg)) {
-  rotateMapSmoothly(headingDeg, speedKmh);
-}
+
 updateVehicleIconBySpeed(speedKmh);
-updateAdaptiveZoom(speedKmh);
-autoFollowHandler(latitude, longitude, speedKmh, headingDeg);
+throttledUpdateCamera(latitude, longitude, speedKmh, headingDeg);
 
       // --- Idle / Energy ---
       if (speedKmh < 3) {
@@ -2246,11 +2106,11 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
   isAutoFollowTemporarilyDisabled = false;
 
   if (vehicleMarker && vehicleMarker.getLatLng()) {
-    const latlng = vehicleMarker.getLatLng();
-    map.panTo(latlng, { animate: true });
-   
+    const { lat, lng } = vehicleMarker.getLatLng();
+    updateMapCamera(lat, lng, window.lastFinalSpeed ?? 0, headingDeg ?? 0);
   }
 });
+
 
 function stopTracking() {
   if (!isTracking) return;
