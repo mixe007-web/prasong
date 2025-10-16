@@ -2271,7 +2271,7 @@ try {
   document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
   document.getElementById("showAllBtn").onclick = () => loadHistory();
   loadHistory();
-})();
+
 
 window.addEventListener('orientationchange', () => {
   safeInvalidateMap(map, 800);
@@ -2283,6 +2283,7 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
+})();
 function saveTripToIndexedDB(tripData) {
   return new Promise((resolve, reject) => {
     if (!tripData) {
