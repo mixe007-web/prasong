@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.20</h2>
+<h2>Trip A-B Version 23.22</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1332,7 +1332,7 @@ const BASE_ZOOM = 17;
 const MIN_ZOOM = 14;
 const MAX_ZOOM = 18;
 let currentTargetZoom = BASE_ZOOM;
-
+let isInitialZooming = false;
 function showLeafletMapFromTrip(trip) {
 currentTargetZoom = BASE_ZOOM;
   if (!trip?.path || trip.path.length === 0) {
@@ -1578,7 +1578,7 @@ function setMapPaneTransformOriginToCenter() {
 
 // --- ตัวช่วยหมุนแผนที่ให้เรียบและต่อเนื่อง ---
 function rotateMapSmoothly(headingDeg, speedKmh = 0) {
-  if (speedKmh < 3) return;
+  if (speedKmh < 2) return;
   if (!map || !isMapReady || !vehicleMarker) return;
   if (window.isHistoryModalOpen) return;
   if (isRotationAnimating) return;
@@ -1657,18 +1657,14 @@ function autoFollowHandler(lat, lon, speedKmh, headingDeg) {
   updateMarkerPositionIfChanged(vehicleMarker, lat, lon);
 
   if (autoFollow && !isUserInteracting) {
-    clearTimeout(window._autoFollowTimer);
-    window._autoFollowTimer = setTimeout(() => {
-      const panDuration = Math.max(0.25, Math.min(0.6, 1.0 - (speedKmh / 200)));
-      map.flyTo(latlng, map.getZoom(), {
-        animate: true,
-        duration: panDuration,
-        easeLinearity: 0.25
-      });
-    }, 200);
+    const panDuration = Math.max(0.25, Math.min(0.6, 1.0 - (speedKmh / 200)));
+    map.flyTo(latlng, map.getZoom(), {
+      animate: true,
+      duration: panDuration,
+      easeLinearity: 0.25
+    });
   }
 }
-
 
 // --- ปรับตำแหน่ง marker ถ้าขยับ ---
 function updateMarkerPositionIfChanged(marker, lat, lon) {
@@ -1806,29 +1802,31 @@ function updateVehicleIconSize() {
 }
 // --- ฟังชันติด event map ---
 function attachMapEventListeners() {
-  if (!map || mapListenersAttached) return;
+  if (!map) return;
 
   map.on('dragstart zoomstart touchstart', () => {
-  isUserInteracting = true;
-  autoFollow = false;
-  autoRotate = false;
-  clearTimeout(autoFollowTimeout);
-  autoFollowTimeout = setTimeout(() => {
-    if (!isUserInteracting) {
-      autoFollow = true;
-      autoRotate = true;
-    }
-  }, 15000);
-});
+    isUserInteracting = true;
+    autoFollow = false;
+    autoRotate = false;
+    clearTimeout(autoFollowTimeout);
+    autoFollowTimeout = setTimeout(() => {
+      if (!isUserInteracting) {
+        autoFollow = true;
+        autoRotate = true;
+      }
+    }, 15000);
+  });
 
-  map.on('dragend zoomend touchend', () => { isUserInteracting = false; });
+  map.on('dragend zoomend touchend', () => { 
+    isUserInteracting = false; 
+  });
+
   map.on('zoomend moveend resize', () => {
     setMapPaneTransformOriginToCenter();
     updateVehicleIconSize();
   });
-
-  mapListenersAttached = true;
 }
+
 // --- อัปเดตเส้นทางเดินทาง ---
 function updateRoute(lat, lon, speedKmh) {
   if (!map) return;
@@ -1976,7 +1974,8 @@ function startTracking() {
   isInitialZooming = false;
   rotateMapSmoothly(headingDeg ?? 0, 0);
 });
-      autoFollowHandler(latitude, longitude, 0, null, null, 0);
+      autoFollowHandler(latitude, longitude, 0, 0);
+	  map.flyTo([latitude, longitude], BASE_ZOOM, { animate: true, duration: 1.2 });
       tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
 
       prevPos = { latitude, longitude };
@@ -2041,7 +2040,9 @@ function startTracking() {
       updatePosition(latitude, longitude, altitude, speedKmh);
       updateMarkerPositionIfChanged(vehicleMarker, latitude, longitude);
       updateRoute(latitude, longitude, speedKmh);
-      
+      if (isMapReady && autoFollow && !isUserInteracting) {
+  autoFollowHandler(latitude, longitude, speedKmh, headingDeg);
+}
 lastLat = latitude;
 lastLon = longitude;
 // 🔁 ปรับทิศทางและการแพนของแผนที่ให้สัมพันธ์กับการเคลื่อนที่
@@ -2292,7 +2293,7 @@ try {
   document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
   document.getElementById("showAllBtn").onclick = () => loadHistory();
   loadHistory();
-
+  resetMapRotation(() => safeInvalidateMap(map, 500));
 
 window.addEventListener('orientationchange', () => {
   safeInvalidateMap(map, 800);
