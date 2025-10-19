@@ -405,7 +405,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.22</h2>
+<h2>Trip A-B Version 23.23</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -551,7 +551,6 @@ function showUpdatePopup() {
     popup.style.opacity = '0';
     setTimeout(() => {
       popup.remove();
-      // รีโหลดเฉพาะถ้ายังไม่ได้ reload จาก controllerchange
       if (!window.__reloading) {
         window.__reloading = true;
         location.reload();
@@ -596,7 +595,7 @@ if ('serviceWorker' in navigator) {
   let driveEnergyWh = 0;
   let driveDistanceKm = 0;
   
-  const idlePowerWatts = 350; //มีระบบ A/C, จอ ฯลฯ ประมาณนี้
+  const idlePowerWatts = 400; //มีระบบ A/C, จอ ฯลฯ ประมาณนี้
   const plateInput = document.getElementById("plateNumber");
   const startBtn = document.getElementById("startBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -1333,6 +1332,7 @@ const MIN_ZOOM = 14;
 const MAX_ZOOM = 18;
 let currentTargetZoom = BASE_ZOOM;
 let isInitialZooming = false;
+
 function showLeafletMapFromTrip(trip) {
 currentTargetZoom = BASE_ZOOM;
   if (!trip?.path || trip.path.length === 0) {
@@ -1548,15 +1548,23 @@ if (L.Marker && !L.Marker.prototype.setRotationAngle) {
 }
 function safeInvalidateMap(targetMap, delay = 300) {
   if (!targetMap || !targetMap.invalidateSize) return;
+  const currentRotation = lastRotation; // ✅ จด rotation เดิมไว้
   clearTimeout(targetMap._invalidateTimeout);
   targetMap._invalidateTimeout = setTimeout(() => {
     try {
       targetMap.invalidateSize();
+      // ✅ คืน rotation เดิมหลัง invalidate
+      const mapPane = targetMap.getPane('mapPane');
+      if (mapPane && isMapRotated) {
+        mapPane.style.transform = `rotate(${-currentRotation}deg)`;
+        setMapPaneTransformOriginToCenter();
+      }
     } catch (e) {
       console.warn("⚠️ safeInvalidateMap error:", e);
     }
   }, delay);
 }
+
 // --- ตัวช่วยมุม ---
 function normalizeAngleDifference(angle) {
   let a = angle % 360;
@@ -1569,8 +1577,12 @@ function setMapPaneTransformOriginToCenter() {
   if (!map) return;
   try {
     const mapPane = map.getPane('mapPane');
+    if (!mapPane) return;
     const size = map.getSize();
-    mapPane.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
+    const centerX = size.x / 2;
+    const centerY = size.y / 2;
+    // ✅ ตั้งให้ origin อยู่กลางจอจริง
+    mapPane.style.transformOrigin = `${centerX}px ${centerY}px`;
   } catch (err) {
     console.warn("⚠️ setMapPaneTransformOriginToCenter error:", err);
   }
@@ -1578,48 +1590,39 @@ function setMapPaneTransformOriginToCenter() {
 
 // --- ตัวช่วยหมุนแผนที่ให้เรียบและต่อเนื่อง ---
 function rotateMapSmoothly(headingDeg, speedKmh = 0) {
-  if (speedKmh < 2) return;
   if (!map || !isMapReady || !vehicleMarker) return;
-  if (window.isHistoryModalOpen) return;
-  if (isRotationAnimating) return;
+  if (headingDeg == null || isNaN(headingDeg)) return;
 
   const mapPane = map.getPane('mapPane');
   if (!mapPane) return;
-  
-  isRotationAnimating = true;
-  isMapRotated = true;
 
   headingDeg = (headingDeg + 360) % 360;
   const diff = normalizeAngleDifference(headingDeg - lastRotation);
-  if (Math.abs(diff) < 0.2) {
-    isRotationAnimating = false;
-    return;
-  }
+  if (Math.abs(diff) < 0.3) return;
 
-  const rotateFactor = Math.min(0.7, 0.04 + (speedKmh / 200));
   cancelAnimationFrame(rotationAnimationFrame);
   targetRotation = headingDeg;
+  isRotationAnimating = true;
+  isMapRotated = true;
 
   const animate = () => {
     const delta = normalizeAngleDifference(targetRotation - lastRotation);
-
-    if (Math.abs(delta) < 0.3) {
+    if (Math.abs(delta) < 0.5) {
       lastRotation = targetRotation;
       mapPane.style.transform = `rotate(${-targetRotation}deg)`;
+      setMapPaneTransformOriginToCenter();
       vehicleMarker?.setRotationAngle(headingDeg);
       isRotationAnimating = false;
       return;
     }
-
-    lastRotation = (lastRotation + delta * rotateFactor + 360) % 360;
+    lastRotation = (lastRotation + delta * 0.15 + 360) % 360;
     mapPane.style.transform = `rotate(${-lastRotation}deg)`;
+    setMapPaneTransformOriginToCenter();
     vehicleMarker?.setRotationAngle(headingDeg);
     rotationAnimationFrame = requestAnimationFrame(animate);
   };
-
   rotationAnimationFrame = requestAnimationFrame(animate);
 }
-
 
 // --- ล้าง rotation ---
 function resetMapRotation(callback) {
@@ -1658,13 +1661,15 @@ function autoFollowHandler(lat, lon, speedKmh, headingDeg) {
 
   if (autoFollow && !isUserInteracting) {
     const panDuration = Math.max(0.25, Math.min(0.6, 1.0 - (speedKmh / 200)));
-    map.flyTo(latlng, map.getZoom(), {
+    // ✅ ใช้ panTo() แทน setView() เพื่อไม่กระตุกตอนหมุน
+    map.panTo(latlng, {
       animate: true,
       duration: panDuration,
       easeLinearity: 0.25
     });
   }
 }
+
 
 // --- ปรับตำแหน่ง marker ถ้าขยับ ---
 function updateMarkerPositionIfChanged(marker, lat, lon) {
@@ -1969,15 +1974,16 @@ function startTracking() {
 
       initMap(latitude, longitude);
       map.whenReady(() => {
-  map.setView([latitude, longitude], BASE_ZOOM);
-  currentTargetZoom = BASE_ZOOM;
-  isInitialZooming = false;
-  rotateMapSmoothly(headingDeg ?? 0, 0);
-});
-      autoFollowHandler(latitude, longitude, 0, 0);
-	  map.flyTo([latitude, longitude], BASE_ZOOM, { animate: true, duration: 1.2 });
-      tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
+	  isMapReady = true;
+      map.setView([latitude, longitude], BASE_ZOOM, { animate: true, duration: 1.2 });
+      currentTargetZoom = BASE_ZOOM;
+      isInitialZooming = false;
+	  autoFollowHandler(latitude, longitude, 0, 0);
+      rotateMapSmoothly(headingDeg ?? 0, 0);
+	  
+   });
 
+      tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
       prevPos = { latitude, longitude };
       startCoordSpan.textContent = coordText;
       startTimeSpan.textContent = new Date(pos.timestamp).toLocaleString();
@@ -2304,7 +2310,6 @@ window.addEventListener('beforeunload', () => {
     window.removeEventListener('click', window._mapModalClickHandler);
   }
 });
-
 })();
 // ✅ เวอร์ชันใหม่ (ป้องกัน NotFoundError และ rebuild อัตโนมัติ)
 function saveTripToIndexedDB(tripData) {
