@@ -399,7 +399,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.46</h2>
+<h2>Trip A-B Version 23.48</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1675,9 +1675,11 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDegInput = 0) {
       : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
     if (autoFollow) {
+      // ใช้ panTo เพื่อให้การเลื่อน smooth และไม่กระโดด
       const newLat = startCenter.lat + (lat - startCenter.lat) * easeT;
       const newLng = startCenter.lng + (lon - startCenter.lng) * easeT;
-      map.setView([newLat, newLng], map.getZoom(), { animate: false });
+      // animate:false เพราะเราเองทำ easing แล้ว
+      map.panTo([newLat, newLng], { animate: false });
     }
     if (autoRotate && !isMicroRotation) {
       const rotDiff = normalizeAngleDifference(heading - startRotation);
@@ -1707,8 +1709,6 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDegInput = 0) {
 
   rotationAnimationFrame = requestAnimationFrame(animate);
 }
-
-
 const throttledAutoFollow = throttle(autoFollowAndRotate, 100);
 
 function lerp(a, b, t) { return a + (b-a)*t; }
@@ -1737,55 +1737,62 @@ function clearWatchId() {
 
 // ปรับ initMap เล็กน้อยเพื่อเซ็ต transform origin ของ container
 function initMap(lat, lon) {
-  destroyMap();
+  // คืน Promise เพื่อให้ caller รอการ ready ได้
+  return new Promise((resolve) => {
+    destroyMap();
 
-  const container = document.getElementById('map');
-  if (container && container._leaflet_id) container._leaflet_id = null;
+    const container = document.getElementById('map');
+    if (container && container._leaflet_id) container._leaflet_id = null;
 
-  map = L.map('map', {
-    center: [lat, lon],
-    zoom: BASE_ZOOM,
-    zoomControl: false,
-    attributionControl: false
-  });
+    map = L.map('map', {
+      center: [lat, lon],
+      zoom: BASE_ZOOM,
+      zoomControl: false,
+      attributionControl: false
+    });
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { noWrap: true }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { noWrap: true }).addTo(map);
 
-  routeLayer = L.layerGroup().addTo(map);
-  vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon }).addTo(map);
+    routeLayer = L.layerGroup().addTo(map);
 
-  map.whenReady(() => {
-    isMapReady = true;
-    autoFollow = true;
-    autoRotate = true;
+    // สร้าง marker แต่ยังไม่พึ่งพา map.ready แค่เก็บอ้างอิง
+    vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon }).addTo(map);
 
-    setMapPaneTransformOriginToCenter(map);
+    map.whenReady(() => {
+      isMapReady = true;
+      autoFollow = true;
+      autoRotate = true;
 
-    const cont = map.getContainer && map.getContainer();
-    if (cont && cont.style && map.getSize) {
-      const s = map.getSize();
-      cont.style.transformOrigin = `${s.x / 2}px ${s.y / 2}px`;
-    }
+      setMapPaneTransformOriginToCenter(map);
 
-    if (!mapListenersAttached) {
-      attachMapEventListeners();
-      map.on('movestart', () => { isUserInteracting = true; });
-      map.on('moveend', () => { isUserInteracting = false; });
-      map.on('zoomend resize', () => { setMapPaneTransformOriginToCenter(map); });
-      mapListenersAttached = true;
-    }
+      const cont = map.getContainer && map.getContainer();
+      if (cont && cont.style && map.getSize) {
+        const s = map.getSize();
+        cont.style.transformOrigin = `${s.x / 2}px ${s.y / 2}px`;
+      }
 
-    if (vehicleMarker && vehicleMarker.getLatLng()) {
-      const { lat, lng } = vehicleMarker.getLatLng();
-      map.setView([lat, lng], BASE_ZOOM, { animate: false });
-    }
+      if (!mapListenersAttached) {
+        attachMapEventListeners();
+        map.on('movestart', () => { isUserInteracting = true; });
+        map.on('moveend', () => { isUserInteracting = false; });
+        map.on('zoomend resize', () => { setMapPaneTransformOriginToCenter(map); });
+        mapListenersAttached = true;
+      }
 
-    safeInvalidateMap(map, 300);
-    setTimeout(() => map.invalidateSize(), 800);
-    setTimeout(updateVehicleIconSize, 500);
+      // เรียก center เริ่มต้น (ไม่ใช้ animate)
+      if (vehicleMarker && vehicleMarker.getLatLng()) {
+        const { lat, lng } = vehicleMarker.getLatLng();
+        map.setView([lat, lng], BASE_ZOOM, { animate: false });
+      }
+
+      safeInvalidateMap(map, 300);
+      setTimeout(() => map.invalidateSize(), 800);
+      setTimeout(updateVehicleIconSize, 500);
+
+      resolve(); // <-- แจ้งว่า map พร้อมแล้ว
+    });
   });
 }
-
 function destroyMap(){
   if (!map || isMapBeingDestroyed) return;
   isMapBeingDestroyed = true;
@@ -2049,10 +2056,10 @@ function startTracking() {
 
   // --- Initial position ---
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
+     async (pos) => {
       const { latitude, longitude, heading } = pos.coords;
       const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
-      initMap(latitude, longitude);
+       await initMap(latitude, longitude);
 		headingDeg = (typeof heading === 'number' && isFinite(heading) && heading >= 0) ? heading : 0;
 		lastValidHeading = headingDeg;
 	
@@ -2061,6 +2068,7 @@ function startTracking() {
       startCoordSpan.textContent = coordText;
       startTimeSpan.textContent = new Date(pos.timestamp).toLocaleString();
       tripStartTime = pos.timestamp;
+	  startGeolocationWatch();
     },
     (err) => {
       alert("ไม่สามารถรับตำแหน่งเริ่มต้นได้: " + err.message);
@@ -2069,7 +2077,9 @@ function startTracking() {
     },
     { enableHighAccuracy: true }
   );
-
+function startGeolocationWatch() {
+  // ป้องกันกรณีเรียกซ้ำ
+  if (watchId !== null) return;
   // --- Watch position ---
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
@@ -2185,7 +2195,7 @@ lastLon = longitude;
     },
     { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
   );
-
+}
   // --- Update end time ---
   updateEndTimeInterval = setInterval(() => {
     endTimeSpan.textContent = new Date().toLocaleString();
