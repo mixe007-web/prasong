@@ -154,12 +154,12 @@
   display: flex;
   justify-content: space-between;
   width: 100%; 
-  gap: 10px;
-  margin-top: 10px;
+  gap: 0px;
+  margin-top: 5px;
 }
   .info-box.small-box {
   background-color: #2a2a2a; /*มีพื้นหลังมืด */
-  padding: 10px 15px;
+  padding: 10px 0px;
   border-radius: 15px;
   font-size: 14px;
   flex: 1;
@@ -184,7 +184,7 @@
   font-weight: bold;
   color: white;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -439,7 +439,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.51</h2>
+<h2>Trip A-B Version 23.53</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -704,7 +704,6 @@ function updateEnergyConsumptionRealTime(distanceKm, speedKmh) {
   const batterySOCUsedSpan = document.getElementById('batterySOCUsed');
   batterySOCUsedSpan.textContent = `${batterySOCUsed.toFixed(2)} %`;
   updateEfficiency();
-  updateAvgEfficiencyPerPercent();
   updateSOCLogic();
 }
 
@@ -819,26 +818,57 @@ bar.style.width = widthPercent + "%";
 
 bar.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
 
-updateAvgEfficiencyPerPercent();
 lastUpdateTime = Date.now();
 }
-
 let efficiencySamples = [];
+let idleEfficiencyAccumulator = 0; // สะสมค่า idle
+const IDLE_UPDATE_INTERVAL = 60; // วินาที = 3 นาที
+const IDLE_DECREASE_AMOUNT = 0.01; // ลด efficiency ต่อ 3 นาที
+
 function updateAvgEfficiencyPerPercent() {
   const effElem = document.getElementById("efficiencyPerPercentBar");
   if (!effElem) return;
+
   const match = effElem.textContent.match(/([\d.]+)/);
-  const currentEff = match ? parseFloat(match[1]) : 0;
+  let currentEff = match ? parseFloat(match[1]) : 0;
   if (isNaN(currentEff) || currentEff <= 0) return;
-  efficiencySamples.push(currentEff);
-  if (efficiencySamples.length > 300) efficiencySamples.shift();
-  const avgRealtime = efficiencySamples.reduce((sum, val) => sum + val, 0) / efficiencySamples.length;
+
+  const now = Date.now() / 1000; // เวลาเป็นวินาที
+  if (!updateAvgEfficiencyPerPercent.lastCall) {
+    updateAvgEfficiencyPerPercent.lastCall = now;
+  }
+  const deltaTime = now - updateAvgEfficiencyPerPercent.lastCall;
+
+  // ✅ ขณะขับรถ speed > 0
+  if (speed > 0) {
+    efficiencySamples.push(currentEff);
+    if (efficiencySamples.length > 300) efficiencySamples.shift();
+    idleEfficiencyAccumulator = 0; // reset ค่า idle
+  } else {
+    // ขณะจอด
+    idleEfficiencyAccumulator += deltaTime;
+    while (idleEfficiencyAccumulator >= IDLE_UPDATE_INTERVAL) {
+      // ลดค่า efficiency อย่างช้า ๆ ทุก 3 นาที
+      currentEff -= IDLE_DECREASE_AMOUNT;
+      currentEff = Math.max(currentEff, 2.4); // ไม่ให้ต่ำกว่าค่า min
+      idleEfficiencyAccumulator -= IDLE_UPDATE_INTERVAL;
+    }
+  }
+
+  // คำนวณค่าเฉลี่ยจากช่วงขับจริง
+  const avgRealtime = efficiencySamples.length > 0
+    ? efficiencySamples.reduce((sum, val) => sum + val, 0) / efficiencySamples.length
+    : currentEff;
+
   const netEnergyWh = driveEnergyWh + idleEnergyWhTotal - totalRegenEnergyWh;
+
   let avgEnergyBased = avgRealtime;
   if (driveDistanceKm > 0 && netEnergyWh > 0) {
     avgEnergyBased = driveDistanceKm / ((netEnergyWh / 1000) / 75.3 * 100);
   }
+
   const overallAvg = avgRealtime * 0.3 + avgEnergyBased * 0.7;
+
   const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
   if (!avgEffSpan) return;
 
@@ -851,6 +881,8 @@ function updateAvgEfficiencyPerPercent() {
   } else {
     avgEffSpan.classList.add('efficiency-poor');
   }
+
+  updateAvgEfficiencyPerPercent.lastCall = now;
 }
 
 function updateSpeed(newSpeed) {
@@ -883,8 +915,7 @@ function checkIdleStatus() {
       const timeIdleSeconds = (now - idleStartTime) / 1000;
       idleTimeTotal += timeIdleSeconds;
       calculateIdlePower(timeIdleSeconds);
-      updateEnergyConsumptionRealTime(0, 0);
-      updateAvgEfficiencyPerPercent();	  
+      updateEnergyConsumptionRealTime(0, 0);	  
       idleStartTime = now;
     }
   } else {
@@ -1425,45 +1456,46 @@ function showLeafletMapFromTrip(trip) {
     window.replayMap = null;
   }
   if (mapContainer && mapContainer._leaflet_id) mapContainer._leaflet_id = null;
-
-  const m = L.map('leafletMap', { center: [13.7563, 100.5018], zoom: BASE_ZOOM });
+const m = L.map('leafletMap', {
+    center: [13.7563, 100.5018],
+    zoom: BASE_ZOOM,
+    zoomControl: true,
+  });
   window.replayMap = m;
-
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { noWrap: true }).addTo(m);
-
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    noWrap: true,
+    attribution: '&copy; OpenStreetMap contributors, &copy; CARTO'
+  }).addTo(m);
   const latlngs = trip.path
     .map(p => {
       if (!p.coord) return null;
       const [lat, lng] = p.coord.split(',').map(Number);
-      return isNaN(lat) || isNaN(lng) ? null : [lat, lng];
+      return (isNaN(lat) || isNaN(lng)) ? null : [lat, lng];
     })
     .filter(Boolean);
 
-  if (!latlngs.length) return alert("ไม่มีข้อมูลพิกัดที่ใช้ได้ใน Trip นี้");
-
-  // draw polyline segments
+  if (latlngs.length === 0) {
+    alert("ไม่มีข้อมูลพิกัดที่ใช้ได้ใน Trip นี้");
+    return;
+  }
   for (let i = 0; i < latlngs.length - 1; i++) {
     const speed = trip.path[i + 1]?.speed ?? 0;
-    L.polyline([latlngs[i], latlngs[i + 1]], { color: getSpeedColor(speed), weight: 5, opacity: 0.9 }).addTo(m);
+    const color = getSpeedColor(speed);
+    L.polyline([latlngs[i], latlngs[i + 1]], {
+      color,
+      weight: 5,
+      opacity: 0.9
+    }).addTo(m);
   }
-
   if (latlngs.length >= 2) {
-    try {
-      m.fitBounds(latlngs, { padding: [60, 60], maxZoom: BASE_ZOOM });
-    } catch (e) {
-      console.warn("fitBounds failed, fallback to setView:", e);
-      m.setView(latlngs[latlngs.length - 1], BASE_ZOOM);
-    }
-  } else {
-    m.setView(latlngs[0], BASE_ZOOM);
-  }
-
-  // start/end markers
+  m.fitBounds(latlngs, { padding: [60, 60], maxZoom: BASE_ZOOM });
+} else {
+  m.setView(latlngs[0], BASE_ZOOM);
+}
   const [startLat, startLng] = latlngs[0];
   const [endLat, endLng] = latlngs[latlngs.length - 1];
   L.marker([startLat, startLng], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(m);
   L.marker([endLat, endLng], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(m);
-
   // update trip info
   tripInfo.innerHTML = `
     <strong>ระยะทาง:</strong> ${trip.distance?.toFixed(3) ?? 0} km<br/>
@@ -1538,7 +1570,7 @@ function finalizeMapAfterStop(tripLog) {
     // fit bounds safely
     const latlngs = entries.map(e => [e.lat, e.lon]);
     try {
-      map.fitBounds(latlngs, { padding: [80, 80], maxZoom: BASE_ZOOM, animate: true });
+      map.fitBounds(latlngs, { padding: [60, 60], maxZoom: BASE_ZOOM, animate: true });
     } catch (e) {
       console.warn("fitBounds failed, fallback to setView:", e);
       map.setView([end.lat, end.lon], BASE_ZOOM);
@@ -2217,14 +2249,7 @@ watchId = navigator.geolocation.watchPosition(
     if (typeof window.lastFinalSpeed === "undefined") window.lastFinalSpeed = 0;
     let finalSpeedKmh = (speedKmh && isFinite(speedKmh)) ? speedKmh : 0;
     finalSpeedKmh = finalSpeedKmh < 3 ? 0 : finalSpeedKmh;
-if (typeof heading === "number" && isFinite(heading) && heading >= 0) {
-    if (isMapReady && vehicleMarker) {
-        lastValidHeading = heading; // update เฉพาะเมื่อ map พร้อม
-    } else {
-        // ถ้า map ยังไม่พร้อม ให้เก็บค่าไว้ใช้ fallback
-        lastValidHeading = lastValidHeading ?? heading;
-    }
-}
+if (typeof heading === "number" && isFinite(heading) && heading >= 0);
 headingDeg = lastValidHeading ?? (vehicleMarker?._rotationAngle ?? 0) ?? 0;
     window.lastFinalSpeed = finalSpeedKmh;
 
@@ -2238,14 +2263,8 @@ headingDeg = lastValidHeading ?? (vehicleMarker?._rotationAngle ?? 0) ?? 0;
     } else {
       updateMarkerSmooth(vehicleMarker, latitude, longitude, 0.25);
     }
-
     updateRoute(latitude, longitude, finalSpeedKmh);
-
-    // เรียก follow/rotate เฉพาะเมื่อ tracking จริงและ user ไม่ได้ลากแผนที่
-    if (isTracking && !isUserInteracting) {
       throttledAutoFollow(latitude, longitude, finalSpeedKmh, headingDeg);
-    }
-
     throttledUpdateVehicleIconSize();
     throttledAutoZoom(finalSpeedKmh);
 
