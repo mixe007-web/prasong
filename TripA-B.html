@@ -439,7 +439,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.58</h2>
+<h2>Trip A-B Version 23.59</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -787,12 +787,12 @@ const bar = document.getElementById('efficiencyPerPercentBar');
 const maxEff = 7.2;
 const colorStops = [
   { value: 0, color: { r: 255, g: 0, b: 0 } },     
-  { value: 3.0, color: { r: 255, g: 64, b: 0 } },
-  { value: 3.5, color: { r: 255, g: 128, b: 0 } },
-  { value: 4.0, color: { r: 255, g: 192, b: 0 } },
-  { value: 4.23, color: { r: 255, g: 215, b: 0 } }, 
-  { value: 4.5, color: { r: 128, g: 192, b: 0 } },
-  { value: 4.81, color: { r: 0, g: 128, b: 0 } }, 
+  { value: 3.79, color: { r: 255, g: 64, b: 0 } },
+  { value: 4.23, color: { r: 255, g: 128, b: 0 } },
+  { value: 4.37, color: { r: 255, g: 192, b: 0 } },
+  { value: 4.81, color: { r: 255, g: 215, b: 0 } }, 
+  { value: 5.30, color: { r: 128, g: 192, b: 0 } },
+  { value: 6.14, color: { r: 0, g: 128, b: 0 } }, 
   { value: maxEff, color: { r: 0, g: 128, b: 0 } }
 ];
 let lower = colorStops[0];
@@ -936,6 +936,22 @@ function updateSpeed(newSpeed) {
   updateEfficiency();
   detectBraking(newSpeed);
   
+}
+
+const digitalSpeed = document.getElementById("digitalSpeed");
+
+function updateSpeedometer(speed) {
+if (!digitalSpeed) return;
+if (isNaN(speed) || speed < 0) speed = 0;
+  digitalSpeed.textContent = `${speed.toFixed(1)} km/h`;
+  digitalSpeed.classList.remove('speed-low', 'speed-medium', 'speed-high');
+if (speed < 80) {
+  digitalSpeed.classList.add('speed-low');
+} else if (speed >= 80 && speed < 110) {
+  digitalSpeed.classList.add('speed-medium');
+} else {
+  digitalSpeed.classList.add('speed-high');
+}
 }
 
 function checkIdleStatus() {
@@ -2175,22 +2191,6 @@ function throttle(func, delay) {
   };
 }
 
-const digitalSpeed = document.getElementById("digitalSpeed");
-
-function updateSpeedometer(speed) {
-if (!digitalSpeed) return;
-if (isNaN(speed) || speed < 0) speed = 0;
-  digitalSpeed.textContent = `${speed.toFixed(1)} km/h`;
-  digitalSpeed.classList.remove('speed-low', 'speed-medium', 'speed-high');
-if (speed < 80) {
-  digitalSpeed.classList.add('speed-low');
-} else if (speed >= 80 && speed < 110) {
-  digitalSpeed.classList.add('speed-medium');
-} else {
-  digitalSpeed.classList.add('speed-high');
-}
-}
-
 function startTracking() {
   if (isTrackingStarted || isTracking) {
     alert("Trip กำลังทำงานอยู่แล้ว");
@@ -2332,7 +2332,7 @@ if (autoFollowAnimFrame !== null) {
 
       if (typeof window.lastFinalSpeed === "undefined") window.lastFinalSpeed = 0;
       let finalSpeedKmh = speedKmh < 3 ? 0 : speedKmh;
-
+       syncSpeedDisplayWithEfficiency(finalSpeedKmh);
  if (typeof heading === "number" && isFinite(heading) && heading >= 0) lastValidHeading = heading;
     headingDeg = lastValidHeading ?? lastRotation ?? 0;
 
