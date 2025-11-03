@@ -442,7 +442,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.65</h2>
+<h2>Trip A-B Version 23.68</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -689,8 +689,8 @@ function updateEnergyConsumptionRealTime(distanceKm, speedKmh) {
   if (distanceKm < 0) distanceKm = 0;
   let SocOver = 1;
   const socPercent = parseFloat(document.getElementById("socPercent").textContent.replace('%', ''));
-  if (socPercent >= 17 && socPercent <= 32) {
-    SocOver = 1.15;  // เพิ่มค่า energyPerKm อีก 15%
+  if (socPercent >= 15 && socPercent <= 32) {
+    SocOver = 1.21;  // เพิ่มค่า energyPerKm อีก 15%
   }
   
   const energyPerKm = getEnergyPerKmFromSpeed(speedKmh);
@@ -718,7 +718,7 @@ let lastUpdateTime = Date.now();
 
 function getEfficiencyPerPercent(speedKmh) {
   const points = [
-  { speed: 0, efficiency: 2.4 },
+  { speed: 0, efficiency: 4.45 },
     { speed: 10, efficiency: 6.85 },
     { speed: 20, efficiency: 6.5 },
     { speed: 30, efficiency: 6.14 },
@@ -1504,6 +1504,13 @@ const endIcon = L.divIcon({
   iconAnchor: [15, 15]
 });
 
+function getSpeedColor(speed) {
+  if (speed < 20) return '#FF0000';
+  if (speed < 40) return '#FFA500';
+  if (speed < 60) return '#FFFF00';
+  return '#00FF00';
+}
+
 const BASE_ZOOM = 17;
 const MIN_ZOOM = 14;
 const MAX_ZOOM = 18;
@@ -1513,86 +1520,71 @@ let currentTargetZoom = BASE_ZOOM;
 // ✅ showLeafletMapFromTrip
 // =============================
 function showLeafletMapFromTrip(trip) {
-  if (!trip?.path || trip.path.length === 0) {
-    alert("Trip นี้ไม่มีข้อมูลตำแหน่ง");
-    return;
-  }
+  if (!trip?.path || trip.path.length === 0) return alert("Trip นี้ไม่มีข้อมูลตำแหน่ง");
 
   const mapModal = document.getElementById('mapModal');
   const tripInfo = document.getElementById("mapTripInfo");
   const mapContainer = document.getElementById("leafletMap");
+  if (!mapModal || !tripInfo || !mapContainer) return;
 
-  // ปิด interaction บน map หลัก
   if (window.map) {
-    try {
-      window.map.dragging?.disable?.();
-      window.map.scrollWheelZoom?.disable?.();
-      window.map.doubleClickZoom?.disable?.();
-      window.map.boxZoom?.disable?.();
-      window.map.keyboard?.disable?.();
-      document.getElementById("map").style.pointerEvents = "none";
-    } catch (err) {
-      console.warn("ไม่สามารถปิด interaction ของ map หลัก:", err);
-    }
+    window.map.dragging?.disable?.();
+    window.map.scrollWheelZoom?.disable?.();
+    window.map.doubleClickZoom?.disable?.();
+    window.map.boxZoom?.disable?.();
+    window.map.keyboard?.disable?.();
+    const mapEl = document.getElementById("map");
+    if (mapEl?.style) mapEl.style.pointerEvents = "none";
   }
 
   window.isHistoryModalOpen = true;
   mapModal.style.display = "block";
   document.body.classList.add('modal-open');
 
-  // Reset map modal
-  if (window.replayMap) {
-    window.replayMap.remove();
-    window.replayMap = null;
-  }
+  if (window.replayMap) window.replayMap.remove();
   if (mapContainer._leaflet_id) mapContainer._leaflet_id = null;
 
   const m = L.map('leafletMap', { center: [13.7563, 100.5018], zoom: BASE_ZOOM });
   window.replayMap = m;
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    noWrap: true,
-    attribution: '&copy; OpenStreetMap contributors, &copy; CARTO'
+    noWrap: true, attribution: '&copy; OpenStreetMap contributors, &copy; CARTO'
   }).addTo(m);
 
-  // เตรียมข้อมูลเส้นทาง
   const entries = trip.path.map(p => {
     if (!p.coord) return null;
     const [lat, lng] = p.coord.split(',').map(Number);
-    if (isNaN(lat) || isNaN(lng)) return null;
+    if (!isFinite(lat) || !isFinite(lng)) return null;
     return { lat, lng, speed: p.speed ?? 0 };
   }).filter(Boolean);
 
-  // วาดเส้นทางสีตามความเร็ว
-  const polylines = [];
-  for (let i = 0; i < entries.length - 1; i++) {
-    const a = entries[i];
-    const b = entries[i + 1];
-    const color = getSpeedColor(b.speed ?? 0);
-    const seg = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
-      color,
-      weight: 5,
-      opacity: 0.9
-    });
-    seg.bindTooltip(`${b.speed.toFixed(1)} km/h`, { permanent: false, offset: [0, -5] });
-    polylines.push(seg);
+  // Batch polyline rendering
+  const batchSize = 500; // ปรับขนาด batch ให้เหมาะสม
+  for (let i = 1; i < entries.length; i += batchSize) {
+    const batch = entries.slice(i - 1, Math.min(i - 1 + batchSize + 1, entries.length));
+    for (let j = 1; j < batch.length; j++) {
+      const a = batch[j - 1];
+      const b = batch[j];
+      L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
+        color: getSpeedColor(b.speed),
+        weight: 5,
+        opacity: 0.9
+      }).addTo(m).bindTooltip(`${b.speed.toFixed(1)} km/h`, { permanent: false, offset: [0, -5] });
+    }
   }
 
-  // ✅ จุดเริ่มต้น / สิ้นสุด
+  // Start / End markers
   const [start, end] = [entries[0], entries[entries.length - 1]];
   L.marker([start.lat, start.lng], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(m);
   L.marker([end.lat, end.lng], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(m);
 
-  // ✅ Fit map ให้เห็นทั้งเส้นทาง
   const latlngs = entries.map(e => [e.lat, e.lng]);
-  if (latlngs.length >= 2) {
-    m.fitBounds(latlngs, { padding: [60, 60], maxZoom: BASE_ZOOM });
-  } else {
-    m.setView(latlngs[0], BASE_ZOOM);
-  }
+  if (latlngs.length >= 2) m.fitBounds(latlngs, { padding: [60, 60], maxZoom: BASE_ZOOM });
+  else m.setView(latlngs[0], BASE_ZOOM);
+
   setTimeout(() => m.invalidateSize(), 300);
 
-  // แสดงข้อมูลทริป
+  // Trip info
   tripInfo.innerHTML = `
     <strong>ระยะทาง:</strong> ${trip.distance?.toFixed(3) ?? 0} km<br/>
     <strong>เวลาหยุดนิ่ง:</strong> ${formatTime(trip.idleTimeSeconds ?? 0)}<br/>
@@ -1611,19 +1603,15 @@ function showLeafletMapFromTrip(trip) {
     document.body.classList.remove('modal-open');
     tripInfo.innerHTML = '';
     mapModal.scrollTop = 0;
-    if (window.replayMap) {
-      window.replayMap.remove();
-      window.replayMap = null;
-    }
-
-    // เปิด interaction กลับให้ map หลัก
+    if (window.replayMap) { window.replayMap.remove(); window.replayMap = null; }
     if (window.map) {
       window.map.dragging?.enable?.();
       window.map.scrollWheelZoom?.enable?.();
       window.map.doubleClickZoom?.enable?.();
       window.map.boxZoom?.enable?.();
       window.map.keyboard?.enable?.();
-      document.getElementById("map").style.pointerEvents = "auto";
+      const mapEl = document.getElementById("map");
+      if (mapEl?.style) mapEl.style.pointerEvents = "auto";
     }
   };
 
@@ -1631,60 +1619,6 @@ function showLeafletMapFromTrip(trip) {
   window.removeEventListener('click', window._mapModalClickHandler);
   window._mapModalClickHandler = (e) => { if (e.target === mapModal) closeModal(); };
   window.addEventListener('click', window._mapModalClickHandler);
-}
-
-// -----------------------------
-// ✅ finalizeMapAfterStop (fixed)
-// -----------------------------
-function finalizeMapAfterStop(pathCoords) {
-  if (!window.map || !pathCoords || pathCoords.length < 2) return;
-
-  // ตรวจสอบ routeLayer
-  if (!window.routeLayer || !(window.routeLayer instanceof L.LayerGroup)) {
-    window.routeLayer = L.layerGroup().addTo(window.map);
-  } else {
-    window.routeLayer.clearLayers();
-  }
-
-  // วาดเส้นทางสีตามความเร็ว + tooltip
-  pathCoords.forEach((b, i) => {
-    if (i === 0) return;
-    const a = pathCoords[i - 1];
-    const color = getSpeedColor(b[2] ?? 0);
-
-    const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
-      color,
-      weight: 4,
-      opacity: 0.95
-    });
-    seg.bindTooltip(`${b[2].toFixed(1)} km/h`, { permanent: false, offset: [0, -5] });
-    window.routeLayer.addLayer(seg);
-  });
-
-  // จุดเริ่มต้น / สิ้นสุด
-  const start = pathCoords[0];
-  const end = pathCoords[pathCoords.length - 1];
-  window.routeLayer.addLayer(L.marker([start[0], start[1]], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น"));
-  window.routeLayer.addLayer(L.marker([end[0], end[1]], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด"));
-
-  // Zoom map ให้เห็นทั้งเส้นทาง
-  const latlngs = pathCoords.map(p => [p[0], p[1]]);
-  window.map.fitBounds(latlngs, { padding: [40, 40], maxZoom: BASE_ZOOM });
-
-  setTimeout(() => window.map.invalidateSize(), 300);
-
-  // หยุด auto-follow หลังรถหยุด
-  window.autoFollow = false;
-  window.autoRotate = false;
-}
-// -----------------------------
-// Utility: getSpeedColor
-// -----------------------------
-function getSpeedColor(speed) {
-  if (speed < 20) return '#FF0000';
-  if (speed < 40) return '#FFA500';
-  if (speed < 60) return '#FFFF00';
-  return '#00FF00';
 }
 
 // =============================
@@ -1695,10 +1629,13 @@ let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
 
-let lastLat = null, lastLon = null;
+let lastLat = null; 
+let lastLon = null;
 let lastRotation = 0;
 let lastValidHeading = null;
+let routePolylines = [];
 let pathCoordinates = [];
+let routeBatchLayers = []
 let isTracking = false;
 let isTrackingStarted = false;
 let isMapReady = false;
@@ -1711,11 +1648,15 @@ let isMapRotated = false;
 let headingDeg = 0;
 let mapListenersAttached = false;
 
-let autoFollow = true;
-let isUserInteracting = false;
-let autoRotate = true;
+let autoFollowAnimFrame = null;
 let autoFollowTimeout = null;
+let autoFollow = true;
+let autoRotate = true;
 
+let lastMarkerAngle = 0;
+let lastMapRotation = 0;
+const autoFollowTarget = { lat: 0, lon: 0, heading: 0 };
+const POLYLINE_BATCH_SIZE = 200;
 const MIN_SET_VIEW_INTERVAL = 400;
 const FOLLOW_INTERVAL = 200;
 const MIN_ROTATE_DIFF = 0.5;
@@ -1740,24 +1681,6 @@ if (L.Marker && !L.Marker.prototype.setRotationAngle) {
     }
   });
   console.warn("⚠️ leaflet.rotatedMarker plugin missing — improved fallback applied.");
-}
-
-function setMapPaneTransformOriginToCenter(targetMap = map) {
-  if (!targetMap || !targetMap.getSize) return;
-  try {
-    const size = targetMap.getSize();
-    const mapPane = targetMap.getPane && targetMap.getPane('mapPane');
-    const container = targetMap.getContainer && targetMap.getContainer();
-    const origin = `${size.x / 2}px ${size.y / 2}px`;
-    if (mapPane && mapPane.style) {
-      mapPane.style.transformOrigin = origin;
-    }
-    if (container && container.style) {
-      container.style.transformOrigin = origin;
-    }
-  } catch (e) {
-    console.warn("⚠️ setMapPaneTransformOriginToCenter:", e);
-  }
 }
 
 function safeInvalidateMap(targetMap, delay = 300) {
@@ -1793,36 +1716,30 @@ function normalizeAngleDifference(angle) {
   return a;
 }
 function resetMapRotation(callback) {
-  if (!map) {
-    if (callback) callback();
-    return;
-  }
+  if (!map) { if (callback) callback(); return; }
 
   const mapPane = map.getPane('mapPane');
   const container = map.getContainer && map.getContainer();
-  if (!mapPane) {
+  if (!mapPane) { if (callback) callback(); return; }
+
+  if (isTracking && autoRotate) {
     if (callback) callback();
     return;
   }
 
-  if (rotationAnimationFrame !== null) {
-    cancelAnimationFrame(rotationAnimationFrame);
-    rotationAnimationFrame = null;
-  }
+  // --- ส่วนรีเซ็ตเหมือนเดิม ---
+  if (rotationAnimationFrame !== null) cancelAnimationFrame(rotationAnimationFrame);
 
   isResettingRotation = true;
-
   const done = () => {
     try {
-      if (mapPane && mapPane.style) {
-        mapPane.style.removeProperty('transform');
-        mapPane.style.transition = '';
-      }
+      mapPane.style.removeProperty('transform');
+      mapPane.style.transition = '';
       if (container && container.style) {
         container.style.removeProperty('transform');
         container.style.transition = '';
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
 
     isResettingRotation = false;
     isRotationAnimating = false;
@@ -1835,22 +1752,14 @@ function resetMapRotation(callback) {
     if (callback) callback();
   };
 
-  const onTransitionEnd = () => {
-    done();
-    mapPane.removeEventListener('transitionend', onTransitionEnd);
-  };
-
-  mapPane.addEventListener('transitionend', onTransitionEnd);
   mapPane.style.transition = 'transform 0.35s ease-out';
   mapPane.style.transform = 'rotate(0deg)';
-
   if (container && container.style) {
     container.style.transition = 'transform 0.35s ease-out';
     container.style.transform = 'rotate(0deg)';
   }
-  setTimeout(() => {
-    if (isResettingRotation) done();
-  }, 600);
+
+  setTimeout(done, 500);
 }
 
 function safeGetPane(targetMap, name) {
@@ -1865,91 +1774,121 @@ function safeGetPane(targetMap, name) {
 
 // --- ปรับปรุง autoFollowAndRotate + map animation ---
 
-let autoFollowAnimFrame = null;
-const autoFollowTarget = { lat: 0, lon: 0, heading: 0, speed: 0 };
-let lastMarkerAngle = 0;
-let lastMapRotation = 0;
-let lastFollowTime = 0;
-
 function lerp(a, b, t) { return a + (b - a) * t; }
-
 function lerpAngle(a, b, t) {
-  let diff = ((b - a + 540) % 360) - 180; // normalize to [-180,180]
+  let diff = ((b - a + 540) % 360) - 180;
   return (a + diff * t + 360) % 360;
 }
 
-// =============================
-// 🚗 AUTO FOLLOW + ROTATE 
-// =============================
+// -----------------------------
+// autoFollowAndRotate
+// -----------------------------
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDegInput = null) {
   if (!map || !vehicleMarker || !isMapReady || !isTracking) return;
+  if (map._destroyed || !map._container) return;
 
-  let heading = (typeof headingDegInput === "number" && isFinite(headingDegInput)) 
-                ? headingDegInput 
-                : lastValidHeading ?? 0;
-
-  if ((heading === 0 || heading == null) && lastLat != null && lastLon != null) {
-    heading = getHeadingFromPrev(lastLat, lastLon, lat, lon);
-  }
-
+  const heading = (typeof headingDegInput === "number" && isFinite(headingDegInput))
+                  ? headingDegInput
+                  : lastValidHeading ?? 0;
   lastValidHeading = heading;
+
   autoFollowTarget.lat = lat;
   autoFollowTarget.lon = lon;
   autoFollowTarget.heading = heading;
-  autoFollowTarget.speed = speedKmh;
-
-  // Update zoom target ตามความเร็ว
-  const targetZoom = calculateTargetZoom(speedKmh);
-  if (targetZoom !== currentTargetZoom) {
-    const step = targetZoom > currentTargetZoom ? 1 : -1;
-    currentTargetZoom += step;
-    map.setZoom(currentTargetZoom, { animate: true });
-  }
 
   if (!autoFollowAnimFrame) {
     const animate = () => {
-      if (!map || !vehicleMarker) {
+      if (!map || !vehicleMarker || map._destroyed || !map._container) {
         autoFollowAnimFrame = null;
         return;
       }
 
-      // Marker movement
+      // Smooth vehicle marker position
       const currPos = vehicleMarker.getLatLng();
-      const newLat = lerp(currPos.lat, autoFollowTarget.lat, 0.22);
-      const newLng = lerp(currPos.lng, autoFollowTarget.lon, 0.22);
+      const newLat = lerp(currPos.lat, autoFollowTarget.lat, 0.25);
+      const newLng = lerp(currPos.lng, autoFollowTarget.lon, 0.25);
       vehicleMarker.setLatLng([newLat, newLng]);
 
-      // Marker rotation
-      lastMarkerAngle = lerpAngle(lastMarkerAngle, autoFollowTarget.heading, 0.18);
-      if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(lastMarkerAngle);
+      // Smooth rotation
+      lastMarkerAngle = lerpAngle(lastMarkerAngle, autoFollowTarget.heading, 0.2);
+      if (vehicleMarker.setRotationAngle)
+        vehicleMarker.setRotationAngle(lastMarkerAngle);
 
-      // Auto Follow Center
-      if (autoFollow && !isUserInteracting) {
+      // Smooth map center
+      if (autoFollow && map && map.setView) {
         const center = map.getCenter();
-        const newCenterLat = lerp(center.lat, autoFollowTarget.lat, 0.12);
-        const newCenterLng = lerp(center.lng, autoFollowTarget.lon, 0.12);
-        map.panTo([newCenterLat, newCenterLng], { animate: true, duration: 0.25, easeLinearity: 1 });
+        const newCenterLat = lerp(center.lat, autoFollowTarget.lat, 0.2);
+        const newCenterLng = lerp(center.lng, autoFollowTarget.lon, 0.2);
+        if (!map._destroyed && map._container) {
+          map.setView([newCenterLat, newCenterLng], map.getZoom(), { animate: false });
+        }
       }
 
-      // Auto Rotate Map
-      if (autoRotate && !isUserInteracting) {
-        lastMapRotation = lerpAngle(lastMapRotation, lastMarkerAngle, 0.15);
-        const mapPane = map.getPane && map.getPane('mapPane');
-        if (mapPane && mapPane.style) {
-          setMapPaneTransformOriginToCenter(map);
-          mapPane.style.transform = `rotate(${-lastMapRotation}deg)`;
-          mapPane.style.transition = 'transform 0.15s linear';
-          isMapRotated = true;
+      // Smooth map rotation
+      const mapPane = map.getPane && map.getPane('mapPane');
+      if (mapPane && mapPane.style) {
+        setMapPaneTransformOriginToCenter(map);
+
+        if (speedKmh < 3) {
+          lastMapRotation = lerpAngle(lastMapRotation, 0, 0.2);
+        } else {
+          lastMapRotation = lerpAngle(lastMapRotation, lastMarkerAngle, 0.2);
         }
+
+        mapPane.style.transform = `rotate(${-lastMapRotation}deg)`;
+        mapPane.style.transition = 'transform 0.15s ease-out';
+        isMapRotated = lastMapRotation !== 0;
       }
 
       autoFollowAnimFrame = requestAnimationFrame(animate);
     };
+
     autoFollowAnimFrame = requestAnimationFrame(animate);
   }
 }
+function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
+  if (!map || !vehicleMarker) return;
 
-// --- helper: คำนวณ heading จากตำแหน่งก่อนหน้า ---
+  autoFollow = true;
+  autoRotate = true;
+  lastValidHeading = headingDeg;
+  lastMarkerAngle = headingDeg;
+  lastMapRotation = 0;
+
+  // ตั้ง rotation marker
+  if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(headingDeg);
+
+  // ตั้ง map center และ reset rotation ทันที
+  map.setView([lat, lon], map.getZoom(), { animate: false });
+  const mapPane = map.getPane('mapPane');
+  if (mapPane && mapPane.style) {
+    mapPane.style.transition = 'none';
+    mapPane.style.transform = `rotate(0deg)`;
+  }
+
+  // เริ่ม auto follow animation
+  autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
+}
+function updateAutoRotate(speedKmh) {
+  autoRotate = speedKmh >= 3 ;
+}
+
+function setMapPaneTransformOriginToCenter(targetMap = map) {
+  if (!targetMap || !targetMap.getSize) return;
+  try {
+    const size = targetMap.getSize();
+    const mapPane = targetMap.getPane('mapPane');
+    const container = targetMap.getContainer();
+    const origin = `${size.x / 2}px ${size.y / 2}px`;
+    if (mapPane && mapPane.style) mapPane.style.transformOrigin = origin;
+    if (container && container.style) container.style.transformOrigin = origin;
+  } catch (e) {
+    console.warn("⚠️ setMapPaneTransformOriginToCenter:", e);
+  }
+}
+// -----------------------------
+// helper: คำนวณ heading จากตำแหน่งก่อนหน้า
+// -----------------------------
 function getHeadingFromPrev(lat1, lon1, lat2, lon2) {
   const y = Math.sin(deg2rad(lon2 - lon1)) * Math.cos(deg2rad(lat2));
   const x = Math.cos(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) -
@@ -1957,10 +1896,8 @@ function getHeadingFromPrev(lat1, lon1, lat2, lon2) {
   const brng = Math.atan2(y, x);
   return (rad2deg(brng) + 360) % 360;
 }
-
 function deg2rad(deg) { return deg * Math.PI / 180; }
 function rad2deg(rad) { return rad * 180 / Math.PI; }
-
 // --- helper functions ---
 function calculateTargetZoom(speedKmh) {
   if (speedKmh < 30) return 17;
@@ -1984,12 +1921,11 @@ function clearWatchId() {
   }
 }
 
-// ปรับ initMap เล็กน้อยเพื่อเซ็ต transform origin ของ container
+// -----------------------------
+// initMap (optimized + cleaned)
+// -----------------------------
 function initMap(lat, lon) {
   destroyMap();
-
-  const container = document.getElementById('map');
-  if (container && container._leaflet_id) container._leaflet_id = null;
 
   map = L.map('map', {
     center: [lat, lon],
@@ -2006,24 +1942,14 @@ function initMap(lat, lon) {
   map.whenReady(() => {
     isMapReady = true;
     autoFollow = true;
-    autoRotate = true;
+    updateAutoRotate(window.lastFinalSpeed ?? 0);
 
     setMapPaneTransformOriginToCenter(map);
 
-    const cont = map.getContainer && map.getContainer();
-    if (cont && cont.style && map.getSize) {
-      const s = map.getSize();
-      cont.style.transformOrigin = `${s.x / 2}px ${s.y / 2}px`;
-    }
+    // Attach listener once
+    attachMapEventListeners();
 
-    if (!mapListenersAttached) {
-      attachMapEventListeners();
-      map.on('movestart', () => { isUserInteracting = true; });
-      map.on('moveend', () => { isUserInteracting = false; });
-      map.on('zoomend resize', () => { setMapPaneTransformOriginToCenter(map); });
-      mapListenersAttached = true;
-    }
-
+    // Ensure map view at marker
     if (vehicleMarker && vehicleMarker.getLatLng()) {
       const { lat, lng } = vehicleMarker.getLatLng();
       map.setView([lat, lng], BASE_ZOOM, { animate: false });
@@ -2038,8 +1964,12 @@ let isMapBeingDestroyed = false;
 function destroyMap(){
   if (!map || isMapBeingDestroyed) return;
   isMapBeingDestroyed = true;
-
+  map._destroyed = true;
   try {
+  if (autoFollowTimeout) {
+  clearTimeout(autoFollowTimeout);
+  autoFollowTimeout = null;
+}
     if (rotationAnimationFrame) cancelAnimationFrame(rotationAnimationFrame);
     rotationAnimationFrame = null;
 
@@ -2077,9 +2007,8 @@ function destroyMap(){
   isMapReady = false;
   watchId = null;
   mapListenersAttached = false;
-  isUserInteracting = false;
   autoFollow = true;
-  autoRotate = true;
+  updateAutoRotate(window.lastFinalSpeed ?? 0);
   isMapBeingDestroyed = false;
   isMapRotated = false;
   lastRotation = 0;
@@ -2129,76 +2058,83 @@ function updateVehicleIconSize() {
   updateVehicleIconBySpeed(speedKmh);
 }
 
-let userInteractionTimestamp = 0;
-
 function attachMapEventListeners() {
   if (!map) return;
-
-  map.on('dragstart zoomstart touchstart', () => {
-  isUserInteracting = true;
-  userInteractionTimestamp = Date.now();
-  autoFollow = false;
-  autoRotate = false;
-});
-
-map.on('dragend zoomend touchend', () => {
-  const delay = 15000;
-  if (autoFollowTimeout) clearTimeout(autoFollowTimeout);
-  autoFollowTimeout = setTimeout(() => {
-    isUserInteracting = false;
-    autoFollow = true;
-    autoRotate = true;
-  }, delay);
-});
-
-  map.on('zoomend moveend resize', () => setMapPaneTransformOriginToCenter());
+  mapListenersAttached = true;
+  map.on('moveend resize', () => setMapPaneTransformOriginToCenter(map));
 }
-
-const POLYLINE_BATCH_SIZE = 500;
-let routePolylines = [];
 
 // =============================
 // 🚗 UPDATE ROUTE (IMPROVED)
 // =============================
-function updateRoute(lat, lon, speedKmh) {
+
+function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
   if (!map || !routeLayer) return;
 
   const curr = L.latLng(lat, lon);
 
+  // --- จุดแรก ---
   if (lastLat === null || lastLon === null) {
     lastLat = lat;
     lastLon = lon;
-    pathCoordinates.push([lat, lon, speedKmh || 0]);
+    pathCoordinates.push([lat, lon, speedKmh || 0, Date.now()]);
+    if (vehicleMarker) vehicleMarker.setLatLng([lat, lon]);
+    if (typeof headingDegInput === "number") {
+      lastValidHeading = headingDegInput;
+      lastMarkerAngle = headingDegInput;
+      if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(headingDegInput);
+    }
+    // --- initial auto-follow / zoom / icon ---
+    autoFollowAndRotate(lat, lon, speedKmh, lastValidHeading || 0);
+    updateAutoZoom(speedKmh);
+    updateVehicleIconBySpeed(speedKmh);
     return;
   }
 
   const prev = L.latLng(lastLat, lastLon);
   const dist = map.distance(prev, curr);
-  const dt = 0.1; // แทนค่าชั่วคราว เพราะ watchPosition ถูก throttle
+  const now = Date.now();
+  const dt = pathCoordinates.length
+    ? (now - pathCoordinates[pathCoordinates.length - 1][3]) / 1000
+    : 0.1;
   const maxReasonableDist = Math.max(100, (speedKmh / 3.6) * dt * 2.0);
 
-  pathCoordinates.push([lat, lon, speedKmh || 0]);
+  if (dist < 5) return; // skip negligible movement
+
+  pathCoordinates.push([lat, lon, speedKmh || 0, now]);
 
   if (dist <= maxReasonableDist && pathCoordinates.length >= 2) {
     const a = pathCoordinates[pathCoordinates.length - 2];
     const b = pathCoordinates[pathCoordinates.length - 1];
-    const color = getSpeedColor(b[2] ?? 0);
+    const color = getSpeedColor(b[2] || 0);
+
+    // --- Batch polyline ---
+    let lastBatch = routeBatchLayers[routeBatchLayers.length - 1];
+    if (!lastBatch || lastBatch.length >= POLYLINE_BATCH_SIZE) {
+      lastBatch = [];
+      routeBatchLayers.push(lastBatch);
+    }
 
     const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
       color,
       weight: 4,
-      opacity: 0.95
+      opacity: 0.95,
+      interactive: false
     }).addTo(routeLayer);
-
-    seg.bindTooltip(`${b[2].toFixed(1)} km/h`, { permanent: false, offset: [0, -5] });
-    routePolylines.push(seg);
+    lastBatch.push(seg);
   }
 
+  // --- Update lastLat/lastLon ONCE ---
   lastLat = lat;
   lastLon = lon;
+
+  // --- Smooth auto-follow + rotation + zoom + icon (เรียกครั้งเดียว) ---
+  const heading = (typeof headingDegInput === "number") ? headingDegInput : lastValidHeading ?? 0;
+  lastValidHeading = heading;
+  autoFollowAndRotate(lat, lon, speedKmh, heading);
+  updateAutoZoom(speedKmh);
+  updateVehicleIconBySpeed(speedKmh);
 }
-
-
 // =============================
 // Throttle Helper
 // =============================
@@ -2212,7 +2148,55 @@ function throttle(func, delay) {
     }
   };
 }
+// =============================
+// DRAW HISTORY ROUTE (UNCHANGED)
+// =============================
+function drawHistoryRoute(pathCoords) {
+  if (!map || pathCoords.length < 2) return;
 
+  if (!routeLayer) routeLayer = L.layerGroup().addTo(map);
+  else routeLayer.clearLayers();
+
+  routeBatchLayers = [];
+
+  let batch = [];
+  for (let i = 1; i < pathCoords.length; i++) {
+    const a = pathCoords[i - 1];
+    const b = pathCoords[i];
+    const color = getSpeedColor(b[2] || 0);
+
+    const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
+      color,
+      weight: 4,
+      opacity: 0.95,
+      interactive: false
+    }).addTo(routeLayer);
+
+    batch.push(seg);
+    if (batch.length >= POLYLINE_BATCH_SIZE) {
+      routeBatchLayers.push(batch);
+      batch = [];
+    }
+  }
+  if (batch.length > 0) routeBatchLayers.push(batch);
+
+  // --- Start / End marker ---
+  const start = pathCoords[0];
+  const end = pathCoords[pathCoords.length - 1];
+  routeLayer.addLayer(L.marker([start[0], start[1]], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น"));
+  routeLayer.addLayer(L.marker([end[0], end[1]], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด"));
+
+  // --- Fit bounds และ reset rotation ---
+  const latlngsAll = pathCoords.map(p => [p[0], p[1]]);
+  const fitBoundsCallback = () => map.fitBounds(latlngsAll, { padding: [40, 40], maxZoom: BASE_ZOOM });
+  if (isMapRotated) resetMapRotation(fitBoundsCallback);
+  else fitBoundsCallback();
+
+  safeInvalidateMap(map, 300);
+}
+
+// -----------------------------
+// Throttled wrapper สำหรับ live update
 const throttledUpdateRoute = throttle(updateRoute, 200);
 
 function startTracking() {
@@ -2241,10 +2225,8 @@ if (autoFollowAnimFrame !== null) {
   let latitude, longitude, speedKmh;
 
   // --- Reset state ---
-  isUserInteracting = false;
-  userInteractionTimestamp = 0;
   autoFollow = true;
-  autoRotate = true;
+  updateAutoRotate(0);
   isTrackingStarted = true;
   isTracking = true;
   prevTimestamp = null;
@@ -2286,39 +2268,31 @@ if (autoFollowAnimFrame !== null) {
   startBtn.disabled = true;
   stopBtn.disabled = false;
 
-  // --- Initial position ---
   navigator.geolocation.getCurrentPosition(
-  (pos) => {
-    const { latitude, longitude, heading } = pos.coords;
-    const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
-    initMap(latitude, longitude);
+    (pos) => {
+      const { latitude, longitude, heading } = pos.coords;
+      const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 
-    // บังคับให้แผนที่หันขึ้นด้านบนเมื่อเริ่ม (reset rotation)
-    resetMapRotation(() => {
-      // ตั้งค่าเริ่มต้นหลังรีเซ็ต rotation เสร็จ
+      // สร้าง map
+      initMap(latitude, longitude);
+
+      // เริ่ม auto follow แบบตรงกลาง map + หมุนรถ
       const headingDeg = (typeof heading === 'number' && isFinite(heading) && heading >= 0) ? heading : 0;
-      lastValidHeading = headingDeg;
-      lastMarkerAngle = headingDeg;
-      lastMapRotation = 0;
+      startAutoFollow(latitude, longitude, headingDeg, 0);
 
-      // ถ้ามี marker ให้ตั้งมุมเริ่มต้นตรงนี้ด้วย
-      if (vehicleMarker && vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(headingDeg);
-
-      // ตั้งค่า prevTimestamp และ prevPos ให้การคำนวณ speed ใน watchPosition ทำงานตั้งแต่เริ่ม
+      // ตั้งค่า prevTimestamp / prevPos / tripLog
       prevPos = { latitude, longitude };
       prevTimestamp = pos.timestamp;
       tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
       startCoordSpan.textContent = coordText;
       startTimeSpan.textContent = new Date(pos.timestamp).toLocaleString();
       tripStartTime = pos.timestamp;
-
-      // ตั้งค่า lastLat/lastLon เพื่อให้ updateRoute วาดต่อเนื่องจากจุดเริ่มต้น
-      lastLat = latitude;
-      lastLon = longitude;
-      pathCoordinates = [[latitude, longitude, 0]];
-	  autoFollowAndRotate(latitude, longitude, 0, headingDeg);
-    });
-  },
+      updateRoute(latitude, longitude, 0, headingDeg);
+      // ตั้ง lastLat/lastLon ให้ updateRoute วาดต่อเนื่อง
+      //lastLat = latitude;
+      //lastLon = longitude;
+     // pathCoordinates = [[latitude, longitude, 0]];
+    },
     (err) => {
       alert("ไม่สามารถรับตำแหน่งเริ่มต้นได้: " + err.message);
       isTrackingStarted = false;
@@ -2326,7 +2300,6 @@ if (autoFollowAnimFrame !== null) {
     },
     { enableHighAccuracy: true }
   );
-
 // --- Watch position ---
 watchId = navigator.geolocation.watchPosition(
   (pos) => {
@@ -2354,19 +2327,16 @@ watchId = navigator.geolocation.watchPosition(
     prevTimestamp = pos.timestamp;
     let finalSpeedKmh = speedKmh < 3 ? 0 : speedKmh;
 
-    if (typeof heading === "number" && isFinite(heading) && heading >= 0) lastValidHeading = heading;
-    const headingDeg = lastValidHeading ?? lastRotation ?? 0;
+    const headingDeg = (typeof heading === "number" && heading >= 0) ? heading : lastValidHeading ?? 0;
 
     window.lastFinalSpeed = finalSpeedKmh;
 
     // --- Update display + map ---
     updateSpeedometer(finalSpeedKmh);
     updateSpeed(finalSpeedKmh);
-
     // --- Update route and autoFollow smoothly ---
-    throttledUpdateRoute(latitude, longitude, finalSpeedKmh);
-    autoFollowAndRotate(latitude, longitude, finalSpeedKmh, headingDeg);
-
+    throttledUpdateRoute(latitude, longitude, finalSpeedKmh, headingDeg);
+	
     lastLat = latitude;
     lastLon = longitude;
 
@@ -2473,21 +2443,14 @@ watchId = navigator.geolocation.watchPosition(
 // 🔹 GPS FOLLOW BUTTON (IMPROVED)
 // ============================
 document.getElementById('gpsFollowBtn').addEventListener('click', () => {
-  isUserInteracting = false;
-  userInteractionTimestamp = 0;
   autoFollow = true;
-  autoRotate = true;
-
-  // รีเซ็ตให้หันขึ้นด้านบนก่อน pan
-  resetMapRotation(() => {
-    if (vehicleMarker && vehicleMarker.getLatLng()) {
-      const { lat, lng } = vehicleMarker.getLatLng();
-      const currentSpeed = window.lastFinalSpeed ?? 0;
-      map.panTo([lat, lng], { animate: true, duration: 0.25 });
-      // เรียก autoFollowAndRotate เพื่อให้ animation loop ทำงาน
-      autoFollowAndRotate(lat, lng, currentSpeed, lastValidHeading ?? 0);
-    }
-  });
+  const currentSpeed = window.lastFinalSpeed ?? 0;
+  updateAutoRotate(currentSpeed);
+  if (vehicleMarker && vehicleMarker.getLatLng()) {
+    const { lat, lng } = vehicleMarker.getLatLng();
+    map.panTo([lat, lng], { animate: true, duration: 0.25 });
+    autoFollowAndRotate(lat, lng, currentSpeed, lastValidHeading ?? 0);
+  }
 });
 
 function stopTracking() {
@@ -2525,13 +2488,28 @@ if (rotationAnimationFrame !== null) {
     idleStartTime = null;
   }
   updateIdleDisplay();
-
+  updateEfficiency();
+  
   if (tripLog.length === 0) {
     alert("ไม่มีข้อมูลตำแหน่งที่บันทึกไว้");
     return;
   }
+  // -----------------------------
+  // 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset
+  // -----------------------------
+ const pathCoords = tripLog
+    .map(p => {
+      if (!p.coord) return null;
+      const [lat, lon] = p.coord.split(',').map(Number);
+      if (!isFinite(lat) || !isFinite(lon)) return null;
+      return [lat, lon, p.speed || 0];
+    })
+    .filter(Boolean);
 
-  updateEfficiency();
+  if (isMapRotated) resetMapRotation(() => drawHistoryRoute(pathCoords));
+  else drawHistoryRoute(pathCoords);
+
+  
 const finalAvgEfficiency = stopAvgEfficiencyTracking();
   const finalTrip = {
     plateNumber: plateInput.value.trim(),
@@ -2568,12 +2546,6 @@ const finalAvgEfficiency = stopAvgEfficiencyTracking();
   startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
   endTimeSpan.textContent = new Date(finalTrip.endTime).toLocaleString();
 
-if (!isMapRotated) {
-  finalizeMapAfterStop(tripLog);
-  return;
-}
-resetMapRotation(() => finalizeMapAfterStop(tripLog));
-
   lastMapRotation = 0;
   lastMarkerAngle = 0;
   isMapRotated = false;
@@ -2583,7 +2555,7 @@ resetMapRotation(() => finalizeMapAfterStop(tripLog));
   isTrackingStarted = false;
   idleStartTime = null;
   autoFollow = false;
-  autoRotate = false;
+  updateAutoRotate(0);
 
   loadHistory();
 }
