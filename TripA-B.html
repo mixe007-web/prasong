@@ -436,6 +436,164 @@
    0%, 100% { opacity: 1; }
    50% { opacity: 0.4; }
 }
+/* ================= Trip Recorder Panel ================= */
+#tripRecorderPanel {
+  position: fixed;
+  top: 0;
+  right: -110%;
+  width: 380px;
+  max-width: 95%;
+  height: 100%;
+  background-color: #1c1c1c;
+  color: #e0e0e0;
+  padding: 20px;
+  overflow-y: auto;
+  transition: right 0.3s ease;
+  z-index: 9999;
+  font-family: 'Rubik', sans-serif;
+  box-sizing: border-box;
+}
+#tripRecorderPanel.open { right: 0; }
+
+.trips-container .trip-card {
+  background-color: #222;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  border: 1px solid #444;
+}
+
+.trip-card h4 {
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.trip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.trip-row label {
+  flex: 0 0 90px; /* ปรับให้เล็กลงสำหรับมือถือ */
+}
+
+/* ================= Battery Row ================= */
+.trip-row.battery-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap; /* อยู่บรรทัดเดียวกัน */
+}
+
+.battery-bar-container {
+  width: 50px;
+  height: 20px;
+  border: 2px solid #666;
+  border-radius: 4px;
+  background: #222;
+  overflow: hidden;
+  flex: 0 0 auto; /* ไม่ยืด */
+}
+
+.battery-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to top, #0f0 0%, #0c0 100%);
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.trip-row.battery-wrapper input {
+  width: 40px;        /* พอดีกับ 3 ตัวเลข */
+  flex: 0 0 40px;     /* ไม่ยืด */
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #666;
+  background-color: #333;
+  color: #fff;
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.trip-row.battery-wrapper span.percent {
+  width: 45px;
+  flex: 0 0 45px; /* พอดีกับ % */
+  text-align: left;
+  font-weight: bold;
+  color: #0f0;
+}
+
+/* ================= Buttons ================= */
+.trip-card .button-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.trip-card button {
+  flex: 1 0 45%;
+  padding: 6px 0;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background-color: #007bff;
+  color: #fff;
+  font-weight: bold;
+  transition: background 0.2s ease;
+}
+
+.trip-card button.saved { background-color: #555; }
+
+/* ================= Progress Bar ================= */
+.progress-bar-container {
+  background: #333;
+  border-radius: 6px;
+  height: 10px;
+  width: 100%;
+  margin-top: 5px;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(to right, #0f0, #0c0);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.trip-row span.used,
+.trip-row span.distance { font-weight: bold; color: #0f0; }
+
+/* ================= Responsive Mobile ================= */
+@media(max-width: 500px){
+  .trip-row.battery-wrapper {
+    gap: 4px;
+  }
+
+  .trip-row.battery-wrapper label {
+    width: 80px;
+    flex: 0 0 80px;
+  }
+
+  .trip-row.battery-wrapper input {
+    width: 40px;
+    flex: 0 0 40px;
+  }
+
+  .trip-row.battery-wrapper span.percent {
+    width: 40px;
+    flex: 0 0 40px;
+  }
+
+  .trip-card button {
+    flex: 1 0 100%;
+  }
+}
 
 </style>
 </head>
@@ -443,7 +601,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.73</h2>
+<h2>Trip A-B Version 23.88</h2>
 
 <div>
 <div>
@@ -467,8 +625,24 @@
 <div style="margin-top:10px;">
   <button id="startBtn">เริ่ม Trip </button>
   <button id="stopBtn" disabled>หยุด Trip</button>
+  <button id="tripRecorderBtn">Trip Recorder</button>
 </div>
+<!-- ================= Trip Recorder Panel ================= -->
+<div id="tripRecorderPanel">
+  <h2>Trip Recorder</h2>
+  <div style="text-align: center; margin-bottom: 10px;">
+    <button id="backToMainBtn">กลับไป Trip A-B</button>
+  </div>
 
+  <div class="trips-container" id="trips"></div>
+
+  <h3>ประวัติการบันทึก</h3>
+  <div style="text-align: center; margin-bottom: 10px;">
+    <button id="tripToggleBtn">ดูทั้งหมด</button>
+    <button id="tripDeleteAllBtn">ลบทั้งหมด</button>
+  </div>
+  <div id="tripHistory"></div>
+</div>
 <div id="speedometer-top">
   <div id="speedometer">
   <div id="map-container" style="position: relative; width: 100%; height: 200px; overflow: hidden;">
@@ -541,6 +715,7 @@
   <p>เวลาที่เริ่ม และ พิกัดเริ่มต้น: <span id="startTime">-</span> , <span id="startCoord">-</span></p>
   <p>เวลาที่สิ้นสุด และ พิกัดสิ้นสุด: <span id="endTime">-</span> , <span id="endCoord">-</span></p>
 </div>
+
 <h3 style="display: flex; align-items: center; justify-content: space-between;">
   <span>ประวัติ</span>
   <button id="toggleTripHistory" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
@@ -613,6 +788,257 @@ if ('serviceWorker' in navigator) {
 <!-- =============================== -->
 <script>
 (() => {
+//=================================
+//Trip Recorder - Standalone
+//==================================
+const tripRecorderBtn = document.getElementById("tripRecorderBtn");
+const tripRecorderPanel = document.getElementById("tripRecorderPanel");
+const tripHistoryDiv = document.getElementById("tripHistory");
+const tripToggleBtn = document.getElementById("tripToggleBtn");
+const tripDeleteAllBtn = document.getElementById("tripDeleteAllBtn");
+
+tripRecorderBtn.addEventListener("click", () => {
+  tripRecorderPanel.classList.toggle("open");
+  renderTrips();
+  updateHistory();
+});
+document.getElementById("backToMainBtn").addEventListener("click", () => {
+  tripRecorderPanel.classList.remove("open");
+});
+
+let trips = JSON.parse(localStorage.getItem("tripRecorderTrips")) || [
+  {id:1,startSOC:'',endSOC:'',usedSOC:0,distanceAccum:0,lastDistance:0,saved:false},
+  {id:2,startSOC:'',endSOC:'',usedSOC:0,distanceAccum:0,lastDistance:0,saved:false},
+  {id:3,startSOC:'',endSOC:'',usedSOC:0,distanceAccum:0,lastDistance:0,saved:false}
+];
+
+let allHistory = JSON.parse(localStorage.getItem("tripRecorderHistory")||"[]");
+let showAll = false;
+
+// ===================== Render Trips =====================
+function renderTrips(){
+  const tripsDiv = document.getElementById("trips");
+  tripsDiv.innerHTML='';
+  const fragment = document.createDocumentFragment();
+
+  trips.forEach(trip=>{
+    const div = document.createElement("div");
+    div.className="trip-card";
+    div.innerHTML=`
+      <h4>Trip ${trip.id}</h4>
+      <div class="trip-row battery-wrapper">
+        <label>Start/km:</label>
+        <div class="battery-bar-container"><div class="battery-bar-fill" id="startBar${trip.id}"></div></div>
+        <input type="number" id="start${trip.id}" value="${trip.startSOC}" min="0" max="602" maxlength="3">
+        <span id="startPct${trip.id}" class="percent">0%</span>
+      </div>
+      <div class="trip-row battery-wrapper">
+        <label>End/km:</label>
+        <div class="battery-bar-container"><div class="battery-bar-fill" id="endBar${trip.id}"></div></div>
+        <input type="number" id="end${trip.id}" value="${trip.endSOC}" min="0" max="602" maxlength="3">
+        <span id="endPct${trip.id}" class="percent">0%</span>
+      </div>
+      <div class="trip-row">
+        <label>Used/SOC:</label>
+        <span id="used${trip.id}" class="used">${trip.usedSOC.toFixed(2)}%</span>
+      </div>
+      <div class="trip-row">
+        <label>Distance(km):</label>
+        <span id="distance${trip.id}" class="distance">${trip.distanceAccum.toFixed(3)}</span>
+      </div>
+      <div class="progress-bar-container"><div class="progress-bar" id="progress${trip.id}"></div></div>
+      <div class="button-row">
+        <button id="save${trip.id}" ${trip.saved?'class="saved"':''}>บันทึก</button>
+        <button id="reset${trip.id}">Reset</button>
+      </div>
+    `;
+    fragment.appendChild(div);
+
+    const startInput = div.querySelector(`#start${trip.id}`);
+    const endInput = div.querySelector(`#end${trip.id}`);
+    const startPctElem = div.querySelector(`#startPct${trip.id}`);
+    const endPctElem = div.querySelector(`#endPct${trip.id}`);
+    const usedElem = div.querySelector(`#used${trip.id}`);
+    const distElem = div.querySelector(`#distance${trip.id}`);
+    const saveBtn = div.querySelector(`#save${trip.id}`);
+    const resetBtn = div.querySelector(`#reset${trip.id}`);
+    const progressBar = div.querySelector(`#progress${trip.id}`);
+    const startBar = div.querySelector(`#startBar${trip.id}`);
+    const endBar = div.querySelector(`#endBar${trip.id}`);
+
+    function updateBatteryBar(bar,pct){
+      pct=Math.min(Math.max(pct,0),100);
+      bar.style.width=pct+'%';
+      if(pct<10) bar.style.background='linear-gradient(to top, red 0%, darkred 100%)';
+      else if(pct<30) bar.style.background='linear-gradient(to top, yellow 0%, orange 100%)';
+      else if(pct<70) bar.style.background='linear-gradient(to top, gold 0%, darkgoldenrod 100%)';
+      else bar.style.background='linear-gradient(to top, #0f0 0%, #0c0 100%)';
+    }
+
+    function updatePercentAndUsed(){
+      let startVal=parseFloat(startInput.value)||0;
+      let endVal=parseFloat(endInput.value)||0;
+      if(startVal>602) startVal=602,startInput.value=602;
+      if(endVal>602) endVal=602,endInput.value=602;
+      if(endVal>startVal) endVal=startVal,endInput.value=startVal;
+      const startPct=Math.min(Math.max(startVal/602*100,0),100);
+      const endPct=Math.min(Math.max(endVal/602*100,0),100);
+      startPctElem.innerText=startPct.toFixed(1)+'%';
+      endPctElem.innerText=endPct.toFixed(1)+'%';
+      trip.usedSOC=startPct-endPct;
+      usedElem.innerText=trip.usedSOC.toFixed(2)+'%';
+      updateBatteryBar(startBar,startPct);
+      updateBatteryBar(endBar,endPct);
+      const percent=Math.min(trip.distanceAccum/100*100,100);
+      progressBar.style.width=percent+'%';
+    }
+
+    startInput.addEventListener('input',()=>{
+      trip.startSOC=startInput.value;
+      updatePercentAndUsed();
+      saveTripsToStorage();
+    });
+    endInput.addEventListener('input',()=>{
+      trip.endSOC=endInput.value;
+      updatePercentAndUsed();
+      saveTripsToStorage();
+    });
+
+    saveBtn.addEventListener('click', ()=>{
+      updateDistanceAccum(trip, distElem);
+      trip.startSOC = startInput.value;
+      trip.endSOC = endInput.value;
+      updatePercentAndUsed();
+      trip.saved = true;
+      saveBtn.classList.add('saved');
+      saveTripsToStorage();
+      const startPct = parseFloat(startPctElem.innerText);
+      const endPct = parseFloat(endPctElem.innerText);
+      allHistory.push({
+        tripId: trip.id,
+        startSOC: startPct,
+        endSOC: endPct,
+        usedSOC: trip.usedSOC,
+        distance: trip.distanceAccum,
+        timestamp: Date.now()
+      });
+      localStorage.setItem("tripRecorderHistory", JSON.stringify(allHistory));
+      updateHistory();
+    });
+
+    resetBtn.addEventListener('click',()=>{
+      trip.startSOC=''; trip.endSOC=''; trip.usedSOC=0; trip.distanceAccum=0; trip.lastDistance=0; trip.saved=false;
+      startInput.value=''; endInput.value='';
+      startPctElem.innerText='0%'; endPctElem.innerText='0%';
+      usedElem.innerText='0.00%'; distElem.innerText='0.000';
+      saveBtn.classList.remove('saved'); progressBar.style.width='0%';
+      updateBatteryBar(startBar,0); updateBatteryBar(endBar,0);
+      saveTripsToStorage();
+    });
+
+    updatePercentAndUsed();
+  });
+
+  tripsDiv.appendChild(fragment);
+}
+
+// ===================== Update Distance =====================
+function updateDistanceAccum(trip,distElem){
+  const mainDistance=parseFloat(document.getElementById('distance').innerText)||0;
+  const delta=mainDistance-(trip.lastDistance||0);
+  if(delta>0) trip.distanceAccum+=delta;
+  trip.lastDistance=mainDistance;
+  distElem.innerText=trip.distanceAccum.toFixed(3);
+  saveTripsToStorage();
+}
+function saveTripsToStorage(){ localStorage.setItem("tripRecorderTrips",JSON.stringify(trips)); }
+
+// ===================== History (batch, smooth) =====================
+function updateHistory() {
+  if (!tripHistoryDiv) return;
+
+  // sort ล่าสุด → เก่าสุด
+  const sorted = [...allHistory].sort((a,b)=>b.timestamp - a.timestamp);
+
+  // ถ้า showAll=false แสดงแค่ 1 รายการล่าสุด, ถ้า showAll=true แสดงทั้งหมด
+  const display = showAll ? sorted : [sorted[0]].filter(Boolean);
+
+  tripHistoryDiv.innerHTML='';
+
+  const batchSize = 50;
+  let index = 0;
+
+  function renderBatch() {
+    const fragment = document.createDocumentFragment();
+    for(let i=0;i<batchSize && index<display.length;i++,index++){
+      const record = display[index];
+      const div = document.createElement('div');
+      div.style.display='flex';
+      div.style.justifyContent='space-between';
+      div.style.alignItems='center';
+      div.style.marginBottom='4px';
+      div.innerHTML=`
+        <span>Trip ${record.tripId} | Start/SOC: ${record.startSOC.toFixed(1)}% | End/SOC: ${record.endSOC.toFixed(1)}% | Used/SOC: ${record.usedSOC.toFixed(2)}% | Distance: ${record.distance.toFixed(3)} km</span>
+        <button class="deleteBtn" data-ts="${record.timestamp}">ลบ</button>
+      `;
+      // เพิ่มรายการใหม่บนสุด
+      tripHistoryDiv.appendChild(div);
+    }
+    if(index < display.length) requestAnimationFrame(renderBatch);
+  }
+
+  requestAnimationFrame(renderBatch);
+}
+
+
+// Delete single
+tripHistoryDiv.addEventListener('click', e=>{
+  const target=e.target;
+  if(target.classList.contains('deleteBtn')){
+    const ts=parseInt(target.dataset.ts);
+    if(!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
+    allHistory=allHistory.filter(r=>r.timestamp!==ts);
+    localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
+    updateHistory();
+  }
+});
+
+// Toggle show all
+tripToggleBtn.addEventListener('click',()=>{
+  showAll=!showAll;
+  tripToggleBtn.innerText = showAll?'ดูน้อยลง':'ดูทั้งหมด';
+  updateHistory();
+});
+
+// Delete all
+tripDeleteAllBtn.addEventListener('click',()=>{
+  if(!confirm('ต้องการลบประวัติทั้งหมดหรือไม่?')) return;
+  allHistory=[];
+  localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
+  updateHistory();
+});
+
+// Real-time cumulative distance
+setInterval(()=>{
+  const mainDistance=parseFloat(document.getElementById('distance').innerText)||0;
+  trips.forEach(trip=>{
+    const delta=mainDistance-(trip.lastDistance||0);
+    if(delta>0) trip.distanceAccum+=delta;
+    trip.lastDistance=mainDistance;
+    const distElem=document.getElementById(`distance${trip.id}`);
+    const progressBar=document.getElementById(`progress${trip.id}`);
+    if(distElem) distElem.innerText=trip.distanceAccum.toFixed(3);
+    if(progressBar) progressBar.style.width=Math.min(trip.distanceAccum/100*100,100)+'%';
+  });
+  saveTripsToStorage();
+},500);
+
+renderTrips();
+updateHistory();
+
+//====================================================================
+//Trip real time 
+//====================================================================
   let updateEndTimeInterval = null;
   let tripStartTime = null;
   let tripLog = [];
