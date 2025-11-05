@@ -443,7 +443,8 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.72</h2>
+<h2>Trip A-B Version 23.73</h2>
+
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1757,9 +1758,8 @@ function lerpAngle(a, b, t) {
   let diff = ((b - a + 540) % 360) - 180;
   return (a + diff * t + 360) % 360;
 }
-
 // -----------------------------
-// 🧭 autoFollowAndRotate (inertia + rotate even at low speed)
+// 🧭 autoFollowAndRotate (GPS Navigation Ready)
 // -----------------------------
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   if (!map || !vehicleMarker) return;
@@ -1768,8 +1768,9 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
 
   if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
-  const easeOutQuad = (t) => t * (2 - t);
-  const ROTATE_SMOOTHNESS = 0.08; // ความนุ่มของ rotation
+  const easeOutQuad = t => t * (2 - t);
+  const ROTATE_SMOOTHNESS = 0.08;
+  const PAN_SMOOTHNESS = 0.08;
 
   let lastFrameTime = performance.now();
 
@@ -1778,14 +1779,14 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
     const delta = now - lastFrameTime;
     lastFrameTime = now;
 
-    // 🚗 smooth marker movement
+    // --- Smooth marker movement ---
     const curr = vehicleMarker.getLatLng();
     const dx = autoFollowTarget.lat - curr.lat;
     const dy = autoFollowTarget.lon - curr.lng;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    const dist = Math.sqrt(dx*dx + dy*dy);
     const maxStep = 0.0006;
-    let newLat = curr.lat;
-    let newLng = curr.lng;
+
+    let newLat = curr.lat, newLng = curr.lng;
     if (dist > maxStep) {
       newLat += (dx / dist) * maxStep;
       newLng += (dy / dist) * maxStep;
@@ -1795,36 +1796,33 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
     }
     vehicleMarker.setLatLng([newLat, newLng]);
 
-    // 🗺️ smooth map follow
+    // --- Smooth map pan (allow user drag) ---
     if (autoFollow) {
       const center = map.getCenter();
       const dxMap = newLat - center.lat;
       const dyMap = newLng - center.lng;
-      const distMap = Math.sqrt(dxMap * dxMap + dyMap * dyMap);
+      const distMap = Math.sqrt(dxMap*dxMap + dyMap*dyMap);
+
       if (distMap > 0.00002) {
-        const step = Math.min(distMap, 0.0007);
-        const cx = center.lat + (dxMap / distMap) * step;
-        const cy = center.lng + (dyMap / distMap) * step;
-        map.panTo([cx, cy], { animate: false });
+        const step = distMap * PAN_SMOOTHNESS;
+        map.panTo([center.lat + dxMap*PAN_SMOOTHNESS, center.lng + dyMap*PAN_SMOOTHNESS], { animate: false });
       }
     }
 
-    // 🚫 marker ไม่หมุน — รถชี้ขึ้นเสมอ
+    // --- Rotate marker ---
     if (vehicleMarker.setRotationAngle) {
-      vehicleMarker.setRotationAngle(0);
+      vehicleMarker.setRotationAngle(headingDeg);
     }
 
-    // 🧭 map หมุนตาม heading แม้ความเร็วต่ำ
+    // --- Rotate map smoothly ---
     if (autoRotate) {
       const mapPane = map.getPane('mapPane');
       if (mapPane) {
+        // update transform-origin every frame
         setMapPaneTransformOriginToCenter(map);
 
-        // ใช้ heading แม้ speedKmh < 3
-        const diff = ((-headingDeg - lastMapRotation + 540) % 360) - 180;
-        const t = Math.min(1, delta / 1000 * 5);
-        const eased = easeOutQuad(t * ROTATE_SMOOTHNESS);
-        lastMapRotation = (lastMapRotation + diff * eased + 360) % 360;
+        const diff = normalizeAngleDifference(-headingDeg - lastMapRotation);
+        lastMapRotation = lerpAngle(lastMapRotation, lastMapRotation + diff, ROTATE_SMOOTHNESS);
 
         mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
         isMapRotated = true;
@@ -1838,36 +1836,20 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
 }
 
 // -----------------------------
-// 🚗 startAutoFollow (พร้อมหมุนแม้รถหยุด)
+// 🚗 startAutoFollow (GPS Navigation Ready)
 // -----------------------------
 function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   if (!map || !vehicleMarker) return;
 
-  // ยกเลิก animation เก่า
-  if (autoFollowAnimFrame !== null) {
-    cancelAnimationFrame(autoFollowAnimFrame);
-    autoFollowAnimFrame = null;
-  }
-  if (rotationAnimFrame !== null) {
-    cancelAnimationFrame(rotationAnimFrame);
-    rotationAnimFrame = null;
-  }
+  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
-  // ปิด interaction
-  map.dragging.disable();
-  map.scrollWheelZoom.disable();
-  map.doubleClickZoom.disable();
-  map.boxZoom.disable();
-  map.keyboard.disable();
-  map.touchZoom.disable();
-
-  // จัดตำแหน่งให้อยู่กลาง
+  // Set map view to vehicle center immediately
   map.setView([lat, lon], map.getZoom(), { animate: false });
 
-  // รถชี้ขึ้น — ไม่หมุน
-  if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(0);
+  // Rotate marker
+  if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(headingDeg);
 
-  // หมุน map ให้ตรง heading ตอนเริ่ม
+  // Rotate map to initial heading
   const mapPane = map.getPane('mapPane');
   if (mapPane) {
     setMapPaneTransformOriginToCenter(map);
@@ -1876,31 +1858,29 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
     lastMapRotation = -headingDeg;
   }
 
-  // เริ่ม autoFollow + rotate แม้ความเร็วต่ำ
   autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
 }
 
+// -----------------------------
+// Force autoRotate to true
+// -----------------------------
 function updateAutoRotate(speedKmh) {
-  autoRotate = speedKmh >= 3 ;
+  autoRotate = true; // GPS navigation style, always rotate map
 }
 
-// set transform origin at center
+// -----------------------------
+// Set transform origin at center
 // -----------------------------
 function setMapPaneTransformOriginToCenter(targetMap = map) {
   if (!targetMap || !targetMap.getSize || !targetMap.getPane) return;
 
-  const size = targetMap.getSize();
   const center = targetMap.latLngToContainerPoint(targetMap.getCenter());
   const origin = `${center.x}px ${center.y}px`;
-
   const mapPane = targetMap.getPane('mapPane');
   const container = targetMap.getContainer();
-
   if (mapPane) mapPane.style.transformOrigin = origin;
   if (container) container.style.transformOrigin = origin;
 }
-
-
 
 // -----------------------------
 // helper: คำนวณ heading จากตำแหน่งก่อนหน้า
@@ -1974,10 +1954,6 @@ function initMap(lat, lon) {
     setTimeout(() => map.invalidateSize(), 800);
     setTimeout(updateVehicleIconSize, 500);
   });
-
-  setInterval(() => {
-    if (map && autoRotate) setMapPaneTransformOriginToCenter(map);
-  }, 2000);
 }
 
 
