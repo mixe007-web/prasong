@@ -440,7 +440,7 @@
 #tripRecorderPanel {
   position: fixed;
   top: 0;
-  right: -110%;
+  right: -150%;
   width: 380px;
   max-width: 95%;
   height: 100%;
@@ -470,6 +470,7 @@
   color: #fff;
 }
 
+/* ================= General Trip Row ================= */
 .trip-row {
   display: flex;
   align-items: center;
@@ -527,6 +528,28 @@
   color: #0f0;
 }
 
+/* ================= Info Row (Distance) (SOC) ================= */
+.trip-row.info-Distance {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px; /* ช่องว่างระหว่าง SOC และ Distance */
+  flex-wrap: nowrap; /* บังคับให้อยู่บรรทัดเดียว */
+}
+
+.trip-row.info-Distance label {
+  flex: 0 0 auto;
+  font-weight: bold;
+  color: #fff;
+  min-width: 110px;
+}
+
+.trip-row.info-Distance span {
+  flex: 0 0 auto;
+  color: #0f0;
+  min-width: 70px;
+  text-align: left;
+}
 /* ================= Buttons ================= */
 .trip-card .button-row {
   margin-top: 10px;
@@ -548,6 +571,88 @@
 }
 
 .trip-card button.saved { background-color: #555; }
+
+/* ================= test history record ================= */
+.trip-history-record span.field-name {
+  color: #fff;       /* สีขาวสำหรับชื่อฟิลด์ */
+  font-weight: bold;
+}
+
+.trip-history-record span.field-value {
+  color: #0f0;       /* สีเขียวสำหรับค่า */
+  font-weight: bold;
+}
+
+/* ================= Trip History Record ================= */
+.trip-history-record {
+  background-color: #222;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  border: 1px solid #444;
+  display: flex;
+  flex-direction: column; /* stack header + details */
+  gap: 4px;
+}
+
+/* header: Trip xx + Delete button */
+.trip-history-record .record-header {
+  display: flex;
+  justify-content: space-between; /* ข้อความซ้าย ปุ่มขวา */
+  align-items: center;             /* กลางแนวตั้ง */
+  color: #0f0;                     /* Trip id สีเขียว */
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+/* Delete button */
+.trip-history-record .deleteBtn {
+  background-color: #c00;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.trip-history-record .deleteBtn:hover {
+  background-color: #f33;
+  transform: scale(1.05);
+}
+
+/* Details ของบันทึก */
+.trip-history-record .record-details {
+  display: flex;
+  flex-direction: column; /* stack เป็นบรรทัดเดียวกัน */
+  gap: 2px;
+}
+
+.trip-history-record .field-name {
+  color: #fff;
+  font-weight: bold;
+}
+
+.trip-history-record .field-value {
+  color: #0f0;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+/* Responsive มือถือ */
+@media(max-width: 500px){
+  .trip-history-record .record-header {
+    flex-direction: column; /* stack ข้อความ + ปุ่ม */
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .trip-history-record .deleteBtn {
+    font-size: 0.7rem;
+    padding: 1px 5px;
+  }
+}
 
 /* ================= Progress Bar ================= */
 .progress-bar-container {
@@ -590,6 +695,20 @@
     flex: 0 0 40px;
   }
 
+  .trip-row.info-wrapper {
+    gap: 10px;
+  }
+
+  .trip-row.info-wrapper label {
+    min-width: 90px;
+    font-size: 0.85rem;
+  }
+
+  .trip-row.info-wrapper span {
+    min-width: 60px;
+    font-size: 0.85rem;
+  }
+
   .trip-card button {
     flex: 1 0 100%;
   }
@@ -601,7 +720,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.89</h2>
+<h2>Trip A-B Version 23.93</h2>
 
 <div>
 <div>
@@ -807,9 +926,9 @@ document.getElementById("backToMainBtn").addEventListener("click", () => {
 });
 
 let trips = JSON.parse(localStorage.getItem("tripRecorderTrips")) || [
-  {id:1,startSOC:'',endSOC:'',usedSOC:0,distanceAccum:0,lastDistance:0,saved:false},
-  {id:2,startSOC:'',endSOC:'',usedSOC:0,distanceAccum:0,lastDistance:0,saved:false},
-  {id:3,startSOC:'',endSOC:'',usedSOC:0,distanceAccum:0,lastDistance:0,saved:false}
+  {id:1, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
+  {id:2, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
+  {id:3, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0}
 ];
 
 let allHistory = JSON.parse(localStorage.getItem("tripRecorderHistory")||"[]");
@@ -825,7 +944,11 @@ function renderTrips(){
     const div = document.createElement("div");
     div.className="trip-card";
     div.innerHTML=`
-      <h4>Trip ${trip.id}</h4>
+      <div class="trip-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+  <label for="tripName${trip.id}" style="flex: 0 0 auto;">Trip:</label>
+  <input type="text" id="tripName${trip.id}" value="${trip.name || ''}" placeholder="กรอกชื่อทริป" style="flex: 1 1 auto; min-width: 0;">
+</div>
+
       <div class="trip-row battery-wrapper">
         <label>Start/km:</label>
         <div class="battery-bar-container"><div class="battery-bar-fill" id="startBar${trip.id}"></div></div>
@@ -838,13 +961,13 @@ function renderTrips(){
         <input type="number" id="end${trip.id}" value="${trip.endSOC}" min="0" max="602" maxlength="3">
         <span id="endPct${trip.id}" class="percent">0%</span>
       </div>
-      <div class="trip-row">
-        <label>Used/SOC:</label>
+      <div class="trip-row info-distance">
+        <label>SOC/Used:</label>
         <span id="used${trip.id}" class="used">${trip.usedSOC.toFixed(2)}%</span>
       </div>
-      <div class="trip-row">
+      <div class="trip-row info-distance">
         <label>Distance(km):</label>
-        <span id="distance${trip.id}" class="distance">${trip.distanceAccum.toFixed(3)}</span>
+        <span id="distance${trip.id}" class="distance">${trip.distanceAccum.toFixed(3)}km </span>
       </div>
       <div class="progress-bar-container"><div class="progress-bar" id="progress${trip.id}"></div></div>
       <div class="button-row">
@@ -853,6 +976,12 @@ function renderTrips(){
       </div>
     `;
     fragment.appendChild(div);
+	
+    const tripNameInput = div.querySelector(`#tripName${trip.id}`);
+tripNameInput.addEventListener('input', () => {
+  trip.name = tripNameInput.value;
+  saveTripsToStorage();
+});
 
     const startInput = div.querySelector(`#start${trip.id}`);
     const endInput = div.querySelector(`#end${trip.id}`);
@@ -865,6 +994,7 @@ function renderTrips(){
     const progressBar = div.querySelector(`#progress${trip.id}`);
     const startBar = div.querySelector(`#startBar${trip.id}`);
     const endBar = div.querySelector(`#endBar${trip.id}`);
+
 
     function updateBatteryBar(bar,pct){
       pct=Math.min(Math.max(pct,0),100);
@@ -883,8 +1013,8 @@ function renderTrips(){
       if(endVal>startVal) endVal=startVal,endInput.value=startVal;
       const startPct=Math.min(Math.max(startVal/602*100,0),100);
       const endPct=Math.min(Math.max(endVal/602*100,0),100);
-      startPctElem.innerText=startPct.toFixed(1)+'%';
-      endPctElem.innerText=endPct.toFixed(1)+'%';
+      startPctElem.innerText=startPct.toFixed(2)+'%';
+      endPctElem.innerText=endPct.toFixed(2)+'%';
       trip.usedSOC=startPct-endPct;
       usedElem.innerText=trip.usedSOC.toFixed(2)+'%';
       updateBatteryBar(startBar,startPct);
@@ -903,38 +1033,82 @@ function renderTrips(){
       updatePercentAndUsed();
       saveTripsToStorage();
     });
+	
+    // ================= Save =================
+    saveBtn.addEventListener('click', () => {
+  if (trip.saved) {
+    alert('ทริปนี้บันทึกแล้ว');
+    return;
+  }
 
-    saveBtn.addEventListener('click', ()=>{
-      updateDistanceAccum(trip, distElem);
-      trip.startSOC = startInput.value;
-      trip.endSOC = endInput.value;
-      updatePercentAndUsed();
-      trip.saved = true;
-      saveBtn.classList.add('saved');
-      saveTripsToStorage();
-      const startPct = parseFloat(startPctElem.innerText);
-      const endPct = parseFloat(endPctElem.innerText);
-      allHistory.push({
-        tripId: trip.id,
-        startSOC: startPct,
-        endSOC: endPct,
-        usedSOC: trip.usedSOC,
-        distance: trip.distanceAccum,
-        timestamp: Date.now()
-      });
-      localStorage.setItem("tripRecorderHistory", JSON.stringify(allHistory));
-      updateHistory();
-    });
+  updateDistanceAccum(trip, distElem);
+  trip.startSOC = startInput.value;
+  trip.endSOC = endInput.value;
+  updatePercentAndUsed();
 
-    resetBtn.addEventListener('click',()=>{
-      trip.startSOC=''; trip.endSOC=''; trip.usedSOC=0; trip.distanceAccum=0; trip.lastDistance=0; trip.saved=false;
-      startInput.value=''; endInput.value='';
-      startPctElem.innerText='0%'; endPctElem.innerText='0%';
-      usedElem.innerText='0.00%'; distElem.innerText='0.000';
-      saveBtn.classList.remove('saved'); progressBar.style.width='0%';
-      updateBatteryBar(startBar,0); updateBatteryBar(endBar,0);
-      saveTripsToStorage();
-    });
+  const currentDistance = parseFloat(distElem.innerText) || 0;
+  trip.distanceAccum = currentDistance;
+
+  // lock trip → หยุดสะสม distance
+  trip.saved = true;
+  trip.locked = true;
+  startInput.disabled = true;
+  endInput.disabled = true;
+  saveBtn.classList.add('saved');
+  saveBtn.innerText = '✔ บันทึกแล้ว';
+  saveBtn.disabled = true;
+  saveTripsToStorage();
+
+  const newRecord = {
+    tripId: trip.id,
+    tripName: trip.name || `Trip ${trip.id}`,
+    startSOC: parseFloat(startPctElem.innerText),
+    endSOC: parseFloat(endPctElem.innerText),
+    usedSOC: trip.usedSOC,
+    distance: currentDistance,
+    timestamp: Date.now()
+  };
+
+  allHistory.push(newRecord);
+  localStorage.setItem("tripRecorderHistory", JSON.stringify(allHistory));
+  updateHistory();
+});
+
+
+    // ================= Reset =================
+resetBtn.addEventListener('click', () => {
+  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
+
+  trip.startSOC = '';
+  trip.endSOC = '';
+  trip.usedSOC = 0;
+  trip.distanceAccum = 0;
+  trip.lastDistance = 0;
+  trip.distanceStartAt = mainDistance; // ← เริ่มสะสมใหม่จาก distance ปัจจุบัน
+  trip.saved = false;
+  trip.locked = false;
+  trip.name = '';
+
+  startInput.value = '';
+  endInput.value = '';
+  tripNameInput.value = '';
+  startInput.disabled = false;
+  endInput.disabled = false;
+  saveBtn.disabled = false;
+  startPctElem.innerText = '0%';
+  endPctElem.innerText = '0%';
+  usedElem.innerText = '0.00%';
+  distElem.innerText = '0.000 km';
+  progressBar.style.width = '0%';
+
+  updateBatteryBar(startBar, 0);
+  updateBatteryBar(endBar, 0);
+
+  saveBtn.classList.remove('saved');
+  saveBtn.innerText = 'บันทึก';
+
+  saveTripsToStorage();
+});
 
     updatePercentAndUsed();
   });
@@ -943,14 +1117,15 @@ function renderTrips(){
 }
 
 // ===================== Update Distance =====================
-function updateDistanceAccum(trip,distElem){
-  const mainDistance=parseFloat(document.getElementById('distance').innerText)||0;
-  const delta=mainDistance-(trip.lastDistance||0);
-  if(delta>0) trip.distanceAccum+=delta;
-  trip.lastDistance=mainDistance;
-  distElem.innerText=trip.distanceAccum.toFixed(3);
+function updateDistanceAccum(trip, distElem){
+  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
+  const delta = mainDistance - (trip.lastDistance || trip.distanceStartAt);
+  if(delta > 0) trip.distanceAccum += delta;
+  trip.lastDistance = mainDistance;
+  distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
   saveTripsToStorage();
 }
+
 function saveTripsToStorage(){ localStorage.setItem("tripRecorderTrips",JSON.stringify(trips)); }
 
 // ===================== History (batch, smooth) =====================
@@ -965,28 +1140,28 @@ function updateHistory() {
 
   tripHistoryDiv.innerHTML='';
 
-  const batchSize = 50;
+  const batchSize = 100;
   let index = 0;
 
   function renderBatch() {
     const fragment = document.createDocumentFragment();
     for(let i=0;i<batchSize && index<display.length;i++,index++){
       const record = display[index];
+	  const dateStr = new Date(record.timestamp).toLocaleDateString();
       const div = document.createElement('div');
-      div.style.display='flex';
-      div.style.justifyContent='space-between';
-      div.style.alignItems='center';
-      div.style.marginBottom='4px';
+	  div.className = 'trip-history-record';
       div.innerHTML = `
-  <span>
-    Trip ${record.tripId} |
-    Start/SOC: ${(Number(record.startSOC) || 0).toFixed(1)}% |
-    End/SOC: ${(Number(record.endSOC) || 0).toFixed(1)}% |
-    Used/SOC: ${(Number(record.usedSOC) || 0).toFixed(2)}% |
-    Distance: ${(Number(record.distance) || 0).toFixed(3)} km
-  </span>
-  <button class="deleteBtn" data-ts="${record.timestamp}">ลบ</button>
-`;
+	  <div class="record-header">
+  ${record.tripName || `Trip ${record.tripId}`} | ${new Date(record.timestamp).toLocaleDateString()}
+</div>
+        <div class="record-details">
+          <div><span class="field-name">Start/SOC:</span> <span class="field-value">${(Number(record.startSOC)||0).toFixed(2)}%</span></div>
+          <div><span class="field-name">End/SOC:</span> <span class="field-value">${(Number(record.endSOC)||0).toFixed(2)}%</span></div>
+          <div><span class="field-name">SOC/Used:</span> <span class="field-value">${(Number(record.usedSOC)||0).toFixed(2)}%</span></div>
+          <div><span class="field-name">Distance:</span> <span class="field-value">${(Number(record.distance)||0).toFixed(3)} km</span></div>
+        </div>
+		<button class="deleteBtn" data-ts="${record.timestamp}">ลบ</button>
+      `;
       // เพิ่มรายการใหม่บนสุด
       tripHistoryDiv.appendChild(div);
     }
@@ -995,7 +1170,6 @@ function updateHistory() {
 
   requestAnimationFrame(renderBatch);
 }
-
 
 // Delete single
 tripHistoryDiv.addEventListener('click', e=>{
@@ -1026,18 +1200,23 @@ tripDeleteAllBtn.addEventListener('click',()=>{
 
 // Real-time cumulative distance
 setInterval(()=>{
-  const mainDistance=parseFloat(document.getElementById('distance').innerText)||0;
+  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
   trips.forEach(trip=>{
-    const delta=mainDistance-(trip.lastDistance||0);
-    if(delta>0) trip.distanceAccum+=delta;
-    trip.lastDistance=mainDistance;
-    const distElem=document.getElementById(`distance${trip.id}`);
-    const progressBar=document.getElementById(`progress${trip.id}`);
-    if(distElem) distElem.innerText=trip.distanceAccum.toFixed(3);
-    if(progressBar) progressBar.style.width=Math.min(trip.distanceAccum/100*100,100)+'%';
+    if(trip.locked) return; // ← ถ้า trip ถูก Save แล้ว ไม่เพิ่ม distance ต่อ
+
+    // ใช้ distanceStartAt หลัง reset
+    const delta = mainDistance - (trip.lastDistance !== 0 ? trip.lastDistance : trip.distanceStartAt);
+    if(delta > 0) trip.distanceAccum += delta;
+    trip.lastDistance = mainDistance;
+
+    const distElem = document.getElementById(`distance${trip.id}`);
+    const progressBar = document.getElementById(`progress${trip.id}`);
+    if(distElem) distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
+    if(progressBar) progressBar.style.width = Math.min(trip.distanceAccum/100*100,100)+'%';
   });
   saveTripsToStorage();
 },500);
+
 
 renderTrips();
 updateHistory();
@@ -1446,15 +1625,27 @@ function updateTripTime() {
 }
   const TARGET_DISTANCE_KM = 10;
   const historyContainer = document.getElementById("historyContainer");
- 
-let positions = []; 
+  
+let dynamicMinDistConfig = {
+  minDist: 0.003,    // รถช้า
+  maxDist: 0.05,     // รถเร็ว
+  exponentMin: 1.0,  // smoothing น้อย รถเร็ว
+  exponentMax: 2.0   // smoothing มาก รถช้า
+};
+
 function getDynamicMinDist(speedKmh) {
-  if (speedKmh < 5) return 0.001;
-  else if (speedKmh < 15) return 0.002;
-  else if (speedKmh < 40) return 0.0035;
-  else if (speedKmh < 80) return 0.005;
-  else return 0.007;
+  const { minDist, maxDist, exponentMin, exponentMax } = dynamicMinDistConfig;
+  const maxSpeed = 160;
+
+  let t = Math.min(Math.max(speedKmh / maxSpeed, 0), 1);
+  const exponent = exponentMax - t * (exponentMax - exponentMin);
+  const dynamicDist = minDist + (maxDist - minDist) * Math.pow(t, exponent);
+
+  return dynamicDist;
 }
+
+
+let positions = [];
 function checkIfStopped(lat, lon, speedKmh = 0) {
   positions.push({ lat, lon });
   if (positions.length > 10) positions.shift();
@@ -2200,48 +2391,17 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   const animate = () => {
     if (!map || !vehicleMarker) return;
 
-    const curr = vehicleMarker.getLatLng();
-    const dx = autoFollowTarget.lat - curr.lat;
-    const dy = autoFollowTarget.lon - curr.lng;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    // smooth marker movement
-    const maxStep = 0.0006;
-    let newLat = curr.lat;
-    let newLng = curr.lng;
-    if (dist > maxStep) {
-      newLat += (dx / dist) * maxStep;
-      newLng += (dy / dist) * maxStep;
-    } else {
-      newLat = autoFollowTarget.lat;
-      newLng = autoFollowTarget.lon;
-    }
-    vehicleMarker.setLatLng([newLat, newLng]);
-
-    // smooth map pan
-    if (autoFollow) {
-      const center = map.getCenter();
-      const dxMap = newLat - center.lat;
-      const dyMap = newLng - center.lng;
-      const distMap = Math.sqrt(dxMap*dxMap + dyMap*dyMap);
-      if (distMap > 0.00002) {
-        const step = Math.min(distMap, 0.0007);
-        const cx = center.lat + (dxMap / distMap) * step;
-        const cy = center.lng + (dyMap / distMap) * step;
-        map.panTo([cx, cy], { animate: false });
-      }
-    }
-
-    // marker rotation
+    // --- marker rotation ---
     if (vehicleMarker.setRotationAngle) {
       lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, 0.25);
       vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
 
-    // map rotation (หมุนตรงข้าม heading)
+    // --- map rotation ---
     if (autoRotate) {
       const mapPane = map.getPane('mapPane');
       if (mapPane) {
+        mapPane.style.transition = ''; // ลบ transition
         setMapPaneTransformOriginToCenter(map);
         lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, 0.25);
         mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
@@ -2254,7 +2414,6 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
 
   autoFollowAnimFrame = requestAnimationFrame(animate);
 }
-
 // -----------------------------
 // 🔹 startAutoFollow
 // -----------------------------
@@ -2262,17 +2421,10 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   if (!map || !vehicleMarker) return;
 
   // cancel previous animations
-  if (autoFollowAnimFrame !== null) {
-    cancelAnimationFrame(autoFollowAnimFrame);
-    autoFollowAnimFrame = null;
-  }
-  if (rotationAnimFrame !== null) {
-    cancelAnimationFrame(rotationAnimFrame);
-    rotationAnimFrame = null;
-  }
+  if (autoFollowAnimFrame !== null) cancelAnimationFrame(autoFollowAnimFrame);
 
   lastMarkerAngle = 0;
-  lastMapRotation = 0; // เริ่มจาก 0
+  lastMapRotation = -headingDeg;
   targetRotation = -headingDeg;
 
   // disable user interaction
@@ -2289,32 +2441,31 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   // reset marker rotation
   if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(0);
 
-  // set map rotation initially smooth
+  // set map rotation immediately
   const mapPane = map.getPane('mapPane');
   if (mapPane) {
     setMapPaneTransformOriginToCenter(map);
-    mapPane.style.transition = 'transform 0.4s ease-out';
-    mapPane.style.transform = `rotate(${-headingDeg}deg)`;
+    mapPane.style.transition = ''; // ลบ transition
+    mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
     isMapRotated = true;
-    lastMapRotation = -headingDeg;
   }
 
-  // start smooth pan & rotate with autoFollowAndRotate
+  // start smooth rotation (autoFollow) ไม่กระทบ pan
   autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
 }
 
 function updateAutoRotate(speedKmh) {
   autoRotate = speedKmh >= 3 ;
 }
-
+// -----------------------------
 // set transform origin at center
 // -----------------------------
 function setMapPaneTransformOriginToCenter(targetMap = map) {
-  if (!targetMap || !targetMap.getSize || !targetMap.getPane) return;
-
+  if (!targetMap) return;
   const size = targetMap.getSize();
-  const center = targetMap.latLngToContainerPoint(targetMap.getCenter());
-  const origin = `${center.x}px ${center.y}px`;
+  const centerX = size.x / 2;
+  const centerY = size.y / 2;
+  const origin = `${centerX}px ${centerY}px`;
 
   const mapPane = targetMap.getPane('mapPane');
   const container = targetMap.getContainer();
@@ -2322,8 +2473,6 @@ function setMapPaneTransformOriginToCenter(targetMap = map) {
   if (mapPane) mapPane.style.transformOrigin = origin;
   if (container) container.style.transformOrigin = origin;
 }
-
-
 
 // -----------------------------
 // helper: คำนวณ heading จากตำแหน่งก่อนหน้า
@@ -2363,7 +2512,7 @@ function clearWatchId() {
 // -----------------------------
 // initMap (optimized + auto origin refresh)
 // -----------------------------
-function initMap(lat, lon) {
+function initMap(lat, lon, headingDeg = 0) {
   destroyMap();
 
   map = L.map('map', {
@@ -2388,9 +2537,12 @@ function initMap(lat, lon) {
     setMapPaneTransformOriginToCenter(map);
     attachMapEventListeners();
 
-    if (vehicleMarker && vehicleMarker.getLatLng()) {
-      const { lat, lng } = vehicleMarker.getLatLng();
-      map.setView([lat, lng], BASE_ZOOM, { animate: false });
+    const mapPane = map.getPane('mapPane');
+    if (mapPane) {
+      mapPane.style.transition = 'transform 0.4s ease-out';
+      mapPane.style.transform = `rotate(${-headingDeg}deg)`;
+      isMapRotated = true;
+      lastMapRotation = -headingDeg;
     }
 
     safeInvalidateMap(map, 300);
@@ -2402,7 +2554,6 @@ function initMap(lat, lon) {
     if (map && autoRotate) setMapPaneTransformOriginToCenter(map);
   }, 2000);
 }
-
 
 let isMapBeingDestroyed = false;
 
@@ -2581,6 +2732,7 @@ function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
 
   const heading = (typeof headingDegInput === "number") ? headingDegInput : lastValidHeading ?? 0;
   lastValidHeading = heading;
+
   autoFollowAndRotate(lat, lon, speedKmh, heading);
 
   updateAutoZoom(speedKmh);
@@ -2835,15 +2987,22 @@ watchId = navigator.geolocation.watchPosition(
     }
 
     prevTimestamp = pos.timestamp;
-    let finalSpeedKmh = speedKmh < 3 ? 0 : speedKmh;
-
-    const headingDeg = (typeof heading === "number" && heading >= 0) ? heading : lastValidHeading ?? 0;
+    const finalSpeedKmh = speedKmh < 3 ? 0 : speedKmh;
     window.lastFinalSpeed = finalSpeedKmh;
 
-    // --- Update display + map ---
+    // --- headingDeg คำนวณถ้า GPS ไม่ให้ ---
+    let headingDeg;
+    if (typeof heading === "number" && isFinite(heading) && heading >= 0) {
+      headingDeg = heading;
+    } else if (prevPos) {
+      headingDeg = getHeadingFromPrev(prevPos.latitude, prevPos.longitude, latitude, longitude);
+    } else {
+      headingDeg = 0;
+    }
+    lastValidHeading = headingDeg;
+
     updateSpeedometer(finalSpeedKmh);
     updateSpeed(finalSpeedKmh);
-    // --- Update route and autoFollow smoothly ---
     throttledUpdateRoute(latitude, longitude, finalSpeedKmh, headingDeg);
 	
     // --- Idle / Energy ---
