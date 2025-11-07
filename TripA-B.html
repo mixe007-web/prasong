@@ -720,7 +720,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 24.00</h2>
+<h2>Trip A-B Version 24.01</h2>
 
 <div>
 <div>
@@ -2390,11 +2390,11 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   // Cancel previous animation
   if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
-  const mapWrapper = document.getElementById('map');
+  /*const mapWrapper = document.getElementById('map');
   if (mapWrapper && !mapWrapper._rotationInitialized) {
     mapWrapper.style.transformOrigin = '50% 50%';
     mapWrapper._rotationInitialized = true;
-  }
+  }*/
 
   const animate = () => {
     if (!map || !vehicleMarker) return;
@@ -2428,11 +2428,19 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
     }
 
     // --- Smooth map rotation ---
-    if (autoRotate && mapWrapper) {
+    /*if (autoRotate && mapWrapper) {
       lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, 0.25);
       mapWrapper.style.transform = `rotate(${lastMapRotation}deg)`;
-    }
-
+    }*/
+    if (autoRotate && map) {
+  const mapPane = map.getPane('mapPane');
+  if (mapPane) {
+    lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, 0.25);
+    mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
+    setMapPaneTransformOriginToCenter(map);
+    isMapRotated = true;
+  }
+}
     autoFollowAnimFrame = requestAnimationFrame(animate);
   };
 
@@ -2451,11 +2459,19 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   vehicleMarker.setLatLng([lat, lon]);
   if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(headingDeg);
 
-  const mapWrapper = document.getElementById('map');
+ const mapPane = map.getPane('mapPane');
+if (mapPane) {
+  mapPane.style.transformOrigin = '50% 50%';
+  mapPane.style.transform = `rotate(${-headingDeg}deg)`;
+  isMapRotated = true;
+  lastMapRotation = -headingDeg;
+}
+
+  /*const mapWrapper = document.getElementById('map');
   if (mapWrapper) {
     mapWrapper.style.transformOrigin = '50% 50%';
     mapWrapper.style.transform = `rotate(${lastMapRotation}deg)`;
-  }
+  }*/
 
   autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
 }
@@ -2540,7 +2556,7 @@ function initMap(lat, lon, headingDeg = 0) {
 
     const mapPane = map.getPane('mapPane');
     if (mapPane) {
-      mapPane.style.transition = 'transform 0.4s ease-out';
+      //mapPane.style.transition = 'transform 0.4s ease-out';
       mapPane.style.transform = `rotate(${-headingDeg}deg)`;
       isMapRotated = true;
       lastMapRotation = -headingDeg;
@@ -2551,9 +2567,7 @@ function initMap(lat, lon, headingDeg = 0) {
     setTimeout(updateVehicleIconSize, 500);
   });
 
-  setInterval(() => {
-    if (map && autoRotate) setMapPaneTransformOriginToCenter(map);
-  }, 2000);
+   map.on('resize', () => setMapPaneTransformOriginToCenter(map));
 }
 
 let isMapBeingDestroyed = false;
@@ -2619,6 +2633,7 @@ function destroyMap() {
   isMapRotated = false;
   lastRotation = 0;
   targetRotation = 0;
+  lastMapRotation = 0;
   isRotationAnimating = false;
 }
 
@@ -3143,13 +3158,16 @@ if (rotationAnimationFrame !== null) {
   
    clearWatchId();
    autoFollow = false;
-   isMapRotated = false;
    lastMapRotation = 0;
    lastMarkerAngle = 0;
    
-  if (map && map.getPane('mapPane')) {
-  map.getPane('mapPane').style.transform = 'rotate(0deg)';
-}
+   if (map && map.getPane('mapPane')) {
+      map.getPane('mapPane').style.transform = 'rotate(0deg)';
+      setMapPaneTransformOriginToCenter(map);
+   }
+   lastMapRotation = 0;
+   isMapRotated = false;
+
 
   prevPos = null;
   tripStartTime = null;
@@ -3212,7 +3230,6 @@ const finalAvgEfficiency = stopAvgEfficiencyTracking();
 
   updateLastTripInStorage(finalTrip);
   saveTripToIndexedDB(finalTrip);
-
   distanceSpan.textContent = cumulativeDistance.toFixed(3);
   maxSpeedSpan.textContent = maxSpeed.toFixed(1);
   avgSpeedSpan.textContent = (speedCount ? speedSum / speedCount : 0).toFixed(1);
