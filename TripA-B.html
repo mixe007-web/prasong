@@ -714,16 +714,25 @@
   }
 }
 
+.centered-text {
+  display: flex;             /* ใช้ flexbox */
+  align-items: center;       /* จัดกลางแนวตั้ง */
+  justify-content: center;   /* จัดกลางแนวนอน */
+  gap: 10px;                 /* เว้นระยะระหว่าง h2 กับ date */
+  flex-wrap: nowrap;         /* ไม่ให้ห่อบรรทัดใหม่ */
+}
+
 </style>
 </head>
 <body>
 
 <div id="uiContainer">
-<div class="centered-text">
-<h2>Trip A-B Version 24.01</h2>
-
-<div>
-<div>
+  <div class="centered-text">
+    <h2 id="versionHeader"></h2>
+    <div id="dateContainer"></div>
+  </div> <!-- ปิด .centered-text -->
+  
+  <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
   <input type="text" id="plateNumber" placeholder="เที่ยวสาว" />
 </div>
@@ -816,7 +825,7 @@
   <span id="socPercent" style="font-size: 18px;">0.00%</span>
   <div style="display: flex; flex-direction: column; align-items: center;">
   <span id="wltpKmValue" style="font-size: 11px; color: white; font-weight: bold;">0 km</span>
-  <span id="wltpKmLabel" style="font-size: 11px; color: back;">(WLTP)</span>
+  <span id="wltpKmLabel" style="font-size: 11px; color: black;">(WLTP)</span>
 </div>
 </div>
   </div>
@@ -855,6 +864,7 @@
     <div id="leafletMap" style="height: 500px;"></div>
     <div id="mapTripInfo" style="margin-top: 10px; font-size: 14px;"></div>
   </div>
+</div>
 </div>
 <!-- =============================== -->
 <!-- 🪧 Popup แจ้งเตือนอัปเดตเวอร์ชันใหม่ -->
@@ -907,6 +917,22 @@ if ('serviceWorker' in navigator) {
 <!-- =============================== -->
 <script>
 (() => {
+// -------------------------------
+// แสดง Version + วันที่
+// -------------------------------
+  window.addEventListener("load", () => {
+  const version = "24.04";
+  const versionHeader = document.getElementById('versionHeader');
+  const dateContainer = document.getElementById('dateContainer');
+
+  if (versionHeader && dateContainer) {
+    versionHeader.textContent = `TripA-B V.${version}`;
+    const today = new Date();
+    const options = { day: 'numeric', month: 'short', year: 'numeric' };
+    dateContainer.textContent = today.toLocaleDateString('th-TH', options);
+  }
+});
+
 //=================================
 //Trip Recorder - Standalone
 //==================================
