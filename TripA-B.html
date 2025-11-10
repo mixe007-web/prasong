@@ -736,7 +736,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 24.9</h2>
+<h2>Trip A-B Version 25.0</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2352,17 +2352,16 @@ function normalizeAngleDifference(angle) {
 // -----------------------------
 // 🔹 resetMapRotation
 // -----------------------------
-function resetMapRotation(callback) {
-  if (!map || typeof map.setBearing !== "function") {
-    if (callback) callback();
-    return;
-  }
+function resetMapRotation() {
+  if (!map || !vehicleMarker || typeof map.rotateTo !== "function") return;
 
-  rotateMapSmooth(0, 400);
+  // รีเซ็ต marker และ map rotation ทันที
+  if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(0);
+  map.rotateTo(0, { duration: 0 });
+
+  lastMarkerAngle = 0;
   lastMapRotation = 0;
   isMapRotated = false;
-
-  if (callback) setTimeout(callback, 400);
 }
 
 function safeGetPane(targetMap, name) {
@@ -2376,17 +2375,20 @@ function safeGetPane(targetMap, name) {
 }
 
 function rotateMap(deg) {
-  if (!map || typeof map.setBearing !== "function") return;
-  map.setBearing(deg);
+  if (!map || typeof map.rotateTo !== "function") return;
+  map.rotateTo(deg, { duration: 0 }); // plugin rotate
   lastMapRotation = deg;
   isMapRotated = deg !== 0;
 }
 
 // 🔹 Smooth map rotation helper (already bulletproof)
 function rotateMapSmooth(targetDeg, duration = 300) {
-  if (!map || typeof map.setBearing !== "function") return;
+  if (!map || typeof map.rotateTo !== "function") return;
+
+  if (isRotateAnimating) return;
   if (rotationAnimFrame) cancelAnimationFrame(rotationAnimFrame);
 
+  isRotateAnimating = true;
   const startDeg = lastMapRotation;
   const startTime = performance.now();
 
@@ -2395,14 +2397,14 @@ function rotateMapSmooth(targetDeg, duration = 300) {
     const t = Math.min(elapsed / duration, 1);
     const angle = lerpAngle(startDeg, targetDeg, t);
 
-    map.setBearing(angle);
+    map.rotateTo(angle, { duration: 0 }); // plugin
     lastMapRotation = angle;
     isMapRotated = angle !== 0;
 
-    if (t < 1) {
-      rotationAnimFrame = requestAnimationFrame(animate);
-    } else {
+    if (t < 1) rotationAnimFrame = requestAnimationFrame(animate);
+    else {
       rotationAnimFrame = null;
+      isRotateAnimating = false;
     }
   };
 
@@ -2418,7 +2420,6 @@ function lerpAngle(a, b, t) {
   return a + diff * t;
 }
 function getRotationFactor(speedKmh) {
-  // factor min 0.05 ให้หมุนแม้รถช้า
   return Math.max(0.05, Math.min(1, speedKmh / 100));
 }
 // -----------------------------
@@ -2426,32 +2427,37 @@ function getRotationFactor(speedKmh) {
 // -----------------------------
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   if (!map || !vehicleMarker) return;
+
+  const factor = getRotationFactor(speedKmh);
+  const maxStep = Math.max(0.0006, speedKmh * 0.00001);
+
   if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
   const animate = () => {
-    if (!map || !vehicleMarker) return;
+    if (!map || !vehicleMarker) {
+      autoFollowAnimFrame = null;
+      return;
+    }
 
-    // --- Smooth vehicle position ---
+    // Smooth vehicle position
     const curr = vehicleMarker.getLatLng();
-    const maxStep = Math.max(0.0006, speedKmh * 0.00001);
     const dx = lat - curr.lat;
     const dy = lon - curr.lng;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const newLat = dist > maxStep ? curr.lat + (dx / dist) * maxStep : lat;
-    const newLon = dist > maxStep ? curr.lng + (dy / dist) * maxStep : lon;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const newLat = dist > maxStep ? curr.lat + (dx/dist)*maxStep : lat;
+    const newLon = dist > maxStep ? curr.lng + (dy/dist)*maxStep : lon;
     vehicleMarker.setLatLng([newLat, newLon]);
 
-    // --- Smooth marker rotation ---
+    // Smooth marker rotation
     if (vehicleMarker.setRotationAngle) {
-      const factor = getRotationFactor(speedKmh);
       lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, factor);
       vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
 
-    // --- Smooth map pan ---
+    // Smooth map rotation & pan
     if (autoFollow) {
-      map.setView([newLat, newLon], map.getZoom(), { animate: true, duration: 0.2 });
-      rotateMapSmooth(headingDeg, 250);
+      map.setView([newLat, newLon], map.getZoom(), { animate: false });
+      rotateMapSmooth(headingDeg, 250 * factor); // ใช้ plugin
     }
 
     autoFollowAnimFrame = requestAnimationFrame(animate);
@@ -2459,7 +2465,6 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
 
   autoFollowAnimFrame = requestAnimationFrame(animate);
 }
-
 
 // -----------------------------
 // 🔹 Start autoFollow at current pos
@@ -2472,13 +2477,12 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
 
   vehicleMarker.setLatLng([lat, lon]);
   if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(headingDeg);
+  if (map.rotateTo) map.rotateTo(headingDeg, { duration: 0 });
 
-  map.setBearing(headingDeg);
   map.setView([lat, lon], map.getZoom(), { animate: false });
 
   autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
 }
-
 
 function updateAutoRotate(speedKmh) {
   autoRotate = speedKmh >= 3 ;
@@ -2549,7 +2553,7 @@ function initMap(lat, lon, headingDeg = 0) {
     attributionControl: false
   });
 
-  map.setBearing(headingDeg); // leaflet-map-rotated
+  if (map.rotateTo) map.rotateTo(headingDeg, { duration: 0 });
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     noWrap: true
@@ -3103,24 +3107,7 @@ function stopTracking() {
   // -----------------------------
   // 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset
   // -----------------------------
-    resetMapRotation(() => {
-    if (vehicleMarker && vehicleMarker.setRotationAngle) {
-      // Smoothly reset vehicle marker angle
-      const startAngle = lastMarkerAngle;
-      const endAngle = 0;
-      const duration = 400;
-      const startTime = performance.now();
-
-      const animateMarkerReset = (now) => {
-        const t = Math.min((now - startTime) / duration, 1);
-        const angle = lerpAngle(startAngle, endAngle, t);
-        vehicleMarker.setRotationAngle(angle);
-        lastMarkerAngle = angle;
-        if (t < 1) requestAnimationFrame(animateMarkerReset);
-      };
-      requestAnimationFrame(animateMarkerReset);
-    }
-  });
+  resetMapRotation ();
 const pathCoords = tripLog
   .map(p => {
     if (!p.coord) return null;
@@ -3129,6 +3116,7 @@ const pathCoords = tripLog
     return [lat, lon, p.speed || 0];
   })
   .filter(Boolean);
+ 
 
 drawHistoryRoute(pathCoords); 
 
