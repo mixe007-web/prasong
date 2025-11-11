@@ -377,10 +377,10 @@
 
 #map {
   position: absolute;
-  top: -10%;
-  left: -10%;
-  width: 120%;
-  height: 120%;
+  top: -35%;
+  left: -35%;
+  width: 170%;
+  height: 170%;
   will-change: transform;
   transform-style: preserve-3d;
   backface-visibility: hidden;
@@ -737,7 +737,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 25.4</h2>
+<h2>Trip A-B Version 25.8</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -832,7 +832,7 @@
   <span id="socPercent" style="font-size: 18px;">0.00%</span>
   <div style="display: flex; flex-direction: column; align-items: center;">
   <span id="wltpKmValue" style="font-size: 11px; color: white; font-weight: bold;">0 km</span>
-  <span id="wltpKmLabel" style="font-size: 11px; color: black;">(WLTP)</span>
+  <span id="wltpKmLabel" style="font-size: 11px; color: white;">(WLTP)</span>
 </div>
 </div>
   </div>
@@ -2316,6 +2316,17 @@ let autoRotate = true;
 let lastMarkerAngle = 0;
 let lastMapRotation = 0;
 let autoFollowTarget = { lat: 0, lon: 0, heading: 0 };
+
+let smoothedHeading = 0;
+let lastRotateTime = 0;
+const ROTATE_THROTTLE_MS_MOVING = 100;   // ขณะขับ ให้ตอบสนองเร็วขึ้น
+const ROTATE_THROTTLE_MS_STOPPED = 800;  // ขณะจอด หน่วงเพื่อป้องกัน jitter
+const ROTATE_MIN_DIFF_MOVING = 1.0;      // degree threshold เมื่อขับ
+const ROTATE_MIN_DIFF_STOPPED = 6.0;     // degree threshold เมื่อจอด (deadzone)
+const SPEED_ROTATE_THRESHOLD = 3;        // km/h ต่ำกว่าถือว่า 'หยุด'
+const HEADING_SMOOTHING_MOVING = 0.35;   // alpha for lerp when moving (responsive)
+const HEADING_SMOOTHING_STOPPED = 0.10;  // alpha when stopped (very smooth)
+
 const POLYLINE_BATCH_SIZE = 200;
 const MIN_SET_VIEW_INTERVAL = 400;
 const FOLLOW_INTERVAL = 200;
@@ -2344,23 +2355,45 @@ function safeInvalidateMap(targetMap, delay = 300) {
   }, delay);
 }
 
-function normalizeAngleDifference(angle) {
-  let a = angle % 360;
-  if (a > 180) a -= 360;
-  if (a < -180) a += 360;
-  return a;
+// =============================
+// 🔹 helper: normalize angle difference (-180..180)
+// =============================
+function normalizeAngleDifference(diff) {
+  while (diff < -180) diff += 360;
+  while (diff > 180) diff -= 360;
+  return diff;
+}
+// --- Linear interpolation helper ---
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpAngle(a, b, t) {
+  const diff = normalizeAngleDifference(b - a);
+  return a + diff * t;
 }
 // -----------------------------
 // 🔹 resetMapRotation
 // -----------------------------
-function resetMapRotation() {
+function resetMapRotation(duration = 300) {
   if (!map) return;
-  rotateMap(0);
-  if (vehicleMarker?.setRotationAngle) vehicleMarker.setRotationAngle(0);
-  lastMapRotation = 0;
-  lastMarkerAngle = 0;
-  isMapRotated = false;
+  const startMapRotation = lastMapRotation;
+  const startMarkerAngle = lastMarkerAngle;
+  const startTime = performance.now();
+
+  const animate = (now) => {
+    const t = Math.min((now - startTime)/duration, 1);
+    const mapAngle = lerpAngle(startMapRotation, 0, t);
+    const markerAngle = lerpAngle(startMarkerAngle, 0, t);
+    rotateMap(mapAngle);
+    if (vehicleMarker?.setRotationAngle) vehicleMarker.setRotationAngle(-markerAngle);
+    if (t < 1) requestAnimationFrame(animate);
+    else {
+      lastMapRotation = 0;
+      lastMarkerAngle = 0;
+      isMapRotated = false;
+    }
+  };
+  requestAnimationFrame(animate);
 }
+
 
 function safeGetPane(targetMap, name) {
   if (!targetMap || !name) return null;
@@ -2377,110 +2410,130 @@ function safeGetPane(targetMap, name) {
 // -----------------------------
 function rotateMap(deg) {
   if (!map) return;
-  setMapPaneTransformOriginToCenter(map);
   const mapPane = map.getPane('mapPane');
   if (!mapPane) return;
   mapPane.style.transform = `rotate(${-deg}deg)`;
   lastMapRotation = deg;
   isMapRotated = deg !== 0;
 }
-
 // -----------------------------
 // 🔹 Smooth map rotation helper
 // -----------------------------
 function rotateMapSmooth(targetDeg, duration = 300) {
   if (!map) return;
-  if (isRotateAnimating) return;
-  if (rotationAnimFrame) cancelAnimationFrame(rotationAnimFrame);
-  isRotateAnimating = true;
-  const startDeg = lastMapRotation;
+
+  targetDeg = ((targetDeg % 360) + 360) % 360;
+
+  let startDeg = lastMapRotation;
+
+  if (rotationAnimFrame) {
+    cancelAnimationFrame(rotationAnimFrame);
+    rotationAnimFrame = null;
+    startDeg = lastMapRotation;
+  }
+
+  const diff = normalizeAngleDifference(targetDeg - startDeg);
+  const finalTarget = startDeg + diff;
   const startTime = performance.now();
+
   const animate = (now) => {
     const elapsed = now - startTime;
     const t = Math.min(elapsed / duration, 1);
-    const angle = lerpAngle(startDeg, targetDeg, t);
+    const angle = lerpAngle(startDeg, finalTarget, t);
     rotateMap(angle);
-    if (t < 1) rotationAnimFrame = requestAnimationFrame(animate);
-    else {
+    if (t < 1) {
+      rotationAnimFrame = requestAnimationFrame(animate);
+    } else {
       rotationAnimFrame = null;
-      isRotateAnimating = false;
+      lastMapRotation = targetDeg;
     }
   };
+
   rotationAnimFrame = requestAnimationFrame(animate);
 }
 
-// --- Linear interpolation helper ---
-function lerp(a, b, t) { return a + (b - a) * t; }
-function lerpAngle(a, b, t) {
-  let diff = b - a;
-  while (diff < -180) diff += 360;
-  while (diff > 180) diff -= 360;
-  return a + diff * t;
-}
+
 function getRotationFactor(speedKmh) {
   return Math.max(0.05, Math.min(1, speedKmh / 100));
 }
 // -----------------------------
 // 🔹 autoFollowAndRotate (พร้อม CSS rotation)
 // -----------------------------
+
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   if (!map || !vehicleMarker) return;
-  const factor = getRotationFactor(speedKmh);
-  const maxStep = Math.max(0.0006, speedKmh * 0.00001);
 
-  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+  headingDeg = ((headingDeg % 360) + 360) % 360;
 
-  const animate = () => {
-    if (!map || !vehicleMarker) {
-      autoFollowAnimFrame = null;
-      return;
-    }
+  const isMoving = (speedKmh >= SPEED_ROTATE_THRESHOLD);
+  // --- adaptive smoothing parameters ---
+  const alpha = isMoving
+    ? HEADING_SMOOTHING_MOVING
+    : HEADING_SMOOTHING_STOPPED;       // เพิ่มเล็กน้อยเพื่อหมุนเนียน
+  const throttleMs = isMoving
+    ? ROTATE_THROTTLE_MS_MOVING
+    : ROTATE_THROTTLE_MS_STOPPED;        // อัพเดทบ่อยขึ้น
+  const minDiff = isMoving
+    ? ROTATE_MIN_DIFF_MOVING
+    : ROTATE_MIN_DIFF_STOPPED + 10;           // เพิ่ม deadzone เล็กน้อยเพื่อลด jitter
 
-    const curr = vehicleMarker.getLatLng();
-    const dx = lat - curr.lat;
-    const dy = lon - curr.lng;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const newLat = dist > maxStep ? curr.lat + (dx / dist) * maxStep : lat;
-    const newLon = dist > maxStep ? curr.lng + (dy / dist) * maxStep : lon;
+  // --- smoothing heading (exponential / lerpAngle) ---
+  smoothedHeading = lerpAngle(smoothedHeading, headingDeg, alpha);
 
-    vehicleMarker.setLatLng([newLat, newLon]);
+  // --- move marker smoothly toward new lat/lon ---
+  const curr = vehicleMarker.getLatLng();
+  const dx = lat - curr.lat;
+  const dy = lon - curr.lng;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxStep = Math.max(0.0002, speedKmh * 0.000006); // ปรับให้ smooth
+  const newLat = dist > maxStep ? curr.lat + (dx / dist) * maxStep : lat;
+  const newLon = dist > maxStep ? curr.lng + (dy / dist) * maxStep : lon;
+  vehicleMarker.setLatLng([newLat, newLon]);
 
-    if (autoRotate) {
-      rotateMapSmooth(headingDeg, 250 * factor);
-      if (vehicleMarker.setRotationAngle)
-        vehicleMarker.setRotationAngle(-headingDeg);
-    }
+  // --- marker rotation smoothing ---
+  if (vehicleMarker.setRotationAngle) {
+    const markerAngle = lerpAngle(lastMarkerAngle, headingDeg, alpha * 1.1);
+    vehicleMarker.setRotationAngle(-markerAngle);
+    lastMarkerAngle = markerAngle;
+  }
 
-    map.panTo([newLat, newLon], { animate: false });
+  // --- map rotation smoothing ---
+  const angleDiff = Math.abs(normalizeAngleDifference(smoothedHeading - lastMapRotation));
+  if (angleDiff < 0.2) return;
 
-    autoFollowAnimFrame = requestAnimationFrame(animate);
-  };
+  const now = Date.now();
+  if (angleDiff >= minDiff && (now - lastRotateTime) >= throttleMs) {
+    const factor = getRotationFactor(speedKmh);
+    const duration = Math.max(220, 280 * (1 / Math.max(factor, 0.1)));
+    rotateMapSmooth(smoothedHeading, duration);
+    lastRotateTime = now;
+  }
 
-  autoFollowAnimFrame = requestAnimationFrame(animate);
+  // --- pan map to keep vehicle centered ---
+  if (autoFollow) {
+    const panDuration = Math.min(0.6, Math.max(0.12, dist * 20));
+    map.panTo([newLat, newLon], { animate: true, duration: panDuration });
+  }
 }
+
 
 // -----------------------------
 // 🔹 startAutoFollow (พร้อม CSS rotation)
 // -----------------------------
 function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   if (!map || !vehicleMarker) return;
-  
+  headingDeg = ((headingDeg % 360) + 360) % 360;
   lastMarkerAngle = headingDeg;
   lastMapRotation = headingDeg;
-  
   vehicleMarker.setLatLng([lat, lon]);
   if (vehicleMarker.setRotationAngle)
     vehicleMarker.setRotationAngle(-headingDeg);
-	
+
   rotateMap(headingDeg);
-  map.setView([lat, lon], map.getZoom(), { animate: false });
-  
+  map.panTo([lat, lon], { animate: true, duration: 0.3 });
   autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
 }
 
-function updateAutoRotate(speedKmh) {
-  autoRotate = speedKmh >= 3 ;
-}
 // -----------------------------
 // set transform origin at center
 // -----------------------------
@@ -2488,7 +2541,7 @@ function setMapPaneTransformOriginToCenter(targetMap = map) {
   if (!targetMap) return;
   const size = targetMap.getSize();
   const origin = `${size.x/2}px ${size.y/2}px`;
-  const mapPane = targetMap.getPane('mapPane');
+  const mapPane = safeGetPane(targetMap, 'mapPane');
   if (mapPane) mapPane.style.transformOrigin = origin;
 }
 
@@ -2559,13 +2612,12 @@ function initMap(lat, lon, headingDeg = 0) {
     rotationAngle: headingDeg,
     rotationOrigin: 'center center'
   }).addTo(map);
-  map.whenReady(() => {
+   map.whenReady(() => {
     isMapReady = true;
     lastMapRotation = headingDeg;
     lastMarkerAngle = headingDeg;
+    smoothedHeading = headingDeg;    // <-- ตั้งค่าเริ่มต้นที่นี่
     setMapPaneTransformOriginToCenter(map);
-    const pane = map.getPane('mapPane');
-    if (pane) pane.style.transformOrigin = "50% 50%";
     rotateMap(headingDeg);
   });
 }
@@ -2608,14 +2660,13 @@ function updateVehicleIconBySpeed(speedKmh) {
   const maxSize = 32;
   const targetSize = maxSize - (maxSize - minSize) * Math.min(speedKmh/100,1);
   const currentSize = vehicleMarker.options.icon.options.iconSize[0];
-  const newSize = lerp(currentSize, targetSize, 0.2); // lerp for smooth
+  const newSize = lerp(currentSize, targetSize, 0.2); // smooth
 
-  const icon = L.icon({
+  vehicleMarker.setIcon(L.icon({
     iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
     iconSize: [newSize, newSize],
     iconAnchor: [newSize/2, newSize/2]
-  });
-  vehicleMarker.setIcon(icon);
+  }));
 }
 
 // --- อัปเดตขนาดไอคอนรถตาม zoom หรือ resize ---
@@ -2667,6 +2718,7 @@ function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
 
   pathCoordinates.push([lat, lon, speedKmh || 0, now]);
 
+  // --- วาดเส้นทาง batch polyline ---
   if (dist <= maxReasonableDist && pathCoordinates.length >= 2) {
     const a = pathCoordinates[pathCoordinates.length - 2];
     const b = pathCoordinates[pathCoordinates.length - 1];
@@ -2678,12 +2730,14 @@ function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
       routeBatchLayers.push(lastBatch);
     }
 
+    // สร้าง polyline segment และ push เข้า batch
     const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
       color,
       weight: 4,
       opacity: 0.95,
       interactive: false
     }).addTo(routeLayer);
+
     lastBatch.push(seg);
   }
 
@@ -2693,11 +2747,11 @@ function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
   const heading = (typeof headingDegInput === "number") ? headingDegInput : lastValidHeading ?? 0;
   lastValidHeading = heading;
 
+  // --- auto follow + smooth rotation ---
   autoFollowAndRotate(lat, lon, speedKmh, heading);
   updateAutoZoom(speedKmh);
   updateVehicleIconBySpeed(speedKmh);
 }
-
 // =============================
 // DRAW HISTORY ROUTE (UNCHANGED)
 // =============================
@@ -2828,7 +2882,6 @@ function startTracking() {
  
   // --- Reset state ---
   autoFollow = true;
-  updateAutoRotate(0);
   isTrackingStarted = true;
   isTracking = true;
   prevTimestamp = null;
@@ -3070,8 +3123,7 @@ function stopTracking() {
    tripStartTime = null;
    totalDistance = 0;
    idleStartTime = null;
-   updateAutoRotate(0);
-  
+
   if (idleStartTime) {
     const now = Date.now();
     const timeIdleSeconds = (now - idleStartTime) / 1000;
