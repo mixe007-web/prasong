@@ -737,7 +737,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 26.0</h2>
+<h2>Trip A-B Version 26.1</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2469,55 +2469,50 @@ function getRotationFactor(speedKmh) {
 // -----------------------------
 // 🔹 autoFollowAndRotate (พร้อม CSS rotation)
 // -----------------------------
-
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   if (!map || !vehicleMarker) return;
 
   headingDeg = ((headingDeg % 360) + 360) % 360;
+  const isMoving = speedKmh >= SPEED_ROTATE_THRESHOLD;
 
-  const isMoving = (speedKmh >= SPEED_ROTATE_THRESHOLD);
-
+  // เลือก smoothing ตามสถานะ
   const alpha = isMoving ? HEADING_SMOOTHING_MOVING : HEADING_SMOOTHING_STOPPED;
   const throttleMs = isMoving ? ROTATE_THROTTLE_MS_MOVING : ROTATE_THROTTLE_MS_STOPPED;
   const minDiff = isMoving ? ROTATE_MIN_DIFF_MOVING : ROTATE_MIN_DIFF_STOPPED;
 
-  // smooth the heading value
-  smoothedHeading = lerpAngle(smoothedHeading || headingDeg, headingDeg, alpha);
-
-  // update marker position (use direct setLatLng for accuracy)
-  vehicleMarker.setLatLng([lat, lon]);
-
-  // Decide whether we should rotate map to align heading upwards
-  const angleDiff = Math.abs(normalizeAngleDifference(smoothedHeading - lastMapRotation));
-  const now = Date.now();
-  if (angleDiff >= minDiff && (now - lastRotateTime) >= throttleMs) {
-    const factor = getRotationFactor(speedKmh);
-    // shorter duration when moving faster
-    const duration = Math.max(150, 320 * (1 / Math.max(factor, 0.1)));
-    rotateMapSmooth(smoothedHeading, duration);
-    lastRotateTime = now;
+  // --- update smoothed heading ---
+  if (isMoving) {
+    smoothedHeading = lerpAngle(smoothedHeading || headingDeg, headingDeg, alpha);
+    lastValidHeading = headingDeg; // อัปเดต heading เฉพาะตอนเคลื่อน
+  } else {
+    smoothedHeading = lastValidHeading; // รถหยุด ใช้ heading ล่าสุด
   }
 
-  // Keep vehicle centered: panTo vehicle lat/lon
-  if (autoFollow) {
-    // compute reasonable pan duration based on movement speed (faster -> shorter smoothing)
-    const panDur = Math.max(0.08, Math.min(0.6, 0.12 + (50 / Math.max(speedKmh, 1)) * 0.01));
-    // Use panTo to animate center to vehicle
-    try {
-      map.panTo([lat, lon], { animate: true, duration: panDur });
-    } catch (e) {
-      // fallback if panTo fails
-      map.setView([lat, lon], map.getZoom());
+  // --- update vehicle marker ---
+  vehicleMarker.setLatLng([lat, lon]);
+
+  // --- หมุน map เฉพาะตอนรถวิ่ง ---
+  if (isMoving) {
+    const angleDiff = Math.abs(normalizeAngleDifference(smoothedHeading - lastMapRotation));
+    const now = Date.now();
+    if (angleDiff >= minDiff && (now - lastRotateTime) >= throttleMs) {
+      const factor = getRotationFactor(speedKmh);
+      const duration = Math.max(150, 320 * (1 / Math.max(factor, 0.1)));
+      rotateMapSmooth(smoothedHeading, duration);
+      lastRotateTime = now;
     }
   }
 
-  // Ensure zoom adjusts slowly if needed (optional)
-  updateAutoZoom(speedKmh);
+  // --- auto pan ---
+  if (autoFollow) {
+    const panDur = Math.max(0.08, Math.min(0.6, 0.12 + (50 / Math.max(speedKmh, 1)) * 0.01));
+    try { map.panTo([lat, lon], { animate: true, duration: panDur }); }
+    catch(e) { map.setView([lat, lon], map.getZoom()); }
+  }
 
-  // keep icon size updated if necessary
+  updateAutoZoom(speedKmh);
   updateVehicleIconBySpeed(speedKmh);
 }
-
 
 // -----------------------------
 // 🔹 startAutoFollow (พร้อม CSS rotation)
@@ -2604,38 +2599,48 @@ function clearWatchId() {
 // -----------------------------
 function initMap(lat, lon, headingDeg = 0) {
   destroyMap();
+
   map = L.map('map', {
     center: [lat, lon],
     zoom: BASE_ZOOM,
     zoomControl: false,
     attributionControl: false
   });
+
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     noWrap: true
   }).addTo(map);
+
   routeLayer = L.layerGroup().addTo(map);
 
   // create vehicle marker; plugin required for setRotationAngle (leaflet-rotatedmarker)
   vehicleMarker = L.marker([lat, lon], {
     icon: vehicleIcon,
-    rotationAngle: 0, // we'll control rotation separately
+    rotationAngle: 0, // marker will point up
     rotationOrigin: 'center center'
   }).addTo(map);
 
   map.whenReady(() => {
     isMapReady = true;
+
     // normalize heading
-    headingDeg = (typeof headingDeg === 'number' && isFinite(headingDeg)) ? ((headingDeg % 360) + 360) % 360 : 0;
+    headingDeg = (typeof headingDeg === 'number' && isFinite(headingDeg))
+      ? ((headingDeg % 360) + 360) % 360
+      : 0;
+
+    // 🟢 ตั้งค่า rotation / marker ให้ตรงกันตั้งแต่เริ่ม
     lastMapRotation = headingDeg;
-    lastMarkerAngle = 0;     // we will keep marker pointing "up" (screen) by counter-rotation
+    lastMarkerAngle = 0;    
     smoothedHeading = headingDeg;
+    lastValidHeading = headingDeg;
+
     setMapPaneTransformOriginToCenter(map);
-    // apply initial CSS rotation (rotateMap uses negative in CSS to align correctly)
+
     rotateMap(headingDeg);
-    // make sure marker visually points up (no extra rotation), because we rotated the map
     if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(0);
   });
 }
+
 
 let isMapBeingDestroyed = false;
 
@@ -2909,6 +2914,8 @@ function startTracking() {
   idleStartTime = Date.now();
   speed = 0;
   prevPos = null;
+  lastValidHeading = 0;
+  smoothedHeading = 0;
   tripStartTime = Date.now();
   cumulativeDistance = 0;
   idleEnergyWhTotal = 0;
@@ -2944,9 +2951,12 @@ function startTracking() {
       const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 
       const initialHeading = (typeof heading === 'number' && isFinite(heading)) ? heading : 0;
+
       initMap(latitude, longitude, initialHeading);
       startAutoFollow(latitude, longitude, initialHeading, 0);
-
+      lastValidHeading = initialHeading;
+      smoothedHeading = initialHeading;
+	  
       prevPos = { latitude, longitude };
       prevTimestamp = pos.timestamp;
       tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
@@ -2991,23 +3001,16 @@ watchId = navigator.geolocation.watchPosition(
     window.lastFinalSpeed = finalSpeedKmh;
 
     // --- headingDeg คำนวณถ้า GPS ไม่ให้ ---
-    let headingDeg;
-    if (typeof heading === "number" && isFinite(heading) && heading >= 0) {
-      headingDeg = heading;
-    } else if (prevPos) {
-      headingDeg = getHeadingFromPrev(prevPos.latitude, prevPos.longitude, latitude, longitude);
-    } else {
-      headingDeg = 0;
-    }
-    lastValidHeading = headingDeg;
+   let headingDeg;
+      if (typeof heading === "number" && isFinite(heading) && heading >= 0) headingDeg = heading;
+      else if (prevPos && finalSpeedKmh > 0) headingDeg = getHeadingFromPrev(prevPos.latitude, prevPos.longitude, latitude, longitude);
+      else headingDeg = lastValidHeading; // รถหยุด ใช้ heading เดิม
 
-     if (autoFollow) {
-        autoFollowAndRotate(latitude, longitude, finalSpeedKmh, headingDeg);
-      }
+      autoFollowAndRotate(latitude, longitude, finalSpeedKmh, headingDeg);
+      throttledUpdateRoute(latitude, longitude, finalSpeedKmh, headingDeg);
 
     updateSpeedometer(finalSpeedKmh);
     updateSpeed(finalSpeedKmh);
-    throttledUpdateRoute(latitude, longitude, finalSpeedKmh, headingDeg);
 	
     // --- Idle / Energy ---
     if (finalSpeedKmh < 3) {
