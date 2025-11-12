@@ -737,7 +737,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 25.8</h2>
+<h2>Trip A-B Version 26.0</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2412,9 +2412,16 @@ function rotateMap(deg) {
   if (!map) return;
   const mapPane = map.getPane('mapPane');
   if (!mapPane) return;
+  // apply CSS transform: negative because we want to rotate the world so that heading points up
   mapPane.style.transform = `rotate(${-deg}deg)`;
-  lastMapRotation = deg;
-  isMapRotated = deg !== 0;
+  lastMapRotation = ((deg % 360) + 360) % 360;
+  isMapRotated = Math.abs(lastMapRotation) > 0.0001;
+  // Ensure marker stays visually "upright" (counter-rotation)
+  if (vehicleMarker && vehicleMarker.setRotationAngle) {
+    // since the whole map rotated by -deg, to keep marker pointing up we set its rotationAngle to 0
+    // But if you want marker to show some tilt relative to map, set different formula here.
+    vehicleMarker.setRotationAngle(0);
+  }
 }
 // -----------------------------
 // 🔹 Smooth map rotation helper
@@ -2423,8 +2430,7 @@ function rotateMapSmooth(targetDeg, duration = 300) {
   if (!map) return;
 
   targetDeg = ((targetDeg % 360) + 360) % 360;
-
-  let startDeg = lastMapRotation;
+  let startDeg = lastMapRotation || 0;
 
   if (rotationAnimFrame) {
     cancelAnimationFrame(rotationAnimFrame);
@@ -2432,6 +2438,7 @@ function rotateMapSmooth(targetDeg, duration = 300) {
     startDeg = lastMapRotation;
   }
 
+  // choose shortest rotation path
   const diff = normalizeAngleDifference(targetDeg - startDeg);
   const finalTarget = startDeg + diff;
   const startTime = performance.now();
@@ -2441,6 +2448,10 @@ function rotateMapSmooth(targetDeg, duration = 300) {
     const t = Math.min(elapsed / duration, 1);
     const angle = lerpAngle(startDeg, finalTarget, t);
     rotateMap(angle);
+    // keep marker visually upright during rotation
+    if (vehicleMarker && vehicleMarker.setRotationAngle) {
+      vehicleMarker.setRotationAngle(0);
+    }
     if (t < 1) {
       rotationAnimFrame = requestAnimationFrame(animate);
     } else {
@@ -2451,7 +2462,6 @@ function rotateMapSmooth(targetDeg, duration = 300) {
 
   rotationAnimFrame = requestAnimationFrame(animate);
 }
-
 
 function getRotationFactor(speedKmh) {
   return Math.max(0.05, Math.min(1, speedKmh / 100));
@@ -2466,54 +2476,46 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   headingDeg = ((headingDeg % 360) + 360) % 360;
 
   const isMoving = (speedKmh >= SPEED_ROTATE_THRESHOLD);
-  // --- adaptive smoothing parameters ---
-  const alpha = isMoving
-    ? HEADING_SMOOTHING_MOVING
-    : HEADING_SMOOTHING_STOPPED;       // เพิ่มเล็กน้อยเพื่อหมุนเนียน
-  const throttleMs = isMoving
-    ? ROTATE_THROTTLE_MS_MOVING
-    : ROTATE_THROTTLE_MS_STOPPED;        // อัพเดทบ่อยขึ้น
-  const minDiff = isMoving
-    ? ROTATE_MIN_DIFF_MOVING
-    : ROTATE_MIN_DIFF_STOPPED + 10;           // เพิ่ม deadzone เล็กน้อยเพื่อลด jitter
 
-  // --- smoothing heading (exponential / lerpAngle) ---
-  smoothedHeading = lerpAngle(smoothedHeading, headingDeg, alpha);
+  const alpha = isMoving ? HEADING_SMOOTHING_MOVING : HEADING_SMOOTHING_STOPPED;
+  const throttleMs = isMoving ? ROTATE_THROTTLE_MS_MOVING : ROTATE_THROTTLE_MS_STOPPED;
+  const minDiff = isMoving ? ROTATE_MIN_DIFF_MOVING : ROTATE_MIN_DIFF_STOPPED;
 
-  // --- move marker smoothly toward new lat/lon ---
-  const curr = vehicleMarker.getLatLng();
-  const dx = lat - curr.lat;
-  const dy = lon - curr.lng;
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  const maxStep = Math.max(0.0002, speedKmh * 0.000006); // ปรับให้ smooth
-  const newLat = dist > maxStep ? curr.lat + (dx / dist) * maxStep : lat;
-  const newLon = dist > maxStep ? curr.lng + (dy / dist) * maxStep : lon;
-  vehicleMarker.setLatLng([newLat, newLon]);
+  // smooth the heading value
+  smoothedHeading = lerpAngle(smoothedHeading || headingDeg, headingDeg, alpha);
 
-  // --- marker rotation smoothing ---
-  if (vehicleMarker.setRotationAngle) {
-    const markerAngle = lerpAngle(lastMarkerAngle, headingDeg, alpha * 1.1);
-    vehicleMarker.setRotationAngle(-markerAngle);
-    lastMarkerAngle = markerAngle;
-  }
+  // update marker position (use direct setLatLng for accuracy)
+  vehicleMarker.setLatLng([lat, lon]);
 
-  // --- map rotation smoothing ---
+  // Decide whether we should rotate map to align heading upwards
   const angleDiff = Math.abs(normalizeAngleDifference(smoothedHeading - lastMapRotation));
-  if (angleDiff < 0.2) return;
-
   const now = Date.now();
   if (angleDiff >= minDiff && (now - lastRotateTime) >= throttleMs) {
     const factor = getRotationFactor(speedKmh);
-    const duration = Math.max(220, 280 * (1 / Math.max(factor, 0.1)));
+    // shorter duration when moving faster
+    const duration = Math.max(150, 320 * (1 / Math.max(factor, 0.1)));
     rotateMapSmooth(smoothedHeading, duration);
     lastRotateTime = now;
   }
 
-  // --- pan map to keep vehicle centered ---
+  // Keep vehicle centered: panTo vehicle lat/lon
   if (autoFollow) {
-    const panDuration = Math.min(0.6, Math.max(0.12, dist * 20));
-    map.panTo([newLat, newLon], { animate: true, duration: panDuration });
+    // compute reasonable pan duration based on movement speed (faster -> shorter smoothing)
+    const panDur = Math.max(0.08, Math.min(0.6, 0.12 + (50 / Math.max(speedKmh, 1)) * 0.01));
+    // Use panTo to animate center to vehicle
+    try {
+      map.panTo([lat, lon], { animate: true, duration: panDur });
+    } catch (e) {
+      // fallback if panTo fails
+      map.setView([lat, lon], map.getZoom());
+    }
   }
+
+  // Ensure zoom adjusts slowly if needed (optional)
+  updateAutoZoom(speedKmh);
+
+  // keep icon size updated if necessary
+  updateVehicleIconBySpeed(speedKmh);
 }
 
 
@@ -2539,11 +2541,16 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
 // -----------------------------
 function setMapPaneTransformOriginToCenter(targetMap = map) {
   if (!targetMap) return;
-  const size = targetMap.getSize();
-  const origin = `${size.x/2}px ${size.y/2}px`;
-  const mapPane = safeGetPane(targetMap, 'mapPane');
-  if (mapPane) mapPane.style.transformOrigin = origin;
+  try {
+    const size = targetMap.getSize();
+    const origin = `${size.x / 2}px ${size.y / 2}px`;
+    const mapPane = safeGetPane(targetMap, 'mapPane');
+    if (mapPane) mapPane.style.transformOrigin = origin;
+  } catch (e) {
+    console.warn("setMapPaneTransformOriginToCenter error:", e);
+  }
 }
+
 
 // -----------------------------
 // Call on resize or orientation change
@@ -2607,18 +2614,26 @@ function initMap(lat, lon, headingDeg = 0) {
     noWrap: true
   }).addTo(map);
   routeLayer = L.layerGroup().addTo(map);
+
+  // create vehicle marker; plugin required for setRotationAngle (leaflet-rotatedmarker)
   vehicleMarker = L.marker([lat, lon], {
     icon: vehicleIcon,
-    rotationAngle: headingDeg,
+    rotationAngle: 0, // we'll control rotation separately
     rotationOrigin: 'center center'
   }).addTo(map);
-   map.whenReady(() => {
+
+  map.whenReady(() => {
     isMapReady = true;
+    // normalize heading
+    headingDeg = (typeof headingDeg === 'number' && isFinite(headingDeg)) ? ((headingDeg % 360) + 360) % 360 : 0;
     lastMapRotation = headingDeg;
-    lastMarkerAngle = headingDeg;
-    smoothedHeading = headingDeg;    // <-- ตั้งค่าเริ่มต้นที่นี่
+    lastMarkerAngle = 0;     // we will keep marker pointing "up" (screen) by counter-rotation
+    smoothedHeading = headingDeg;
     setMapPaneTransformOriginToCenter(map);
+    // apply initial CSS rotation (rotateMap uses negative in CSS to align correctly)
     rotateMap(headingDeg);
+    // make sure marker visually points up (no extra rotation), because we rotated the map
+    if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(0);
   });
 }
 
@@ -2698,7 +2713,7 @@ function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
 
     const heading = (typeof headingDegInput === "number") ? headingDegInput : 0;
     lastValidHeading = heading;
-    lastMarkerAngle = heading;
+    lastMarkerAngle = 0; // marker points up (we rotate map instead)
 
     autoFollowAndRotate(lat, lon, speedKmh, heading);
     updateAutoZoom(speedKmh);
@@ -2928,9 +2943,9 @@ function startTracking() {
       const { latitude, longitude, heading } = pos.coords;
       const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 
-      // สร้าง map
-      initMap(latitude, longitude, headingDeg);
-      startAutoFollow(latitude, longitude, headingDeg, 0);
+      const initialHeading = (typeof heading === 'number' && isFinite(heading)) ? heading : 0;
+      initMap(latitude, longitude, initialHeading);
+      startAutoFollow(latitude, longitude, initialHeading, 0);
 
       prevPos = { latitude, longitude };
       prevTimestamp = pos.timestamp;
@@ -2938,7 +2953,7 @@ function startTracking() {
       startCoordSpan.textContent = coordText;
       startTimeSpan.textContent = new Date(pos.timestamp).toLocaleString();
       tripStartTime = pos.timestamp;
-      updateRoute(latitude, longitude, 0, headingDeg);
+      updateRoute(latitude, longitude, 0, initialHeading);
     },
     (err) => {
       alert("ไม่สามารถรับตำแหน่งเริ่มต้นได้: " + err.message);
