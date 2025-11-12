@@ -1519,7 +1519,7 @@ function updateAvgEfficiencyPerPercent() {
     if (driveDistanceKm > 0 && netEnergyWh > 0) {
       avgEnergyBased = driveDistanceKm / ((netEnergyWh / 1000) / 75.3 * 100);
     }
-    const overallAvg = avgRealtime * 0.4 + avgEnergyBased * 0.6;
+    const overallAvg = avgRealtime * 0.3 + avgEnergyBased * 0.7;
 
     lastAvgEfficiency = overallAvg;
     displayAvgEfficiency(lastAvgEfficiency);
@@ -1677,7 +1677,7 @@ function updateTripTime() {
 // --- Config สำหรับ EV ในเมือง ---
 let dynamicMinDistConfig = {
   minDist: 0.001,    // รถหยุด/เริ่มออกตัว → แม่นยำสูง
-  maxDist: 0.009,    // รถเร็วในเมือง → smoothing เล็กน้อย
+  maxDist: 0.007,    // รถเร็วในเมือง → smoothing เล็กน้อย
   exponentMin: 1.0,  // smoothing น้อยเมื่อเร็ว
   exponentMax: 2.0   // smoothing มากเมื่อช้า
 };
