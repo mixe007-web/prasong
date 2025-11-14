@@ -737,7 +737,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 26.2</h2>
+<h2>Trip A-B Version 26.3</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1379,7 +1379,7 @@ let lastUpdateTime = Date.now();
 
 function getEfficiencyPerPercent(speedKmh) {
   const points = [
-  { speed: 0, efficiency: 5 },
+    { speed: 0, efficiency: 5 },
     { speed: 10, efficiency: 6.85 },
     { speed: 20, efficiency: 6.5 },
     { speed: 30, efficiency: 6.14 },
@@ -1397,20 +1397,26 @@ function getEfficiencyPerPercent(speedKmh) {
     { speed: 150, efficiency: 2.73 },
     { speed: 160, efficiency: 2.40 }
   ];
-  if (speedKmh <= points[0].speed) return points[0].efficiency;
-  if (speedKmh >= points[points.length - 1].speed) return points[points.length - 1].efficiency;
+
+  const MIN_EFF = 2.4;
+  const MAX_EFF = 6.02; // สูงสุดที่ต้องการ
+
+  if (speedKmh <= points[0].speed) return Math.min(points[0].efficiency, MAX_EFF);
+  if (speedKmh >= points[points.length - 1].speed) return Math.min(points[points.length - 1].efficiency, MAX_EFF);
 
   for (let i = 1; i < points.length; i++) {
     const p1 = points[i - 1];
     const p2 = points[i];
-
     if (speedKmh <= p2.speed) {
       const ratio = (speedKmh - p1.speed) / (p2.speed - p1.speed);
-      return p1.efficiency + ratio * (p2.efficiency - p1.efficiency);
+      const eff = p1.efficiency + ratio * (p2.efficiency - p1.efficiency);
+      return Math.min(Math.max(eff, MIN_EFF), MAX_EFF);
     }
   }
-  return points[points.length - 1].efficiency;
+
+  return Math.min(Math.max(points[points.length - 1].efficiency, MIN_EFF), MAX_EFF);
 }
+
 
 let lastEfficiencySpeed = 0;
 let lastEfficiencyUpdate = 0;
@@ -1434,139 +1440,157 @@ function updateEfficiency() {
   }
 
 //efficiencyPerPercentBar
- const now = Date.now();
-  const speedDiff = Math.abs(speed - lastEfficiencySpeed);
-  if (speedDiff < 1 && now - lastEfficiencyUpdate < 300) {
-    return; // ข้ามการอัปเดต bar ถ้าเปลี่ยนเล็กน้อยและเร็วเกินไป
-  }
-  lastEfficiencySpeed = speed;
-  lastEfficiencyUpdate = now;
-  let efficiencyPerPercent = getEfficiencyPerPercent(speed || 0);
-
-  // ป้องกันค่าต่ำสุด (เหมือนเดิม)
-  efficiencyPerPercent = Math.max(efficiencyPerPercent, 2.4);
-
-  const bar = document.getElementById('efficiencyPerPercentBar');
-  const maxEff = 7.2;
-  const colorStops = [
-    { value: 0, color: { r: 255, g: 0, b: 0 } },
-    { value: 3.79, color: { r: 255, g: 64, b: 0 } },
-    { value: 4.23, color: { r: 255, g: 128, b: 0 } },
-    { value: 4.37, color: { r: 255, g: 192, b: 0 } },
-    { value: 4.81, color: { r: 255, g: 215, b: 0 } },
-    { value: 5.30, color: { r: 128, g: 192, b: 0 } },
-    { value: 6.14, color: { r: 0, g: 128, b: 0 } },
-    { value: maxEff, color: { r: 0, g: 128, b: 0 } }
-  ];
-  let lower = colorStops[0];
-  let upper = colorStops[colorStops.length - 1];
-  for (let i = 1; i < colorStops.length; i++) {
-    if (efficiencyPerPercent <= colorStops[i].value) {
-      lower = colorStops[i - 1];
-      upper = colorStops[i];
-      break;
-    }
-  }
-
-  let t = (efficiencyPerPercent - lower.value) / (upper.value - lower.value || 1);
-  t = Math.min(Math.max(t, 0), 1);
-  const r = Math.round(lower.color.r + (upper.color.r - lower.color.r) * t);
-  const g = Math.round(lower.color.g + (upper.color.g - lower.color.g) * t);
-  const b = Math.round(lower.color.b + (upper.color.b - lower.color.b) * t);
-
-  bar.style.backgroundColor = `rgb(${r},${g},${b})`;
-
-  const widthPercent = Math.min((efficiencyPerPercent / maxEff) * 100, 100);
-  bar.style.width = widthPercent + "%";
-
-  bar.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
-
-  // อัปเดต timestamp (ไม่ใช้ idle smoothing)
-  lastUpdateTime = Date.now();
+const now = Date.now();
+const speedDiff = Math.abs(speed - lastEfficiencySpeed);
+if (speedDiff < 1 && now - lastEfficiencyUpdate < 300) {
+  return; // ข้ามการอัปเดต bar ถ้าเปลี่ยนเล็กน้อยและเร็วเกินไป
 }
-// --- AVG EFFICIENCY (10 MIN REALISTIC VERSION) ---
-let efficiencySamples = []; // เก็บ {eff, time}
+lastEfficiencySpeed = speed;
+lastEfficiencyUpdate = now;
+
+let efficiencyPerPercent = getEfficiencyPerPercent(speed || 0);
+
+// ป้องกันค่าต่ำสุด และจำกัดสูงสุด
+const MIN_EFF = 2.4;
+const MAX_EFF = 6.02;
+efficiencyPerPercent = Math.min(Math.max(efficiencyPerPercent, MIN_EFF), MAX_EFF);
+
+const bar = document.getElementById('efficiencyPerPercentBar');
+const colorStops = [
+  { value: MIN_EFF, color: { r: 255, g: 0, b: 0 } },
+  { value: 3.79, color: { r: 255, g: 64, b: 0 } },
+  { value: 4.23, color: { r: 255, g: 128, b: 0 } },
+  { value: 4.37, color: { r: 255, g: 192, b: 0 } },
+  { value: 4.81, color: { r: 255, g: 215, b: 0 } },
+  { value: 5.30, color: { r: 128, g: 192, b: 0 } },
+  { value: 6.02, color: { r: 0, g: 128, b: 0 } } // MAX_EFF
+];
+
+let lower = colorStops[0];
+let upper = colorStops[colorStops.length - 1];
+for (let i = 1; i < colorStops.length; i++) {
+  if (efficiencyPerPercent <= colorStops[i].value) {
+    lower = colorStops[i - 1];
+    upper = colorStops[i];
+    break;
+  }
+}
+
+let t = (efficiencyPerPercent - lower.value) / (upper.value - lower.value || 1);
+t = Math.min(Math.max(t, 0), 1);
+const r = Math.round(lower.color.r + (upper.color.r - lower.color.r) * t);
+const g = Math.round(lower.color.g + (upper.color.g - lower.color.g) * t);
+const b = Math.round(lower.color.b + (upper.color.b - lower.color.b) * t);
+
+bar.style.backgroundColor = `rgb(${r},${g},${b})`;
+
+// ความกว้าง bar ใช้ MAX_EFF = 6.02
+const widthPercent = Math.min((efficiencyPerPercent / MAX_EFF) * 100, 100);
+bar.style.width = widthPercent + "%";
+
+bar.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
+
+// อัปเดต timestamp
+lastUpdateTime = Date.now();
+}
+// --- AVG EFFICIENCY (2 MIN VERSION) ---
+let efficiencySamples = [];      // เก็บ {eff, time}
 let lastAvgEfficiency = 0;
 let idleEfficiencyAccumulator = 0;
 
-const AVG_WINDOW_SECONDS = 600;  // 10 นาที (600 วินาที)
-const IDLE_UPDATE_INTERVAL = 60; // 1 นาที
-const IDLE_DECREASE_AMOUNT = 0.1; // ลดทีละ 0.1 km/1% ต่อ 1 นาทีจอด
-const MIN_EFF = 2.4; // ค่าต่ำสุด
+const AVG_WINDOW_SECONDS = 120;        // เก็บข้อมูลย้อนหลัง 2 นาที
+const AVG_UPDATE_INTERVAL = 120;       // อัปเดต UI ทุก 2 นาทีจริง
+const IDLE_UPDATE_INTERVAL = 60;       // idle smoothing ทุก 60s
+const IDLE_DECREASE_AMOUNT = 0.01;
+const MIN_EFF = 2.4;
+const MAX_EFF = 6.02;
+
+// timestamp อัปเดตเฉลี่ยครั้งล่าสุด
+let lastAvgUpdateTime = Date.now() / 1000;
 
 function updateAvgEfficiencyPerPercent() {
-  if (!isTracking) return;
-  const effElem = document.getElementById("efficiencyPerPercentBar");
-  if (!effElem) return;
+    if (!isTracking) return;
 
-  const match = effElem.textContent.match(/([\d.]+)/);
-  const currentEff = match ? parseFloat(match[1]) : 0;
-  if (isNaN(currentEff) || currentEff <= 0) return;
+    const effElem = document.getElementById("efficiencyPerPercentBar");
+    if (!effElem) return;
 
-  const now = Date.now() / 1000;
-  if (!updateAvgEfficiencyPerPercent.lastCall) {
-    updateAvgEfficiencyPerPercent.lastCall = now;
-  }
-  const deltaTime = now - updateAvgEfficiencyPerPercent.lastCall;
+    // อ่าน efficiency ปัจจุบันจาก bar
+    const match = effElem.textContent.match(/([\d.]+)/);
+    const currentEff = match ? parseFloat(match[1]) : 0;
+    if (isNaN(currentEff) || currentEff <= 0) return;
 
-  if (speed > 3) {
+    const now = Date.now() / 1000;
+
+    // -----------------------------
+    // 1) เก็บ Sample ทุกรอบที่ถูกเรียก
+    // -----------------------------
     efficiencySamples.push({ eff: currentEff, time: now });
+
+    // เก็บย้อนหลัง 2 นาที
     efficiencySamples = efficiencySamples.filter(s => now - s.time <= AVG_WINDOW_SECONDS);
 
-    const avgRealtime = efficiencySamples.reduce((a, b) => a + b.eff, 0) / efficiencySamples.length;
-    const netEnergyWh = driveEnergyWh + idleEnergyWhTotal - totalRegenEnergyWh;
-    let avgEnergyBased = avgRealtime;
-    if (driveDistanceKm > 0 && netEnergyWh > 0) {
-      avgEnergyBased = driveDistanceKm / ((netEnergyWh / 1000) / 75.3 * 100);
-    }
-    const overallAvg = avgRealtime * 0.4 + avgEnergyBased * 0.6;
-
-    lastAvgEfficiency = overallAvg;
-    displayAvgEfficiency(lastAvgEfficiency);
-
-    idleEfficiencyAccumulator = 0;
-
-  } else {
- 
-        idleEfficiencyAccumulator += deltaTime;
-
+    // -----------------------------
+    // 2) Idle smoothing
+    // -----------------------------
+    if (speed <= 3) {
+        idleEfficiencyAccumulator += 1;
         if (idleEfficiencyAccumulator >= IDLE_UPDATE_INTERVAL) {
             lastAvgEfficiency = Math.max(lastAvgEfficiency - IDLE_DECREASE_AMOUNT, MIN_EFF);
             idleEfficiencyAccumulator = 0;
-            displayAvgEfficiency(lastAvgEfficiency);
+        }
+    } else {
+        idleEfficiencyAccumulator = 0;
+    }
+
+    // ---------------------------------------------
+    // 3) อัปเดตค่าเฉลี่ย "เฉพาะเมื่อครบ 2 นาทีเท่านั้น"
+    // ---------------------------------------------
+    if (now - lastAvgUpdateTime >= AVG_UPDATE_INTERVAL) {
+
+        if (efficiencySamples.length > 0) {
+            const sum = efficiencySamples.reduce((a, b) => a + b.eff, 0);
+            lastAvgEfficiency = sum / efficiencySamples.length;
+        }
+
+        lastAvgEfficiency = Math.min(Math.max(lastAvgEfficiency, MIN_EFF), MAX_EFF);
+        lastAvgUpdateTime = now;
+
+        // อัปเดต UI เฉพาะตอนครบ 2 นาที
+        const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
+        if (avgEffSpan) {
+            avgEffSpan.textContent = `Avg: ${lastAvgEfficiency.toFixed(3)} km / 1%`;
+            avgEffSpan.className = '';
+
+            if (lastAvgEfficiency >= 4.81) avgEffSpan.classList.add('efficiency-good');
+            else if (lastAvgEfficiency >= 4.23) avgEffSpan.classList.add('efficiency-medium');
+            else avgEffSpan.classList.add('efficiency-poor');
         }
     }
-  updateAvgEfficiencyPerPercent.lastCall = now;
-}
-
-function displayAvgEfficiency(avgVal) {
-  const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
-  if (!avgEffSpan) return;
-  avgEffSpan.textContent = `Avg: ${avgVal.toFixed(3)} km / 1%`;
-  avgEffSpan.className = '';
-  if (avgVal >= 4.81) avgEffSpan.classList.add('efficiency-good');
-  else if (avgVal >= 4.23) avgEffSpan.classList.add('efficiency-medium');
-  else avgEffSpan.classList.add('efficiency-poor');
 }
 
 let avgEffInterval = null;
-function startAvgEfficiencyTracking() {
-  efficiencySamples = [];
-  lastAvgEfficiency = 0;
-  idleEfficiencyAccumulator = 0;
-  updateAvgEfficiencyPerPercent.lastCall = null;
 
-  const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
-  if (avgEffSpan) avgEffSpan.textContent = `Avg: 0.000 km / 1%`;
-  if (avgEffInterval) clearInterval(avgEffInterval);
-  avgEffInterval = setInterval(() => {
-    try { updateAvgEfficiencyPerPercent(); } catch(e) {}
-  }, 5000);
+function startAvgEfficiencyTracking() {
+    efficiencySamples = [];
+    lastAvgEfficiency = 0;
+    idleEfficiencyAccumulator = 0;
+    lastAvgUpdateTime = Date.now() / 1000;
+
+    const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
+    if (avgEffSpan) avgEffSpan.textContent = `Avg: 0.000 km / 1%`;
+
+    if (avgEffInterval) clearInterval(avgEffInterval);
+
+    // เรียกฟังก์ชันทุก 1 วินาทีเพื่อเก็บ sample
+    avgEffInterval = setInterval(() => {
+        try { updateAvgEfficiencyPerPercent(); } catch (e) {}
+    }, 1000);
 }
+
 function stopAvgEfficiencyTracking() {
-  if (avgEffInterval) clearInterval(avgEffInterval);
-  avgEffInterval = null;
-  return lastAvgEfficiency || 0;
+    if (avgEffInterval) clearInterval(avgEffInterval);
+    avgEffInterval = null;
+    return lastAvgEfficiency || 0;
 }
 
 const originalUpdateEfficiency = updateEfficiency;
@@ -2408,60 +2432,46 @@ function safeGetPane(targetMap, name) {
 // -----------------------------
 // 🔹 rotateMap ด้วย CSS transform
 // -----------------------------
-function rotateMap(deg) {
+function rotateMap(deg, markerHeading = 0) {
   if (!map) return;
   const mapPane = map.getPane('mapPane');
   if (!mapPane) return;
-  // apply CSS transform: negative because we want to rotate the world so that heading points up
+
   mapPane.style.transform = `rotate(${-deg}deg)`;
   lastMapRotation = ((deg % 360) + 360) % 360;
   isMapRotated = Math.abs(lastMapRotation) > 0.0001;
-  // Ensure marker stays visually "upright" (counter-rotation)
+
   if (vehicleMarker && vehicleMarker.setRotationAngle) {
-    // since the whole map rotated by -deg, to keep marker pointing up we set its rotationAngle to 0
-    // But if you want marker to show some tilt relative to map, set different formula here.
-    vehicleMarker.setRotationAngle(0);
+    // counter-rotation = map rotation + heading ของ marker
+    vehicleMarker.setRotationAngle(markerHeading - deg);
   }
 }
+
 // -----------------------------
 // 🔹 Smooth map rotation helper
 // -----------------------------
-function rotateMapSmooth(targetDeg, duration = 300) {
+function rotateMapSmooth(targetDeg, duration = 300, markerHeading = lastValidHeading) {
   if (!map) return;
 
   targetDeg = ((targetDeg % 360) + 360) % 360;
   let startDeg = lastMapRotation || 0;
 
-  if (rotationAnimFrame) {
-    cancelAnimationFrame(rotationAnimFrame);
-    rotationAnimFrame = null;
-    startDeg = lastMapRotation;
-  }
+  if (rotationAnimFrame) cancelAnimationFrame(rotationAnimFrame);
 
-  // choose shortest rotation path
   const diff = normalizeAngleDifference(targetDeg - startDeg);
   const finalTarget = startDeg + diff;
   const startTime = performance.now();
 
   const animate = (now) => {
-    const elapsed = now - startTime;
-    const t = Math.min(elapsed / duration, 1);
+    const t = Math.min((now - startTime) / duration, 1);
     const angle = lerpAngle(startDeg, finalTarget, t);
-    rotateMap(angle);
-    // keep marker visually upright during rotation
-    if (vehicleMarker && vehicleMarker.setRotationAngle) {
-      vehicleMarker.setRotationAngle(0);
-    }
-    if (t < 1) {
-      rotationAnimFrame = requestAnimationFrame(animate);
-    } else {
-      rotationAnimFrame = null;
-      lastMapRotation = targetDeg;
-    }
+    rotateMap(angle, markerHeading);
+    if (t < 1) rotationAnimFrame = requestAnimationFrame(animate);
+    else rotationAnimFrame = null;
   };
-
   rotationAnimFrame = requestAnimationFrame(animate);
 }
+
 
 function getRotationFactor(speedKmh) {
   return Math.max(0.05, Math.min(1, speedKmh / 100));
@@ -2475,19 +2485,15 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   const isMoving = speedKmh >= SPEED_ROTATE_THRESHOLD;
   headingDeg = ((headingDeg % 360) + 360) % 360;
 
-  // --- smooth heading ---
   const alpha = isMoving ? HEADING_SMOOTHING_MOVING : HEADING_SMOOTHING_STOPPED;
-  if (isMoving) {
-    smoothedHeading = lerpAngle(smoothedHeading, headingDeg, alpha);
-    lastValidHeading = headingDeg;
-  } else if (lastValidHeading !== null) {
-    smoothedHeading = lastValidHeading; // keep last valid heading
-  }
+  if (isMoving) smoothedHeading = lerpAngle(smoothedHeading, headingDeg, alpha);
+  else if (lastValidHeading !== null) smoothedHeading = lastValidHeading;
 
-  // --- update marker position ---
+  lastValidHeading = headingDeg;
+
   vehicleMarker.setLatLng([lat, lon]);
 
-  // --- rotate map only if heading changed enough ---
+  // --- Rotate map & marker ---
   if (isMoving) {
     const diff = Math.abs(normalizeAngleDifference(smoothedHeading - lastMapRotation));
     if (diff > MIN_ROTATE_DIFF) {
@@ -2495,21 +2501,17 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
     }
   }
 
-  // --- pan map only if moved enough ---
+  // --- Pan map to center marker ---
   if (autoFollow) {
-    const prevLat = autoFollowTarget.lat;
-    const prevLon = autoFollowTarget.lon;
-    const dist = prevLat && prevLon ? map.distance([prevLat, prevLon], [lat, lon]) : Infinity;
-    if (dist > 1) { // pan only if moved > 1 meter
-      map.panTo([lat, lon], { animate: true, duration: 0.25 });
-      autoFollowTarget.lat = lat;
-      autoFollowTarget.lon = lon;
-    }
+    map.panTo([lat, lon], { animate: false }); // ไม่ animate เพื่อไม่ให้ jitter
+    autoFollowTarget.lat = lat;
+    autoFollowTarget.lon = lon;
   }
 
   updateAutoZoom(speedKmh);
   updateVehicleIconBySpeed(speedKmh);
 }
+
 
 // -----------------------------
 // 🔹 startAutoFollow (พร้อม CSS rotation)
@@ -2536,17 +2538,19 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
 
 // -----------------------------
 // set transform origin at center
-// -----------------------------
+// ------------------------------
 function setMapPaneTransformOriginToCenter(targetMap = map) {
-  if (!targetMap) return;
-  try {
-    const size = targetMap.getSize();
-    const origin = `${size.x / 2}px ${size.y / 2}px`;
-    const mapPane = safeGetPane(targetMap, 'mapPane');
-    if (mapPane) mapPane.style.transformOrigin = origin;
-  } catch (e) {
-    console.warn("setMapPaneTransformOriginToCenter error:", e);
-  }
+  if (!targetMap || !targetMap.getSize || !targetMap.getPane) return;
+
+  const size = targetMap.getSize();
+  const center = targetMap.latLngToContainerPoint(targetMap.getCenter());
+  const origin = `${center.x}px ${center.y}px`;
+
+  const mapPane = targetMap.getPane('mapPane');
+  const container = targetMap.getContainer();
+
+  if (mapPane) mapPane.style.transformOrigin = origin;
+  if (container) container.style.transformOrigin = origin;
 }
 
 
