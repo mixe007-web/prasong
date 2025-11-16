@@ -731,7 +731,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 26.5</h2>
+<h2>Trip A-B Version 26.6</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1344,8 +1344,8 @@ function updateEnergyConsumptionRealTime(distanceKm, speedKmh) {
   if (distanceKm < 0) distanceKm = 0;
   let SocOver = 1;
   const socPercent = parseFloat(document.getElementById("socPercent").textContent.replace('%', ''));
-  if (socPercent >= 15 && socPercent <= 32) {
-    SocOver = 1.35;  // เพิ่มค่า energyPerKm
+  if (socPercent >= 17 && socPercent <= 32) {
+    SocOver = 1.40;  // เพิ่มค่า energyPerKm
   }
   
   const energyPerKm = getEnergyPerKmFromSpeed(speedKmh);
@@ -1455,7 +1455,7 @@ const colorStops = [
   { value: 3.79, color: { r: 255, g: 64, b: 0 } },
   { value: 4.23, color: { r: 255, g: 128, b: 0 } },
   { value: 4.37, color: { r: 255, g: 192, b: 0 } },
-  { value: 4.51, color: { r: 255, g: 215, b: 0 } },
+  { value: 4.71, color: { r: 255, g: 215, b: 0 } },
   { value: 5.10, color: { r: 128, g: 192, b: 0 } },
   { value: MAX_EFF, color: { r: 0, g: 128, b: 0 } } // MAX_EFF
 ];
@@ -2374,7 +2374,7 @@ function safeInvalidateMap(targetMap, delay = 300) {
     try {
       targetMap.invalidateSize();
       const mapPane = targetMap.getPane('mapPane');
-      const container = targetMap.getContainer && targetMap.getContainer();
+  
       if (mapPane) {
         if (isMapRotated) {
           mapPane.style.transform = `rotate(${-currentRotation}deg)`;
@@ -2383,9 +2383,7 @@ function safeInvalidateMap(targetMap, delay = 300) {
           mapPane.style.transform = mapPane.style.transform || '';
         }
       }
-      if (container) {
-        setMapPaneTransformOriginToCenter(targetMap);
-      }
+
     } catch (e) {
       console.warn("⚠️ safeInvalidateMap error:", e);
     }
@@ -2402,7 +2400,6 @@ function resetMapRotation(callback) {
   if (!map) { if (callback) callback(); return; }
 
   const mapPane = map.getPane('mapPane');
-  const container = map.getContainer && map.getContainer();
   if (!mapPane) { if (callback) callback(); return; }
 
   if (isTracking && autoRotate) {
@@ -2417,10 +2414,6 @@ function resetMapRotation(callback) {
     try {
       mapPane.style.removeProperty('transform');
       mapPane.style.transition = '';
-      if (container && container.style) {
-        container.style.removeProperty('transform');
-        container.style.transition = '';
-      }
     } catch (e) {}
 
     isResettingRotation = false;
@@ -2436,11 +2429,6 @@ function resetMapRotation(callback) {
 
   mapPane.style.transition = 'transform 0.35s ease-out';
   mapPane.style.transform = 'rotate(0deg)';
-  if (container && container.style) {
-    container.style.transition = 'transform 0.35s ease-out';
-    container.style.transform = 'rotate(0deg)';
-  }
-
   setTimeout(done, 500);
 }
 
@@ -2510,35 +2498,20 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
     if (vehicleMarker.setRotationAngle) {
       lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, 0.2);
       vehicleMarker.setRotationAngle(lastMarkerAngle);
+	 
     }
 
     // map rotation (smooth) - rotate map so vehicle points "up" (roads look straight)
-    if (autoRotate) {
-      const mapPane = map.getPane('mapPane');
-      if (mapPane) {
-        // ensure origin set
-        setMapPaneTransformOriginToCenter(map);
-
-        // target for map rotation should be negative of heading (so marker faces up while map rotates)
-        const desiredMapRot = (-headingDeg + 360) % 360;
-
-        // compute shortest diff
-        const diff = normalizeAngleDifference(desiredMapRot - lastMapRotation);
-
-        // only animate if diff is meaningful (avoid tiny jitter)
-        if (Math.abs(diff) > MIN_ROTATE_DIFF) {
-          lastMapRotation = lerpAngle(lastMapRotation, desiredMapRot, 0.15);
-          mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
-          isMapRotated = true;
-        } else {
-          // if diff very small, snap to desired to avoid tiny remaining error
-          lastMapRotation = desiredMapRot;
-          mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
-          if (Math.abs(desiredMapRot) < 0.0001) isMapRotated = false;
-        }
-      }
-    }
-
+if (autoRotate) {
+  const mapPane = map.getPane('mapPane');
+  if (mapPane) {
+    setMapPaneTransformOriginToCenter(map);
+    const desiredMapRot = ((180 - headingDeg) % 360 + 360) % 360; // รถชี้ขึ้น
+    lastMapRotation = desiredMapRot;
+    mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
+    isMapRotated = true;
+  }
+}
     autoFollowAnimFrame = requestAnimationFrame(animate);
   };
 
@@ -2562,10 +2535,7 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   }
 
 lastMarkerAngle = 0;
-// map rotation value represents the CURRENT CSS rotation in degrees already applied on mapPane.
-// startAutoFollow immediately sets mapPane.style.transform = `rotate(${-headingDeg}deg)` below,
-// so lastMapRotation must reflect that value (negative heading).
-lastMapRotation = (-headingDeg + 360) % 360;
+lastMapRotation = ((180 - headingDeg) % 360 + 360) % 360;
 
   // disable user interaction
   map.dragging.disable();
@@ -2579,15 +2549,15 @@ lastMapRotation = (-headingDeg + 360) % 360;
   map.setView([lat, lon], map.getZoom(), { animate: false });
 
   // reset marker rotation
-  if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(0);
+if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(0);
 
   // set map rotation initially
   const mapPane = map.getPane('mapPane');
-  if (mapPane) {
-    setMapPaneTransformOriginToCenter(map);
-    mapPane.style.transition = 'none';
-    mapPane.style.transform = `rotate(${-headingDeg}deg)`;
-  }
+if (mapPane) {
+  setMapPaneTransformOriginToCenter(map);
+  mapPane.style.transition = 'none';
+  mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
+}
 
   // start smooth pan & rotate
   autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
@@ -2607,13 +2577,8 @@ function setMapPaneTransformOriginToCenter(targetMap = map) {
   const origin = `${center.x}px ${center.y}px`;
 
   const mapPane = targetMap.getPane('mapPane');
-  const container = targetMap.getContainer();
-
   if (mapPane) mapPane.style.transformOrigin = origin;
-  if (container) container.style.transformOrigin = origin;
 }
-
-
 
 // -----------------------------
 // helper: คำนวณ heading จากตำแหน่งก่อนหน้า
@@ -2722,7 +2687,6 @@ function destroyMap() {
     }
 
     const mapPane = safeGetPane(map, 'mapPane');
-    const container = map.getContainer && map.getContainer();
 
     if (mapPane && mapPane.style) {
       mapPane.style.transform = '';
@@ -2730,13 +2694,7 @@ function destroyMap() {
       mapPane.style.removeProperty('transform');
       mapPane.style.removeProperty('transition');
     }
-    if (container && container.style) {
-      container.style.transform = '';
-      container.style.transition = '';
-      container.style.removeProperty('transform');
-      container.style.removeProperty('transition');
-    }
-
+    
     map.off();
     map.remove();
   } catch (e) {
@@ -2869,22 +2827,7 @@ function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
   lastLat = lat;
   lastLon = lon;
 
-  let heading = null;
-
-// หาก GPS มี heading จริง
-if (typeof headingDegInput === "number" && headingDegInput >= 0) {
-  heading = headingDegInput;
-  lastValidHeading = heading;
-}
-// หากไม่มี ใช้ heading จากการคำนวณระหว่างตำแหน่งก่อนหน้า
-else if (lastLat !== null && lastLon !== null) {
-  heading = getHeadingFromPrev(lastLat, lastLon, lat, lon);
-  lastValidHeading = heading;
-}
-// fallback
-else {
-  heading = lastValidHeading ?? 0;
-}
+  const heading = (typeof headingDegInput === "number") ? headingDegInput : lastValidHeading ?? 0;
   lastValidHeading = heading;
   autoFollowAndRotate(lat, lon, speedKmh, heading);
 
@@ -3290,6 +3233,7 @@ const pathCoords = tripLog
 
 if (isMapRotated) resetMapRotation(() => drawHistoryRoute(pathCoords));
 else drawHistoryRoute(pathCoords);
+
 
 const finalAvgEfficiency = stopAvgEfficiencyTracking();
   const finalTrip = {
