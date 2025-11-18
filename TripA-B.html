@@ -731,7 +731,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 27.4</h2>
+<h2>Trip A-B Version 27.6</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1373,7 +1373,7 @@ let lastUpdateTime = Date.now();
 
 function getEfficiencyPerPercent(speedKmh) {
   const points = [
-    { speed: 0, efficiency: 6.00 },
+    { speed: 0, efficiency: 5.99 },
     { speed: 10, efficiency: 5.95 },
     { speed: 20, efficiency: 5.90 },
     { speed: 30, efficiency: 5.85 },
@@ -1693,15 +1693,30 @@ function updateTripTime() {
   const historyContainer = document.getElementById("historyContainer");
   
 function getDynamicMinDist(speedKmh) {
-  if (speedKmh < 3) return 0.002;
-  else if (speedKmh < 15) return 0.0025;
-  else if (speedKmh < 40) return 0.0035;
-  else if (speedKmh < 60) return 0.0045;
-  else if (speedKmh < 80) return 0.0060;
-  else if (speedKmh < 100) return 0.0080;
-  else if (speedKmh < 120) return 0.0100;
-  else return 0.0200;
+  const points = [
+    { speed: 0, dist: 0.002 },
+    { speed: 15, dist: 0.0025 },
+    { speed: 40, dist: 0.0035 },
+    { speed: 60, dist: 0.0045 },
+    { speed: 80, dist: 0.006 },
+    { speed: 100, dist: 0.008 },
+    { speed: 120, dist: 0.01 },
+    { speed: 160, dist: 0.02 }
+  ];
+
+  if (speedKmh <= points[0].speed) return points[0].dist;
+  if (speedKmh >= points[points.length - 1].speed) return points[points.length-1].dist;
+
+  for (let i = 1; i < points.length; i++) {
+    const p1 = points[i-1];
+    const p2 = points[i];
+    if (speedKmh <= p2.speed) {
+      const ratio = (speedKmh - p1.speed) / (p2.speed - p1.speed);
+      return p1.dist + ratio * (p2.dist - p1.dist);
+    }
+  }
 }
+
 let positions = [];
 function checkIfStopped(lat, lon, speedKmh = 0) {
   positions.push({ lat, lon });
