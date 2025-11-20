@@ -1028,8 +1028,10 @@ function getDynamicMinDist(speedKmh) {
   if (speedKmh < 5) return 0.001;
   else if (speedKmh < 15) return 0.002;
   else if (speedKmh < 40) return 0.0035;
-  else if (speedKmh < 80) return 0.005;
-  else return 0.007;
+  else if (speedKmh < 60) return 0.004;
+  else if (speedKmh < 80) return 0.007;
+  else if (speedKmh < 100) return 0.009;
+  else return 0.03;
 }
 function checkIfStopped(lat, lon, speedKmh = 0) {
   positions.push({ lat, lon });
