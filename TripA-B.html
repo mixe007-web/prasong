@@ -12,8 +12,8 @@
 <meta name="description" content="ระบบติดตามการเดินทางแบบเรียลไทม์ Trip A-B Tracker" />
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
 <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
-<!-- Leaflet Core -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/bbecquet/Leaflet.RotatedMarker/leaflet.rotatedMarker.js"></script>
 
@@ -371,17 +371,13 @@
 
 #map {
   position: absolute;
-  top: -35%;
-  left: -35%;
-  width: 170%;
-  height: 170%;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
   will-change: transform;
   transform-style: preserve-3d;
   backface-visibility: hidden;
-}
-
-.leaflet-rotate-pane {
-  transition: transform 0.15s linear;
 }
 
 .leaflet-map-pane {
@@ -440,290 +436,6 @@
    0%, 100% { opacity: 1; }
    50% { opacity: 0.4; }
 }
-/* ================= Trip Recorder Panel ================= */
-#tripRecorderPanel {
-  position: fixed;
-  top: 0;
-  right: 0;          /* เริ่มจากขวา */
-  width: 380px;
-  max-width: 95%;
-  height: 100%;
-  background-color: #1c1c1c;
-  color: #e0e0e0;
-  padding: 20px;
-  overflow-y: auto;
-  transition: transform 0.3s ease;
-  z-index: 9999;
-  font-family: 'Rubik', sans-serif;
-  box-sizing: border-box;
-
-  transform: translateX(100%); /* ซ่อนนอกหน้าจอ */
-  display: none;               /* ซ่อนจริง ๆ */
-}
-
-#tripRecorderPanel.open {
-  display: block;
-  transform: translateX(0);    /* เลื่อนเข้ามา */
-}
-
-.trips-container .trip-card {
-  background-color: #222;
-  border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-  border: 1px solid #444;
-}
-
-.trip-card h4 {
-  margin: 0 0 10px 0;
-  font-size: 1.1rem;
-  color: #fff;
-}
-
-/* ================= General Trip Row ================= */
-.trip-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-
-.trip-row label {
-  flex: 0 0 90px; /* ปรับให้เล็กลงสำหรับมือถือ */
-}
-
-/* ================= Battery Row ================= */
-.trip-row.battery-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap; /* อยู่บรรทัดเดียวกัน */
-}
-
-.battery-bar-container {
-  width: 50px;
-  height: 20px;
-  border: 2px solid #666;
-  border-radius: 4px;
-  background: #222;
-  overflow: hidden;
-  flex: 0 0 auto; /* ไม่ยืด */
-}
-
-.battery-bar-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(to top, #0f0 0%, #0c0 100%);
-  transition: width 0.3s ease, background 0.3s ease;
-}
-
-.trip-row.battery-wrapper input {
-  width: 40px;        /* พอดีกับ 3 ตัวเลข */
-  flex: 0 0 40px;     /* ไม่ยืด */
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: 1px solid #666;
-  background-color: #333;
-  color: #fff;
-  text-align: right;
-  font-size: 0.9rem;
-}
-
-.trip-row.battery-wrapper span.percent {
-  width: 45px;
-  flex: 0 0 45px; /* พอดีกับ % */
-  text-align: left;
-  font-weight: bold;
-  color: #0f0;
-}
-
-/* ================= Info Row (Distance) (SOC) ================= */
-.trip-row.info-Distance {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 20px; /* ช่องว่างระหว่าง SOC และ Distance */
-  flex-wrap: nowrap; /* บังคับให้อยู่บรรทัดเดียว */
-}
-
-.trip-row.info-Distance label {
-  flex: 0 0 auto;
-  font-weight: bold;
-  color: #fff;
-  min-width: 110px;
-}
-
-.trip-row.info-Distance span {
-  flex: 0 0 auto;
-  color: #0f0;
-  min-width: 70px;
-  text-align: left;
-}
-/* ================= Buttons ================= */
-.trip-card .button-row {
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.trip-card button {
-  flex: 1 0 45%;
-  padding: 6px 0;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  background-color: #007bff;
-  color: #fff;
-  font-weight: bold;
-  transition: background 0.2s ease;
-}
-
-.trip-card button.saved { background-color: #555; }
-
-/* ================= test history record ================= */
-.trip-history-record span.field-name {
-  color: #fff;       /* สีขาวสำหรับชื่อฟิลด์ */
-  font-weight: bold;
-}
-
-.trip-history-record span.field-value {
-  color: #0f0;       /* สีเขียวสำหรับค่า */
-  font-weight: bold;
-}
-
-/* ================= Trip History Record ================= */
-.trip-history-record {
-  background-color: #222;
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-  border: 1px solid #444;
-  display: flex;
-  flex-direction: column; /* stack header + details */
-  gap: 4px;
-}
-
-/* header: Trip xx + Delete button */
-.trip-history-record .record-header {
-  display: flex;
-  justify-content: space-between; /* ข้อความซ้าย ปุ่มขวา */
-  align-items: center;             /* กลางแนวตั้ง */
-  color: #0f0;                     /* Trip id สีเขียว */
-  font-weight: bold;
-  font-size: 0.9rem;
-}
-
-/* Delete button */
-.trip-history-record .deleteBtn {
-  background-color: #c00;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.trip-history-record .deleteBtn:hover {
-  background-color: #f33;
-  transform: scale(1.05);
-}
-
-/* Details ของบันทึก */
-.trip-history-record .record-details {
-  display: flex;
-  flex-direction: column; /* stack เป็นบรรทัดเดียวกัน */
-  gap: 2px;
-}
-
-.trip-history-record .field-name {
-  color: #fff;
-  font-weight: bold;
-}
-
-.trip-history-record .field-value {
-  color: #0f0;
-  font-weight: bold;
-  margin-left: 4px;
-}
-
-/* Responsive มือถือ */
-@media(max-width: 500px){
-  .trip-history-record .record-header {
-    flex-direction: column; /* stack ข้อความ + ปุ่ม */
-    align-items: flex-start;
-    gap: 4px;
-  }
-  .trip-history-record .deleteBtn {
-    font-size: 0.7rem;
-    padding: 1px 5px;
-  }
-}
-
-/* ================= Progress Bar ================= */
-.progress-bar-container {
-  background: #333;
-  border-radius: 6px;
-  height: 10px;
-  width: 100%;
-  margin-top: 5px;
-}
-
-.progress-bar {
-  height: 100%;
-  border-radius: 6px;
-  background: linear-gradient(to right, #0f0, #0c0);
-  width: 0%;
-  transition: width 0.3s ease;
-}
-
-.trip-row span.used,
-.trip-row span.distance { font-weight: bold; color: #0f0; }
-
-/* ================= Responsive Mobile ================= */
-@media(max-width: 500px){
-  .trip-row.battery-wrapper {
-    gap: 4px;
-  }
-
-  .trip-row.battery-wrapper label {
-    width: 80px;
-    flex: 0 0 80px;
-  }
-
-  .trip-row.battery-wrapper input {
-    width: 40px;
-    flex: 0 0 40px;
-  }
-
-  .trip-row.battery-wrapper span.percent {
-    width: 40px;
-    flex: 0 0 40px;
-  }
-
-  .trip-row.info-wrapper {
-    gap: 10px;
-  }
-
-  .trip-row.info-wrapper label {
-    min-width: 90px;
-    font-size: 0.85rem;
-  }
-
-  .trip-row.info-wrapper span {
-    min-width: 60px;
-    font-size: 0.85rem;
-  }
-
-  .trip-card button {
-    flex: 1 0 100%;
-  }
-}
 
 </style>
 </head>
@@ -731,7 +443,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 27.8</h2>
+<h2>Trip A-B Version 23.71</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -754,24 +466,7 @@
 <div style="margin-top:10px;">
   <button id="startBtn">เริ่ม Trip </button>
   <button id="stopBtn" disabled>หยุด Trip</button>
- <!--<button id="tripRecorderBtn">Trip Recorder</button>-->
 </div>
-<!-- ================= Trip Recorder Panel ================= 
- <div id="tripRecorderPanel">
-  <h2>Trip Recorder</h2>
-  <div style="text-align: center; margin-bottom: 10px;">
-    <button id="backToMainBtn">กลับไป Trip A-B</button>
-  </div>
-
-  <div class="trips-container" id="trips"></div>
-
-  <h3>ประวัติการบันทึก</h3>
-  <div style="text-align: center; margin-bottom: 10px;">
-    <button id="tripToggleBtn">ดูทั้งหมด</button>
-    <button id="tripDeleteAllBtn">ลบทั้งหมด</button>
-  </div>
-  <div id="tripHistory"></div>
-</div> -->
 
 <div id="speedometer-top">
   <div id="speedometer">
@@ -781,6 +476,7 @@
     <img src="https://img.icons8.com/fluency/48/place-marker.png" alt="ติดตาม GPS">
   </button>
 </div>
+
 
   <div>
     <div class="label">speed</div>
@@ -826,7 +522,7 @@
   <span id="socPercent" style="font-size: 18px;">0.00%</span>
   <div style="display: flex; flex-direction: column; align-items: center;">
   <span id="wltpKmValue" style="font-size: 11px; color: white; font-weight: bold;">0 km</span>
-  <span id="wltpKmLabel" style="font-size: 11px; color: white;">(WLTP)</span>
+  <span id="wltpKmLabel" style="font-size: 11px; color: back;">(WLTP)</span>
 </div>
 </div>
   </div>
@@ -844,7 +540,6 @@
   <p>เวลาที่เริ่ม และ พิกัดเริ่มต้น: <span id="startTime">-</span> , <span id="startCoord">-</span></p>
   <p>เวลาที่สิ้นสุด และ พิกัดสิ้นสุด: <span id="endTime">-</span> , <span id="endCoord">-</span></p>
 </div>
-
 <h3 style="display: flex; align-items: center; justify-content: space-between;">
   <span>ประวัติ</span>
   <button id="toggleTripHistory" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
@@ -865,7 +560,6 @@
     <div id="leafletMap" style="height: 500px;"></div>
     <div id="mapTripInfo" style="margin-top: 10px; font-size: 14px;"></div>
   </div>
-</div>
 </div>
 <!-- =============================== -->
 <!-- 🪧 Popup แจ้งเตือนอัปเดตเวอร์ชันใหม่ -->
@@ -918,354 +612,6 @@ if ('serviceWorker' in navigator) {
 <!-- =============================== -->
 <script>
 (() => {
-//=================================
-//Trip Recorder - Standalone
-//==================================
-/*const tripRecorderBtn = document.getElementById("tripRecorderBtn");
-const tripRecorderPanel = document.getElementById("tripRecorderPanel");
-const tripHistoryDiv = document.getElementById("tripHistory");
-const tripToggleBtn = document.getElementById("tripToggleBtn");
-const tripDeleteAllBtn = document.getElementById("tripDeleteAllBtn");
-
-tripRecorderBtn.addEventListener("click", () => {
-  if (!tripRecorderPanel.classList.contains("open")) {
-    tripRecorderPanel.style.display = "block";  // แสดง panel ก่อน transition
-    requestAnimationFrame(() => {
-      tripRecorderPanel.classList.add("open");
-    });
-  } else {
-    tripRecorderPanel.classList.remove("open");
-    tripRecorderPanel.addEventListener("transitionend", function hide() {
-      tripRecorderPanel.style.display = "none";
-      tripRecorderPanel.removeEventListener("transitionend", hide);
-    });
-  }
-});
-document.getElementById("backToMainBtn").addEventListener("click", () => {
-  if (tripRecorderPanel.classList.contains("open")) {
-    tripRecorderPanel.classList.remove("open");  // เริ่ม slide ออก
-    tripRecorderPanel.addEventListener("transitionend", function hide() {
-      tripRecorderPanel.style.display = "none";   // ซ่อนจริง ๆ หลัง slide เสร็จ
-      tripRecorderPanel.removeEventListener("transitionend", hide);
-    });
-  }
-});
-
-let trips = JSON.parse(localStorage.getItem("tripRecorderTrips")) || [
-  {id:1, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
-  {id:2, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
-  {id:3, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0}
-];
-
-let allHistory = JSON.parse(localStorage.getItem("tripRecorderHistory")||"[]");
-let showAll = false;
-
-window.addEventListener("load", () => {
-  const mainDistanceNow = parseFloat(document.getElementById('distance').innerText) || 0;
-
-  trips.forEach(trip => {
-    if (!trip.locked) {
-      // ให้เริ่มเทียบจากระยะปัจจุบันแทน เพื่อป้องกัน delta ผิด
-      trip.distanceStartAt = mainDistanceNow;
-      trip.lastDistance = mainDistanceNow;
-    }
-  });
-
-  saveTripsToStorage();
-});
-// ===================== Render Trips =====================
-function renderTrips(){
-  const tripsDiv = document.getElementById("trips");
-  tripsDiv.innerHTML='';
-  const fragment = document.createDocumentFragment();
-
-  trips.forEach(trip=>{
-    const div = document.createElement("div");
-    div.className="trip-card";
-    div.innerHTML=`
-      <div class="trip-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
-  <label for="tripName${trip.id}" style="flex: 0 0 auto;">Trip:</label>
-  <input type="text" id="tripName${trip.id}" value="${trip.name || ''}" placeholder="กรอกชื่อทริป" style="flex: 1 1 auto; min-width: 0;">
-</div>
-
-      <div class="trip-row battery-wrapper">
-        <label>Start/km:</label>
-        <div class="battery-bar-container"><div class="battery-bar-fill" id="startBar${trip.id}"></div></div>
-        <input type="number" id="start${trip.id}" value="${trip.startSOC}" min="0" max="602" maxlength="3">
-        <span id="startPct${trip.id}" class="percent">0%</span>
-      </div>
-      <div class="trip-row battery-wrapper">
-        <label>End/km:</label>
-        <div class="battery-bar-container"><div class="battery-bar-fill" id="endBar${trip.id}"></div></div>
-        <input type="number" id="end${trip.id}" value="${trip.endSOC}" min="0" max="602" maxlength="3">
-        <span id="endPct${trip.id}" class="percent">0%</span>
-      </div>
-      <div class="trip-row info-distance">
-        <label>SOC/Used:</label>
-        <span id="used${trip.id}" class="used">${trip.usedSOC.toFixed(2)}%</span>
-      </div>
-      <div class="trip-row info-distance">
-        <label>Distance(km):</label>
-        <span id="tripDistance${trip.id}" class="distance">${trip.distanceAccum.toFixed(3)}km </span>
-      </div>
-      <div class="progress-bar-container"><div class="progress-bar" id="progress${trip.id}"></div></div>
-      <div class="button-row">
-        <button id="save${trip.id}" ${trip.saved?'class="saved"':''}>บันทึก</button>
-        <button id="reset${trip.id}">Reset</button>
-      </div>
-    `;
-    fragment.appendChild(div);
-	
-    const tripNameInput = div.querySelector(`#tripName${trip.id}`);
-tripNameInput.addEventListener('input', () => {
-  trip.name = tripNameInput.value;
-  saveTripsToStorage();
-});
-
-    const startInput = div.querySelector(`#start${trip.id}`);
-    const endInput = div.querySelector(`#end${trip.id}`);
-    const startPctElem = div.querySelector(`#startPct${trip.id}`);
-    const endPctElem = div.querySelector(`#endPct${trip.id}`);
-    const usedElem = div.querySelector(`#used${trip.id}`);
-    const distElem = div.querySelector(`#tripDistance${trip.id}`);
-    const saveBtn = div.querySelector(`#save${trip.id}`);
-    const resetBtn = div.querySelector(`#reset${trip.id}`);
-    const progressBar = div.querySelector(`#progress${trip.id}`);
-    const startBar = div.querySelector(`#startBar${trip.id}`);
-    const endBar = div.querySelector(`#endBar${trip.id}`);
-
-
-    function updateBatteryBar(bar,pct){
-      pct=Math.min(Math.max(pct,0),100);
-      bar.style.width=pct+'%';
-      if(pct<10) bar.style.background='linear-gradient(to top, red 0%, darkred 100%)';
-      else if(pct<30) bar.style.background='linear-gradient(to top, yellow 0%, orange 100%)';
-      else if(pct<70) bar.style.background='linear-gradient(to top, gold 0%, darkgoldenrod 100%)';
-      else bar.style.background='linear-gradient(to top, #0f0 0%, #0c0 100%)';
-    }
-
-    function updatePercentAndUsed(){
-      let startVal=parseFloat(startInput.value)||0;
-      let endVal=parseFloat(endInput.value)||0;
-      if(startVal>602) startVal=602,startInput.value=602;
-      if(endVal>602) endVal=602,endInput.value=602;
-      if(endVal>startVal) endVal=startVal,endInput.value=startVal;
-      const startPct=Math.min(Math.max(startVal/602*100,0),100);
-      const endPct=Math.min(Math.max(endVal/602*100,0),100);
-      startPctElem.innerText=startPct.toFixed(2)+'%';
-      endPctElem.innerText=endPct.toFixed(2)+'%';
-      trip.usedSOC=startPct-endPct;
-      usedElem.innerText=trip.usedSOC.toFixed(2)+'%';
-      updateBatteryBar(startBar,startPct);
-      updateBatteryBar(endBar,endPct);
-      const percent=Math.min(trip.distanceAccum/100*100,100);
-      progressBar.style.width=percent+'%';
-    }
-
-    startInput.addEventListener('input',()=>{
-      trip.startSOC=startInput.value;
-      updatePercentAndUsed();
-      saveTripsToStorage();
-    });
-    endInput.addEventListener('input',()=>{
-      trip.endSOC=endInput.value;
-      updatePercentAndUsed();
-      saveTripsToStorage();
-    });
-	
-    // ================= Save =================
-    saveBtn.addEventListener('click', () => {
-  if (trip.saved) {
-    alert('ทริปนี้บันทึกแล้ว');
-    return;
-  }
-
-  updateDistanceAccum(trip, distElem);
-  trip.startSOC = startInput.value;
-  trip.endSOC = endInput.value;
-  updatePercentAndUsed();
-
-  const currentDistance = parseFloat(distElem.innerText) || 0;
-  trip.distanceAccum = currentDistance;
-
-  // lock trip → หยุดสะสม distance
-  trip.saved = true;
-  trip.locked = true;
-  startInput.disabled = true;
-  endInput.disabled = true;
-  saveBtn.classList.add('saved');
-  saveBtn.innerText = '✔ บันทึกแล้ว';
-  saveBtn.disabled = true;
-  saveTripsToStorage();
-
-  const newRecord = {
-    tripId: trip.id,
-    tripName: trip.name || `Trip ${trip.id}`,
-    startSOC: parseFloat(startPctElem.innerText),
-    endSOC: parseFloat(endPctElem.innerText),
-    usedSOC: trip.usedSOC,
-    newDistance: currentDistance,
-    timestamp: Date.now()
-  };
-
-  allHistory.push(newRecord);
-  localStorage.setItem("tripRecorderHistory", JSON.stringify(allHistory));
-  updateHistory();
-});
-
-
-    // ================= Reset =================
-resetBtn.addEventListener('click', () => {
-  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
-
-  trip.startSOC = '';
-  trip.endSOC = '';
-  trip.usedSOC = 0;
-  trip.distanceAccum = 0;
-  trip.lastDistance = 0;
-  trip.distanceStartAt = mainDistance;
-  trip.saved = false;
-  trip.locked = false;
-  trip.name = '';
-
-  startInput.value = '';
-  endInput.value = '';
-  tripNameInput.value = '';
-  startInput.disabled = false;
-  endInput.disabled = false;
-  saveBtn.disabled = false;
-  startPctElem.innerText = '0%';
-  endPctElem.innerText = '0%';
-  usedElem.innerText = '0.00%';
-  distElem.innerText = '0.000 km';
-  progressBar.style.width = '0%';
-
-  updateBatteryBar(startBar, 0);
-  updateBatteryBar(endBar, 0);
-
-  saveBtn.classList.remove('saved');
-  saveBtn.innerText = 'บันทึก';
-
-  saveTripsToStorage();
-});
-
-    updatePercentAndUsed();
-  });
-
-  tripsDiv.appendChild(fragment);
-}
-
-// ===================== Update Distance =====================
-function updateDistanceAccum(trip, distElem){
-  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
-  let delta = mainDistance - (trip.lastDistance || trip.distanceStartAt);
-  if (delta > 0 && delta < 100) {
-    trip.distanceAccum += delta;
-  }
-
-  trip.lastDistance = mainDistance;
-  distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
-  saveTripsToStorage();
-}
-
-function saveTripsToStorage(){ localStorage.setItem("tripRecorderTrips",JSON.stringify(trips)); }
-
-// ===================== History (batch, smooth) =====================
-function updateHistory() {
-  if (!tripHistoryDiv) return;
-  const sorted = [...allHistory].sort((a,b)=>b.timestamp - a.timestamp);
-  const display = showAll ? sorted : [sorted[0]].filter(Boolean);
-
-  tripHistoryDiv.innerHTML='';
-
-  const batchSize = 100;
-  let index = 0;
-
-  function renderBatch() {
-    const fragment = document.createDocumentFragment();
-    for(let i=0;i<batchSize && index<display.length;i++,index++){
-      const record = display[index];
-	  const dateStr = new Date(record.timestamp).toLocaleDateString();
-      const div = document.createElement('div');
-	  div.className = 'trip-history-record';
-      div.innerHTML = `
-	  <div class="record-header">
-  ${record.tripName || `Trip ${record.tripId}`} | ${new Date(record.timestamp).toLocaleDateString()}
-</div>
-        <div class="record-details">
-          <div><span class="field-name">Start/SOC:</span> <span class="field-value">${(Number(record.startSOC)||0).toFixed(2)}%</span></div>
-          <div><span class="field-name">End/SOC:</span> <span class="field-value">${(Number(record.endSOC)||0).toFixed(2)}%</span></div>
-          <div><span class="field-name">SOC/Used:</span> <span class="field-value">${(Number(record.usedSOC)||0).toFixed(2)}%</span></div>
-          <div><span class="field-name">Distance:</span> <span class="field-value">${(Number(record.newDistance)||0).toFixed(3)} km</span></div>
-        </div>
-		<button class="deleteBtn" data-ts="${record.timestamp}">ลบ</button>
-      `;
-      tripHistoryDiv.appendChild(div);
-    }
-    if(index < display.length) requestAnimationFrame(renderBatch);
-  }
-
-  requestAnimationFrame(renderBatch);
-}
-
-// Delete single
-tripHistoryDiv.addEventListener('click', e=>{
-  const target=e.target;
-  if(target.classList.contains('deleteBtn')){
-    const ts=parseInt(target.dataset.ts);
-    if(!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
-    allHistory=allHistory.filter(r=>r.timestamp!==ts);
-    localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
-    updateHistory();
-  }
-});
-
-// Toggle show all
-tripToggleBtn.addEventListener('click',()=>{
-  showAll=!showAll;
-  tripToggleBtn.innerText = showAll?'ดูน้อยลง':'ดูทั้งหมด';
-  updateHistory();
-});
-
-// Delete all
-tripDeleteAllBtn.addEventListener('click',()=>{
-  if(!confirm('ต้องการลบประวัติทั้งหมดหรือไม่?')) return;
-  allHistory=[];
-  localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
-  updateHistory();
-});
-
-// Real-time cumulative distance
-setInterval(()=>{
-  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
-
-  trips.forEach(trip=>{
-    if(trip.locked) return;
-
-    let delta = mainDistance - (trip.lastDistance !== 0 ? trip.lastDistance : trip.distanceStartAt);
-
-    // ป้องกัน jump หรือติดลบ
-    if (delta > 0 && delta < 100) {
-      trip.distanceAccum += delta;
-    }
-
-    trip.lastDistance = mainDistance;
-
-    const distElem = document.getElementById(`tripDistance${trip.id}`);
-    const progressBar = document.getElementById(`progress${trip.id}`);
-    if(distElem) distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
-    if(progressBar) progressBar.style.width = Math.min(trip.distanceAccum/100*100,100)+'%';
-  });
-
-  saveTripsToStorage();
-}, 500);
-
-renderTrips();
-updateHistory();
-*/
-//====================================================================
-//Trip real time 
-//====================================================================
   let updateEndTimeInterval = null;
   let tripStartTime = null;
   let tripLog = [];
@@ -1314,12 +660,12 @@ function getEnergyPerKmFromSpeed(speedKmh) {
     { speed: 70, energy: 0.1285 },
     { speed: 80, energy: 0.1366 },
     { speed: 90, energy: 0.1450 },
-    { speed: 100, energy: 0.1520 },
-    { speed: 110, energy: 0.1597 },
-    { speed: 120, energy: 0.1681 },
-    { speed: 130, energy: 0.1672 },
-    { speed: 140, energy: 0.1736 },
-    { speed: 150, energy: 0.1791 },
+    { speed: 100, energy: 0.1500 },
+    { speed: 110, energy: 0.1547 },
+    { speed: 120, energy: 0.1631 },
+    { speed: 130, energy: 0.1622 },
+    { speed: 140, energy: 0.1686 },
+    { speed: 150, energy: 0.1771 },
     { speed: 160, energy: 0.1895 }
   ];
 
@@ -1344,8 +690,8 @@ function updateEnergyConsumptionRealTime(distanceKm, speedKmh) {
   if (distanceKm < 0) distanceKm = 0;
   let SocOver = 1;
   const socPercent = parseFloat(document.getElementById("socPercent").textContent.replace('%', ''));
-  if (socPercent >= 17 && socPercent <= 32) {
-    SocOver = 1.40;  // เพิ่มค่า energyPerKm
+  if (socPercent >= 15 && socPercent <= 32) {
+    SocOver = 1.50;  // เพิ่มค่า energyPerKm อีก 50%
   }
   
   const energyPerKm = getEnergyPerKmFromSpeed(speedKmh);
@@ -1373,10 +719,10 @@ let lastUpdateTime = Date.now();
 
 function getEfficiencyPerPercent(speedKmh) {
   const points = [
-    { speed: 0, efficiency: 5.99 },
-    { speed: 10, efficiency: 5.95 },
-    { speed: 20, efficiency: 5.90 },
-    { speed: 30, efficiency: 5.85 },
+  { speed: 0, efficiency: 4.45 },
+    { speed: 10, efficiency: 6.85 },
+    { speed: 20, efficiency: 6.5 },
+    { speed: 30, efficiency: 6.14 },
     { speed: 40, efficiency: 5.77 },
     { speed: 50, efficiency: 5.58 },
     { speed: 60, efficiency: 5.30 },
@@ -1391,26 +737,20 @@ function getEfficiencyPerPercent(speedKmh) {
     { speed: 150, efficiency: 2.73 },
     { speed: 160, efficiency: 2.40 }
   ];
-
-  const MIN_EFF = 2.4;
-  const MAX_EFF = 6.02; // สูงสุดที่ต้องการ
-
-  if (speedKmh <= points[0].speed) return Math.min(points[0].efficiency, MAX_EFF);
-  if (speedKmh >= points[points.length - 1].speed) return Math.min(points[points.length - 1].efficiency, MAX_EFF);
+  if (speedKmh <= points[0].speed) return points[0].efficiency;
+  if (speedKmh >= points[points.length - 1].speed) return points[points.length - 1].efficiency;
 
   for (let i = 1; i < points.length; i++) {
     const p1 = points[i - 1];
     const p2 = points[i];
+
     if (speedKmh <= p2.speed) {
       const ratio = (speedKmh - p1.speed) / (p2.speed - p1.speed);
-      const eff = p1.efficiency + ratio * (p2.efficiency - p1.efficiency);
-      return Math.min(Math.max(eff, MIN_EFF), MAX_EFF);
+      return p1.efficiency + ratio * (p2.efficiency - p1.efficiency);
     }
   }
-
-  return Math.min(Math.max(points[points.length - 1].efficiency, MIN_EFF), MAX_EFF);
+  return points[points.length - 1].efficiency;
 }
-
 
 let lastEfficiencySpeed = 0;
 let lastEfficiencyUpdate = 0;
@@ -1434,157 +774,139 @@ function updateEfficiency() {
   }
 
 //efficiencyPerPercentBar
-const now = Date.now();
-const speedDiff = Math.abs(speed - lastEfficiencySpeed);
-if (speedDiff < 1 && now - lastEfficiencyUpdate < 300) {
-  return; // ข้ามการอัปเดต bar ถ้าเปลี่ยนเล็กน้อยและเร็วเกินไป
-}
-lastEfficiencySpeed = speed;
-lastEfficiencyUpdate = now;
-
-let efficiencyPerPercent = getEfficiencyPerPercent(speed || 0);
-
-// ป้องกันค่าต่ำสุด และจำกัดสูงสุด
-const MIN_EFF = 2.4;
-const MAX_EFF = 6.02;
-efficiencyPerPercent = Math.min(Math.max(efficiencyPerPercent, MIN_EFF), MAX_EFF);
-
-const bar = document.getElementById('efficiencyPerPercentBar');
-const colorStops = [
-  { value: MIN_EFF, color: { r: 255, g: 0, b: 0 } },
-  { value: 3.79, color: { r: 255, g: 64, b: 0 } },
-  { value: 4.23, color: { r: 255, g: 128, b: 0 } },
-  { value: 4.37, color: { r: 255, g: 192, b: 0 } },
-  { value: 4.81, color: { r: 255, g: 215, b: 0 } },
-  { value: 5.10, color: { r: 128, g: 192, b: 0 } },
-  { value: MAX_EFF, color: { r: 0, g: 128, b: 0 } } // MAX_EFF
-];
-
-let lower = colorStops[0];
-let upper = colorStops[colorStops.length - 1];
-for (let i = 1; i < colorStops.length; i++) {
-  if (efficiencyPerPercent <= colorStops[i].value) {
-    lower = colorStops[i - 1];
-    upper = colorStops[i];
-    break;
+ const now = Date.now();
+  const speedDiff = Math.abs(speed - lastEfficiencySpeed);
+  if (speedDiff < 1 && now - lastEfficiencyUpdate < 300) {
+    return; // ข้ามการอัปเดต bar ถ้าเปลี่ยนเล็กน้อยและเร็วเกินไป
   }
+  lastEfficiencySpeed = speed;
+  lastEfficiencyUpdate = now;
+  let efficiencyPerPercent = getEfficiencyPerPercent(speed || 0);
+
+  // ป้องกันค่าต่ำสุด (เหมือนเดิม)
+  efficiencyPerPercent = Math.max(efficiencyPerPercent, 2.4);
+
+  const bar = document.getElementById('efficiencyPerPercentBar');
+  const maxEff = 7.2;
+  const colorStops = [
+    { value: 0, color: { r: 255, g: 0, b: 0 } },
+    { value: 3.79, color: { r: 255, g: 64, b: 0 } },
+    { value: 4.23, color: { r: 255, g: 128, b: 0 } },
+    { value: 4.37, color: { r: 255, g: 192, b: 0 } },
+    { value: 4.81, color: { r: 255, g: 215, b: 0 } },
+    { value: 5.30, color: { r: 128, g: 192, b: 0 } },
+    { value: 6.14, color: { r: 0, g: 128, b: 0 } },
+    { value: maxEff, color: { r: 0, g: 128, b: 0 } }
+  ];
+  let lower = colorStops[0];
+  let upper = colorStops[colorStops.length - 1];
+  for (let i = 1; i < colorStops.length; i++) {
+    if (efficiencyPerPercent <= colorStops[i].value) {
+      lower = colorStops[i - 1];
+      upper = colorStops[i];
+      break;
+    }
+  }
+
+  let t = (efficiencyPerPercent - lower.value) / (upper.value - lower.value || 1);
+  t = Math.min(Math.max(t, 0), 1);
+  const r = Math.round(lower.color.r + (upper.color.r - lower.color.r) * t);
+  const g = Math.round(lower.color.g + (upper.color.g - lower.color.g) * t);
+  const b = Math.round(lower.color.b + (upper.color.b - lower.color.b) * t);
+
+  bar.style.backgroundColor = `rgb(${r},${g},${b})`;
+
+  const widthPercent = Math.min((efficiencyPerPercent / maxEff) * 100, 100);
+  bar.style.width = widthPercent + "%";
+
+  bar.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
+
+  // อัปเดต timestamp (ไม่ใช้ idle smoothing)
+  lastUpdateTime = Date.now();
 }
-
-let t = (efficiencyPerPercent - lower.value) / (upper.value - lower.value || 1);
-t = Math.min(Math.max(t, 0), 1);
-const r = Math.round(lower.color.r + (upper.color.r - lower.color.r) * t);
-const g = Math.round(lower.color.g + (upper.color.g - lower.color.g) * t);
-const b = Math.round(lower.color.b + (upper.color.b - lower.color.b) * t);
-
-bar.style.backgroundColor = `rgb(${r},${g},${b})`;
-
-// ความกว้าง bar ใช้ MAX_EFF = 6.02
-const widthPercent = Math.min((efficiencyPerPercent / MAX_EFF) * 100, 100);
-bar.style.width = widthPercent + "%";
-
-bar.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
-
-// อัปเดต timestamp
-lastUpdateTime = Date.now();
-}
-// --- AVG EFFICIENCY (2 MIN VERSION) ---
-let efficiencySamples = [];      // เก็บ {eff, time}
+// --- AVG EFFICIENCY (10 MIN REALISTIC VERSION) ---
+let efficiencySamples = []; // เก็บ {eff, time}
 let lastAvgEfficiency = 0;
 let idleEfficiencyAccumulator = 0;
 
-const AVG_WINDOW_SECONDS = 120;        // เก็บข้อมูลย้อนหลัง 2 นาที
-const AVG_UPDATE_INTERVAL = 120;       // อัปเดต UI ทุก 2 นาทีจริง
-const IDLE_UPDATE_INTERVAL = 60;       // idle smoothing ทุก 60s
-const IDLE_DECREASE_AMOUNT = 0.05;
-const MIN_EFF = 2.4;
-const MAX_EFF = 6.02;
-
-// timestamp อัปเดตเฉลี่ยครั้งล่าสุด
-let lastAvgUpdateTime = Date.now() / 1000;
+const AVG_WINDOW_SECONDS = 600;  // 10 นาที (600 วินาที)
+const IDLE_UPDATE_INTERVAL = 60; // 1 นาที
+const IDLE_DECREASE_AMOUNT = 0.1; // ลดทีละ 0.1 km/1% ต่อ 1 นาทีจอด
+const MIN_EFF = 2.4; // ค่าต่ำสุด
 
 function updateAvgEfficiencyPerPercent() {
-    if (!isTracking) return;
+  if (!isTracking) return;
+  const effElem = document.getElementById("efficiencyPerPercentBar");
+  if (!effElem) return;
 
-    const effElem = document.getElementById("efficiencyPerPercentBar");
-    if (!effElem) return;
+  const match = effElem.textContent.match(/([\d.]+)/);
+  const currentEff = match ? parseFloat(match[1]) : 0;
+  if (isNaN(currentEff) || currentEff <= 0) return;
 
-    // อ่าน efficiency ปัจจุบันจาก bar
-    const match = effElem.textContent.match(/([\d.]+)/);
-    const currentEff = match ? parseFloat(match[1]) : 0;
-    if (isNaN(currentEff) || currentEff <= 0) return;
+  const now = Date.now() / 1000;
+  if (!updateAvgEfficiencyPerPercent.lastCall) {
+    updateAvgEfficiencyPerPercent.lastCall = now;
+  }
+  const deltaTime = now - updateAvgEfficiencyPerPercent.lastCall;
 
-    const now = Date.now() / 1000;
-
-    // -----------------------------
-    // 1) เก็บ Sample ทุกรอบที่ถูกเรียก
-    // -----------------------------
+  if (speed > 3) {
     efficiencySamples.push({ eff: currentEff, time: now });
-
-    // เก็บย้อนหลัง 2 นาที
     efficiencySamples = efficiencySamples.filter(s => now - s.time <= AVG_WINDOW_SECONDS);
 
-    // -----------------------------
-    // 2) Idle smoothing
-    // -----------------------------
-    if (speed <= 3) {
-        idleEfficiencyAccumulator += 1;
+    const avgRealtime = efficiencySamples.reduce((a, b) => a + b.eff, 0) / efficiencySamples.length;
+    const netEnergyWh = driveEnergyWh + idleEnergyWhTotal - totalRegenEnergyWh;
+    let avgEnergyBased = avgRealtime;
+    if (driveDistanceKm > 0 && netEnergyWh > 0) {
+      avgEnergyBased = driveDistanceKm / ((netEnergyWh / 1000) / 75.3 * 100);
+    }
+    const overallAvg = avgRealtime * 0.4 + avgEnergyBased * 0.6;
+
+    lastAvgEfficiency = overallAvg;
+    displayAvgEfficiency(lastAvgEfficiency);
+
+    idleEfficiencyAccumulator = 0;
+
+  } else {
+ 
+        idleEfficiencyAccumulator += deltaTime;
+
         if (idleEfficiencyAccumulator >= IDLE_UPDATE_INTERVAL) {
             lastAvgEfficiency = Math.max(lastAvgEfficiency - IDLE_DECREASE_AMOUNT, MIN_EFF);
             idleEfficiencyAccumulator = 0;
-        }
-    } else {
-        idleEfficiencyAccumulator = 0;
-    }
-
-    // ---------------------------------------------
-    // 3) อัปเดตค่าเฉลี่ย "เฉพาะเมื่อครบ 2 นาทีเท่านั้น"
-    // ---------------------------------------------
-    if (now - lastAvgUpdateTime >= AVG_UPDATE_INTERVAL) {
-
-        if (efficiencySamples.length > 0) {
-            const sum = efficiencySamples.reduce((a, b) => a + b.eff, 0);
-            lastAvgEfficiency = sum / efficiencySamples.length;
-        }
-
-        lastAvgEfficiency = Math.min(Math.max(lastAvgEfficiency, MIN_EFF), MAX_EFF);
-        lastAvgUpdateTime = now;
-
-        // อัปเดต UI เฉพาะตอนครบ 2 นาที
-        const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
-        if (avgEffSpan) {
-            avgEffSpan.textContent = `Avg: ${lastAvgEfficiency.toFixed(3)} km / 1%`;
-            avgEffSpan.className = '';
-
-            if (lastAvgEfficiency >= 4.81) avgEffSpan.classList.add('efficiency-good');
-            else if (lastAvgEfficiency >= 4.23) avgEffSpan.classList.add('efficiency-medium');
-            else avgEffSpan.classList.add('efficiency-poor');
+            displayAvgEfficiency(lastAvgEfficiency);
         }
     }
+  updateAvgEfficiencyPerPercent.lastCall = now;
+}
+
+function displayAvgEfficiency(avgVal) {
+  const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
+  if (!avgEffSpan) return;
+  avgEffSpan.textContent = `Avg: ${avgVal.toFixed(3)} km / 1%`;
+  avgEffSpan.className = '';
+  if (avgVal >= 4.81) avgEffSpan.classList.add('efficiency-good');
+  else if (avgVal >= 4.23) avgEffSpan.classList.add('efficiency-medium');
+  else avgEffSpan.classList.add('efficiency-poor');
 }
 
 let avgEffInterval = null;
-
 function startAvgEfficiencyTracking() {
-    efficiencySamples = [];
-    lastAvgEfficiency = 0;
-    idleEfficiencyAccumulator = 0;
-    lastAvgUpdateTime = Date.now() / 1000;
+  efficiencySamples = [];
+  lastAvgEfficiency = 0;
+  idleEfficiencyAccumulator = 0;
+  updateAvgEfficiencyPerPercent.lastCall = null;
 
-    const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
-    if (avgEffSpan) avgEffSpan.textContent = `Avg: 0.000 km / 1%`;
-
-    if (avgEffInterval) clearInterval(avgEffInterval);
-
-    // เรียกฟังก์ชันทุก 1 วินาทีเพื่อเก็บ sample
-    avgEffInterval = setInterval(() => {
-        try { updateAvgEfficiencyPerPercent(); } catch (e) {}
-    }, 1000);
+  const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
+  if (avgEffSpan) avgEffSpan.textContent = `Avg: 0.000 km / 1%`;
+  if (avgEffInterval) clearInterval(avgEffInterval);
+  avgEffInterval = setInterval(() => {
+    try { updateAvgEfficiencyPerPercent(); } catch(e) {}
+  }, 5000);
 }
-
 function stopAvgEfficiencyTracking() {
-    if (avgEffInterval) clearInterval(avgEffInterval);
-    avgEffInterval = null;
-    return lastAvgEfficiency || 0;
+  if (avgEffInterval) clearInterval(avgEffInterval);
+  avgEffInterval = null;
+  return lastAvgEfficiency || 0;
 }
 
 const originalUpdateEfficiency = updateEfficiency;
@@ -1594,15 +916,20 @@ updateEfficiency = function() {
 };
 
 function updateSpeed(newSpeed) {
+  // ปรับให้เป็นค่าเริ่มต้นที่ปลอดภัย
   if (isNaN(newSpeed) || newSpeed < 0) newSpeed = 0;
   speed = newSpeed;
+
+  // อัปเดตตัวเลขบนหน้าจอทันที (ไม่มี smoothing)
   updateSpeedometer(speed);
 
+  // เก็บค่าสูงสุด
   if (speed > maxSpeed) {
     maxSpeed = speed;
     maxSpeedSpan.textContent = maxSpeed.toFixed(1);
   }
 
+  // อัปเดตค่าเฉลี่ยความเร็ว (simple running average)
   if (speed > 0) {
     speedSum += speed;
     speedCount++;
@@ -1610,9 +937,13 @@ function updateSpeed(newSpeed) {
     avgSpeedSpan.textContent = avgSpeed.toFixed(1);
   }
 
+  // อัปเดต efficiency แบบทันที (bar) และ logic อื่น ๆ ที่พึ่ง speed
   updateEfficiency();
 
+  // อัปเดตค่า avg-eff (ไม่บล็อก)
   try { updateAvgEfficiencyPerPercent(); } catch(e) {}
+
+  // ถ้ามี logic เบรก/ตรวจจับ ต้องเรียกหลังจาก speed ถูกอัปเดต
   try { detectBraking(newSpeed); } catch(e) {}
 }
 
@@ -1691,15 +1022,15 @@ function updateTripTime() {
 }
   const TARGET_DISTANCE_KM = 10;
   const historyContainer = document.getElementById("historyContainer");
-  
+ 
+let positions = []; 
 function getDynamicMinDist(speedKmh) {
   if (speedKmh < 5) return 0.001;
   else if (speedKmh < 15) return 0.002;
   else if (speedKmh < 40) return 0.0035;
-  else if (speedKmh < 80) return 0.006;
-  else return 0.01;
+  else if (speedKmh < 80) return 0.005;
+  else return 0.007;
 }
-let positions = [];
 function checkIfStopped(lat, lon, speedKmh = 0) {
   positions.push({ lat, lon });
   if (positions.length > 10) positions.shift();
