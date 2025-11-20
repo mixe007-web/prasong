@@ -443,7 +443,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.71</h2>
+<h2>Trip A-B Version 23.71xx</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1712,50 +1712,23 @@ function normalizeAngleDifference(angle) {
   return a;
 }
 function resetMapRotation(callback) {
-  if (!map) { if (callback) callback(); return; }
+    if (!map) return callback?.();
 
-  const mapPane = map.getPane('mapPane');
-  const container = map.getContainer && map.getContainer();
-  if (!mapPane) { if (callback) callback(); return; }
+    const mapPane = map.getPane('mapPane');
+    if (!mapPane) return callback?.();
 
-  if (isTracking && autoRotate) {
-    if (callback) callback();
-    return;
-  }
+    mapPane.style.transition = 'transform 0.35s ease-out';
+    mapPane.style.transform = 'rotate(0deg)';
 
-  if (rotationAnimationFrame !== null) cancelAnimationFrame(rotationAnimationFrame);
-
-  isResettingRotation = true;
-  const done = () => {
-    try {
-      mapPane.style.removeProperty('transform');
-      mapPane.style.transition = '';
-      if (container && container.style) {
-        container.style.removeProperty('transform');
-        container.style.transition = '';
-      }
-    } catch (e) {}
-
-    isResettingRotation = false;
-    isRotationAnimating = false;
-    isMapRotated = false;
-    lastRotation = 0;
-    targetRotation = 0;
-    lastMapRotation = 0;
-    lastMarkerAngle = 0;
-
-    if (callback) callback();
-  };
-
-  mapPane.style.transition = 'transform 0.35s ease-out';
-  mapPane.style.transform = 'rotate(0deg)';
-  if (container && container.style) {
-    container.style.transition = 'transform 0.35s ease-out';
-    container.style.transform = 'rotate(0deg)';
-  }
-
-  setTimeout(done, 500);
+    setTimeout(() => {
+        mapPane.style.transition = '';
+        mapPane.style.transform = '';
+        isMapRotated = false;
+        lastMapRotation = 0;
+        callback?.();
+    }, 400);
 }
+
 
 function safeGetPane(targetMap, name) {
   if (!targetMap || !name) return null;
@@ -1826,15 +1799,15 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
     }
 
     // map rotation
-    if (autoRotate) {
-      const mapPane = map.getPane('mapPane');
-      if (mapPane) {
-        setMapPaneTransformOriginToCenter(map);
+if (autoRotate) {
+    const mapPane = map.getPane('mapPane');
+    if (mapPane) {
         lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, 0.15);
         mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
         isMapRotated = true;
-      }
     }
+}
+
 
     autoFollowAnimFrame = requestAnimationFrame(animate);
   };
@@ -1893,19 +1866,14 @@ function updateAutoRotate(speedKmh) {
 // set transform origin at center
 // -----------------------------
 function setMapPaneTransformOriginToCenter(targetMap = map) {
-  if (!targetMap || !targetMap.getSize || !targetMap.getPane) return;
+    if (!targetMap) return;
 
-  const size = targetMap.getSize();
-  const center = targetMap.latLngToContainerPoint(targetMap.getCenter());
-  const origin = `${center.x}px ${center.y}px`;
+    const center = targetMap.latLngToContainerPoint(targetMap.getCenter());
+    const origin = `${center.x}px ${center.y}px`;
 
-  const mapPane = targetMap.getPane('mapPane');
-  const container = targetMap.getContainer();
-
-  if (mapPane) mapPane.style.transformOrigin = origin;
-  if (container) container.style.transformOrigin = origin;
+    const mapPane = targetMap.getPane('mapPane');
+    if (mapPane) mapPane.style.transformOrigin = origin;
 }
-
 
 
 // -----------------------------
@@ -1967,7 +1935,6 @@ function initMap(lat, lon) {
     isMapReady = true;
     autoFollow = true;
     updateAutoRotate(window.lastFinalSpeed ?? 0);
-
     setMapPaneTransformOriginToCenter(map);
     attachMapEventListeners();
 
@@ -1981,9 +1948,6 @@ function initMap(lat, lon) {
     setTimeout(updateVehicleIconSize, 500);
   });
 
-  setInterval(() => {
-    if (map && autoRotate) setMapPaneTransformOriginToCenter(map);
-  }, 2000);
 }
 
 
@@ -2023,13 +1987,7 @@ function destroyMap() {
       mapPane.style.removeProperty('transform');
       mapPane.style.removeProperty('transition');
     }
-    if (container && container.style) {
-      container.style.transform = '';
-      container.style.transition = '';
-      container.style.removeProperty('transform');
-      container.style.removeProperty('transition');
-    }
-
+    
     map.off();
     map.remove();
   } catch (e) {
