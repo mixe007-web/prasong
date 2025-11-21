@@ -12,8 +12,8 @@
 <meta name="description" content="ระบบติดตามการเดินทางแบบเรียลไทม์ Trip A-B Tracker" />
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
 <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
-<link rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet Core -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/bbecquet/Leaflet.RotatedMarker/leaflet.rotatedMarker.js"></script>
 
@@ -371,13 +371,17 @@
 
 #map {
   position: absolute;
-  top: -10%;
-  left: -10%;
-  width: 120%;
-  height: 120%;
+  top: -35%;
+  left: -35%;
+  width: 170%;
+  height: 170%;
   will-change: transform;
   transform-style: preserve-3d;
   backface-visibility: hidden;
+}
+
+.leaflet-rotate-pane {
+  transition: transform 0.15s linear;
 }
 
 .leaflet-map-pane {
@@ -436,14 +440,297 @@
    0%, 100% { opacity: 1; }
    50% { opacity: 0.4; }
 }
+/* ================= Trip Recorder Panel ================= */
+#tripRecorderPanel {
+  position: fixed;
+  top: 0;
+  right: 0;          /* เริ่มจากขวา */
+  width: 380px;
+  max-width: 95%;
+  height: 100%;
+  background-color: #1c1c1c;
+  color: #e0e0e0;
+  padding: 20px;
+  overflow-y: auto;
+  transition: transform 0.3s ease;
+  z-index: 9999;
+  font-family: 'Rubik', sans-serif;
+  box-sizing: border-box;
 
+  transform: translateX(100%); /* ซ่อนนอกหน้าจอ */
+  display: none;               /* ซ่อนจริง ๆ */
+}
+
+#tripRecorderPanel.open {
+  display: block;
+  transform: translateX(0);    /* เลื่อนเข้ามา */
+}
+
+.trips-container .trip-card {
+  background-color: #222;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  border: 1px solid #444;
+}
+
+.trip-card h4 {
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+/* ================= General Trip Row ================= */
+.trip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.trip-row label {
+  flex: 0 0 90px; /* ปรับให้เล็กลงสำหรับมือถือ */
+}
+
+/* ================= Battery Row ================= */
+.trip-row.battery-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap; /* อยู่บรรทัดเดียวกัน */
+}
+
+.battery-bar-container {
+  width: 50px;
+  height: 20px;
+  border: 2px solid #666;
+  border-radius: 4px;
+  background: #222;
+  overflow: hidden;
+  flex: 0 0 auto; /* ไม่ยืด */
+}
+
+.battery-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to top, #0f0 0%, #0c0 100%);
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.trip-row.battery-wrapper input {
+  width: 40px;        /* พอดีกับ 3 ตัวเลข */
+  flex: 0 0 40px;     /* ไม่ยืด */
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #666;
+  background-color: #333;
+  color: #fff;
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.trip-row.battery-wrapper span.percent {
+  width: 45px;
+  flex: 0 0 45px; /* พอดีกับ % */
+  text-align: left;
+  font-weight: bold;
+  color: #0f0;
+}
+
+/* ================= Info Row (Distance) (SOC) ================= */
+.trip-row.info-Distance {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px; /* ช่องว่างระหว่าง SOC และ Distance */
+  flex-wrap: nowrap; /* บังคับให้อยู่บรรทัดเดียว */
+}
+
+.trip-row.info-Distance label {
+  flex: 0 0 auto;
+  font-weight: bold;
+  color: #fff;
+  min-width: 110px;
+}
+
+.trip-row.info-Distance span {
+  flex: 0 0 auto;
+  color: #0f0;
+  min-width: 70px;
+  text-align: left;
+}
+/* ================= Buttons ================= */
+.trip-card .button-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.trip-card button {
+  flex: 1 0 45%;
+  padding: 6px 0;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background-color: #007bff;
+  color: #fff;
+  font-weight: bold;
+  transition: background 0.2s ease;
+}
+
+.trip-card button.saved { background-color: #555; }
+
+/* ================= test history record ================= */
+.trip-history-record span.field-name {
+  color: #fff;       /* สีขาวสำหรับชื่อฟิลด์ */
+  font-weight: bold;
+}
+
+.trip-history-record span.field-value {
+  color: #0f0;       /* สีเขียวสำหรับค่า */
+  font-weight: bold;
+}
+
+/* ================= Trip History Record ================= */
+.trip-history-record {
+  background-color: #222;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  border: 1px solid #444;
+  display: flex;
+  flex-direction: column; /* stack header + details */
+  gap: 4px;
+}
+
+/* header: Trip xx + Delete button */
+.trip-history-record .record-header {
+  display: flex;
+  justify-content: space-between; /* ข้อความซ้าย ปุ่มขวา */
+  align-items: center;             /* กลางแนวตั้ง */
+  color: #0f0;                     /* Trip id สีเขียว */
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+/* Delete button */
+.trip-history-record .deleteBtn {
+  background-color: #c00;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.trip-history-record .deleteBtn:hover {
+  background-color: #f33;
+  transform: scale(1.05);
+}
+
+/* Details ของบันทึก */
+.trip-history-record .record-details {
+  display: flex;
+  flex-direction: column; /* stack เป็นบรรทัดเดียวกัน */
+  gap: 2px;
+}
+
+.trip-history-record .field-name {
+  color: #fff;
+  font-weight: bold;
+}
+
+.trip-history-record .field-value {
+  color: #0f0;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+/* Responsive มือถือ */
+@media(max-width: 500px){
+  .trip-history-record .record-header {
+    flex-direction: column; /* stack ข้อความ + ปุ่ม */
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .trip-history-record .deleteBtn {
+    font-size: 0.7rem;
+    padding: 1px 5px;
+  }
+}
+
+/* ================= Progress Bar ================= */
+.progress-bar-container {
+  background: #333;
+  border-radius: 6px;
+  height: 10px;
+  width: 100%;
+  margin-top: 5px;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(to right, #0f0, #0c0);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.trip-row span.used,
+.trip-row span.distance { font-weight: bold; color: #0f0; }
+
+/* ================= Responsive Mobile ================= */
+@media(max-width: 500px){
+  .trip-row.battery-wrapper {
+    gap: 4px;
+  }
+
+  .trip-row.battery-wrapper label {
+    width: 80px;
+    flex: 0 0 80px;
+  }
+
+  .trip-row.battery-wrapper input {
+    width: 40px;
+    flex: 0 0 40px;
+  }
+
+  .trip-row.battery-wrapper span.percent {
+    width: 40px;
+    flex: 0 0 40px;
+  }
+
+  .trip-row.info-wrapper {
+    gap: 10px;
+  }
+
+  .trip-row.info-wrapper label {
+    min-width: 90px;
+    font-size: 0.85rem;
+  }
+
+  .trip-row.info-wrapper span {
+    min-width: 60px;
+    font-size: 0.85rem;
+  }
+
+  .trip-card button {
+    flex: 1 0 100%;
+  }
+}
 </style>
 </head>
 <body>
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 23.71xx</h2>
+<h2>Trip A-B Version 23.xxx</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -478,12 +765,12 @@
 </div>
 
 
-  <div>
+ <div>
     <div class="label">speed</div>
     <div id="digitalSpeed">0 km/h</div>
 
     <div class="label">พลังงานใช้เฉลี่ย</div>
-    <div id="energyPer100km">0.00 kWh/100km</div><div id="avgEfficiencyPerPercent">Avg: 0.000 km / 1%</div>
+    <div id="energyPer100km">0.00 kWh/100km</div>
 
     <div id="energySOCGroup" style="display: flex; justify-content: space-between; align-items: center;">
 	      <div class="info-box small-box">
@@ -492,10 +779,8 @@
       </div>
       <div class="info-box small-box">
         <div class="label"></div>
-        <div id="efficiencyContainer">
-  <div id="efficiencyPerPercentBar"></div>
-</div>
-</div>
+        <div id="efficiencyPerPercent">0.000 km/1%</div>
+      </div>
 
       <div class="info-box small-box">
         <div class="label">SOC/Trip</div>
@@ -752,8 +1037,6 @@ function getEfficiencyPerPercent(speedKmh) {
   return points[points.length - 1].efficiency;
 }
 
-let lastEfficiencySpeed = 0;
-let lastEfficiencyUpdate = 0;
 function updateEfficiency() {
   const efficiency = totalEnergyWh > 0 ? cumulativeDistance / (totalEnergyWh / 1000) : 0;
   let energyPer100km = 0;
@@ -773,180 +1056,56 @@ function updateEfficiency() {
     energyPer100kmSpan.classList.add('energyPer100kmSpan-poor');
   }
 
-//efficiencyPerPercentBar
- const now = Date.now();
-  const speedDiff = Math.abs(speed - lastEfficiencySpeed);
-  if (speedDiff < 1 && now - lastEfficiencyUpdate < 300) {
-    return; // ข้ามการอัปเดต bar ถ้าเปลี่ยนเล็กน้อยและเร็วเกินไป
-  }
-  lastEfficiencySpeed = speed;
-  lastEfficiencyUpdate = now;
-  let efficiencyPerPercent = getEfficiencyPerPercent(speed || 0);
-
-  // ป้องกันค่าต่ำสุด (เหมือนเดิม)
-  efficiencyPerPercent = Math.max(efficiencyPerPercent, 2.4);
-
-  const bar = document.getElementById('efficiencyPerPercentBar');
-  const maxEff = 7.2;
-  const colorStops = [
-    { value: 0, color: { r: 255, g: 0, b: 0 } },
-    { value: 3.79, color: { r: 255, g: 64, b: 0 } },
-    { value: 4.23, color: { r: 255, g: 128, b: 0 } },
-    { value: 4.37, color: { r: 255, g: 192, b: 0 } },
-    { value: 4.81, color: { r: 255, g: 215, b: 0 } },
-    { value: 5.30, color: { r: 128, g: 192, b: 0 } },
-    { value: 6.14, color: { r: 0, g: 128, b: 0 } },
-    { value: maxEff, color: { r: 0, g: 128, b: 0 } }
-  ];
-  let lower = colorStops[0];
-  let upper = colorStops[colorStops.length - 1];
-  for (let i = 1; i < colorStops.length; i++) {
-    if (efficiencyPerPercent <= colorStops[i].value) {
-      lower = colorStops[i - 1];
-      upper = colorStops[i];
-      break;
+  let efficiencyPerPercent = getEfficiencyPerPercent(speed);
+  if (speed === 0) {
+    const timeElapsed = (Date.now() - lastUpdateTime) / 1000;
+    if (timeElapsed >= idleDecreaseInterval) {
+      idleTime += timeElapsed;
+      while (idleTime >= idleDecreaseInterval) {
+        efficiencyPerPercent -= decreaseAmount;
+        idleTime -= idleDecreaseInterval;
+      }
     }
+  } else {
+    idleTime = 0;
   }
 
-  let t = (efficiencyPerPercent - lower.value) / (upper.value - lower.value || 1);
-  t = Math.min(Math.max(t, 0), 1);
-  const r = Math.round(lower.color.r + (upper.color.r - lower.color.r) * t);
-  const g = Math.round(lower.color.g + (upper.color.g - lower.color.g) * t);
-  const b = Math.round(lower.color.b + (upper.color.b - lower.color.b) * t);
+  efficiencyPerPercent = Math.max(efficiencyPerPercent, 2.4);
+  const efficiencyPerPercentSpan = document.getElementById('efficiencyPerPercent');
+  efficiencyPerPercentSpan.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
 
-  bar.style.backgroundColor = `rgb(${r},${g},${b})`;
+  efficiencyPerPercentSpan.className = '';
+  if (efficiencyPerPercent >= 4.81) {
+    efficiencyPerPercentSpan.classList.add('efficiency-good');
+  } else if (efficiencyPerPercent >= 4.23) {
+    efficiencyPerPercentSpan.classList.add('efficiency-medium');
+  } else {
+    efficiencyPerPercentSpan.classList.add('efficiency-poor');
+  }
 
-  const widthPercent = Math.min((efficiencyPerPercent / maxEff) * 100, 100);
-  bar.style.width = widthPercent + "%";
-
-  bar.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
-
-  // อัปเดต timestamp (ไม่ใช้ idle smoothing)
   lastUpdateTime = Date.now();
 }
-// --- AVG EFFICIENCY (10 MIN REALISTIC VERSION) ---
-let efficiencySamples = []; // เก็บ {eff, time}
-let lastAvgEfficiency = 0;
-let idleEfficiencyAccumulator = 0;
 
-const AVG_WINDOW_SECONDS = 600;  // 10 นาที (600 วินาที)
-const IDLE_UPDATE_INTERVAL = 60; // 1 นาที
-const IDLE_DECREASE_AMOUNT = 0.1; // ลดทีละ 0.1 km/1% ต่อ 1 นาทีจอด
-const MIN_EFF = 2.4; // ค่าต่ำสุด
-
-function updateAvgEfficiencyPerPercent() {
-  if (!isTracking) return;
-  const effElem = document.getElementById("efficiencyPerPercentBar");
-  if (!effElem) return;
-
-  const match = effElem.textContent.match(/([\d.]+)/);
-  const currentEff = match ? parseFloat(match[1]) : 0;
-  if (isNaN(currentEff) || currentEff <= 0) return;
-
-  const now = Date.now() / 1000;
-  if (!updateAvgEfficiencyPerPercent.lastCall) {
-    updateAvgEfficiencyPerPercent.lastCall = now;
-  }
-  const deltaTime = now - updateAvgEfficiencyPerPercent.lastCall;
-
-  if (speed > 3) {
-    efficiencySamples.push({ eff: currentEff, time: now });
-    efficiencySamples = efficiencySamples.filter(s => now - s.time <= AVG_WINDOW_SECONDS);
-
-    const avgRealtime = efficiencySamples.reduce((a, b) => a + b.eff, 0) / efficiencySamples.length;
-    const netEnergyWh = driveEnergyWh + idleEnergyWhTotal - totalRegenEnergyWh;
-    let avgEnergyBased = avgRealtime;
-    if (driveDistanceKm > 0 && netEnergyWh > 0) {
-      avgEnergyBased = driveDistanceKm / ((netEnergyWh / 1000) / 75.3 * 100);
-    }
-    const overallAvg = avgRealtime * 0.4 + avgEnergyBased * 0.6;
-
-    lastAvgEfficiency = overallAvg;
-    displayAvgEfficiency(lastAvgEfficiency);
-
-    idleEfficiencyAccumulator = 0;
-
-  } else {
- 
-        idleEfficiencyAccumulator += deltaTime;
-
-        if (idleEfficiencyAccumulator >= IDLE_UPDATE_INTERVAL) {
-            lastAvgEfficiency = Math.max(lastAvgEfficiency - IDLE_DECREASE_AMOUNT, MIN_EFF);
-            idleEfficiencyAccumulator = 0;
-            displayAvgEfficiency(lastAvgEfficiency);
-        }
-    }
-  updateAvgEfficiencyPerPercent.lastCall = now;
-}
-
-function displayAvgEfficiency(avgVal) {
-  const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
-  if (!avgEffSpan) return;
-  avgEffSpan.textContent = `Avg: ${avgVal.toFixed(3)} km / 1%`;
-  avgEffSpan.className = '';
-  if (avgVal >= 4.81) avgEffSpan.classList.add('efficiency-good');
-  else if (avgVal >= 4.23) avgEffSpan.classList.add('efficiency-medium');
-  else avgEffSpan.classList.add('efficiency-poor');
-}
-
-let avgEffInterval = null;
-function startAvgEfficiencyTracking() {
-  efficiencySamples = [];
-  lastAvgEfficiency = 0;
-  idleEfficiencyAccumulator = 0;
-  updateAvgEfficiencyPerPercent.lastCall = null;
-
-  const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
-  if (avgEffSpan) avgEffSpan.textContent = `Avg: 0.000 km / 1%`;
-  if (avgEffInterval) clearInterval(avgEffInterval);
-  avgEffInterval = setInterval(() => {
-    try { updateAvgEfficiencyPerPercent(); } catch(e) {}
-  }, 5000);
-}
-function stopAvgEfficiencyTracking() {
-  if (avgEffInterval) clearInterval(avgEffInterval);
-  avgEffInterval = null;
-  return lastAvgEfficiency || 0;
-}
-
-const originalUpdateEfficiency = updateEfficiency;
-updateEfficiency = function() {
-  originalUpdateEfficiency();
-  try { updateAvgEfficiencyPerPercent(); } catch(e) {}
-};
 
 function updateSpeed(newSpeed) {
-  // ปรับให้เป็นค่าเริ่มต้นที่ปลอดภัย
-  if (isNaN(newSpeed) || newSpeed < 0) newSpeed = 0;
   speed = newSpeed;
 
-  // อัปเดตตัวเลขบนหน้าจอทันที (ไม่มี smoothing)
-  updateSpeedometer(speed);
-
-  // เก็บค่าสูงสุด
   if (speed > maxSpeed) {
     maxSpeed = speed;
     maxSpeedSpan.textContent = maxSpeed.toFixed(1);
   }
 
-  // อัปเดตค่าเฉลี่ยความเร็ว (simple running average)
-  if (speed > 0) {
+   if (speed > 0 && !isNaN(speed)) {
     speedSum += speed;
     speedCount++;
     const avgSpeed = speedSum / speedCount;
     avgSpeedSpan.textContent = avgSpeed.toFixed(1);
   }
-
-  // อัปเดต efficiency แบบทันที (bar) และ logic อื่น ๆ ที่พึ่ง speed
+  
   updateEfficiency();
-
-  // อัปเดตค่า avg-eff (ไม่บล็อก)
-  try { updateAvgEfficiencyPerPercent(); } catch(e) {}
-
-  // ถ้ามี logic เบรก/ตรวจจับ ต้องเรียกหลังจาก speed ถูกอัปเดต
-  try { detectBraking(newSpeed); } catch(e) {}
+  detectBraking(newSpeed);
+  
 }
-
 
 const digitalSpeed = document.getElementById("digitalSpeed");
 
@@ -1029,9 +1188,9 @@ function getDynamicMinDist(speedKmh) {
   else if (speedKmh < 15) return 0.002;
   else if (speedKmh < 40) return 0.0035;
   else if (speedKmh < 60) return 0.004;
-  else if (speedKmh < 80) return 0.007;
-  else if (speedKmh < 100) return 0.009;
-  else return 0.03;
+  else if (speedKmh < 80) return 0.009;
+  else if (speedKmh < 100) return 0.02;
+  else return 0.04;
 }
 function checkIfStopped(lat, lon, speedKmh = 0) {
   positions.push({ lat, lon });
@@ -1467,7 +1626,7 @@ function clearTrip(index) {
 		<p>เวลาที่ใช้เดินทาง: ${formatTime(trip.elapsedTime || 0)}</p>
         <p>ความเร็วสูงสุด (กม./ชม.): ${parseFloat(trip.maxSpeed || 0).toFixed(1)}km/h</p>
         <p>ความเร็วเฉลี่ย (กม./ชม.): ${parseFloat(trip.avgSpeed || 0).toFixed(1)}km/h</p>
-		<p>ค่าเฉลี่ย/%: ${(trip.avgEfficiencyPerPercent || 0).toFixed(3)} km/1%</p>
+		
         <p>Energy/Trip: ${(trip.energyConsumption || 0).toFixed(2)} kWh</p>
         <p>SOC/Trip: ${(trip.batterySOCUsedPercent || 0).toFixed(2)}%</p>
         <p>พลังงานใช้เฉลี่ย: ${(trip.energyPer100km || 0).toFixed(2)} kWh/100km</p>
@@ -1648,7 +1807,7 @@ let autoFollowAnimFrame = null;
 let autoFollowTimeout = null;
 let autoFollow = true;
 let autoRotate = true;
-
+let lastTransformHeading = null;
 let lastMarkerAngle = 0;
 let lastMapRotation = 0;
 let autoFollowTarget = { lat: 0, lon: 0, heading: 0 };
@@ -1682,28 +1841,26 @@ if (L.Marker && !L.Marker.prototype.setRotationAngle) {
 function safeInvalidateMap(targetMap, delay = 300) {
   if (!targetMap || !targetMap.invalidateSize) return;
   clearTimeout(targetMap._invalidateTimeout);
-  const currentRotation = lastRotation || 0;
+
+  const rotation = lastMapRotation;
+
   targetMap._invalidateTimeout = setTimeout(() => {
     try {
       targetMap.invalidateSize();
-      const mapPane = targetMap.getPane('mapPane');
-      const container = targetMap.getContainer && targetMap.getContainer();
-      if (mapPane) {
-        if (isMapRotated) {
-          mapPane.style.transform = `rotate(${-currentRotation}deg)`;
-          setMapPaneTransformOriginToCenter(targetMap);
-        } else {
-          mapPane.style.transform = mapPane.style.transform || '';
-        }
+
+      const mapPane = targetMap.getPane("mapPane");
+      if (mapPane && isMapRotated) {
+        mapPane.style.transform = `rotate(${-rotation}deg)`;
       }
-      if (container) {
-        setMapPaneTransformOriginToCenter(targetMap);
-      }
-    } catch (e) {
-      console.warn("⚠️ safeInvalidateMap error:", e);
+
+      setMapPaneTransformOriginToCenter(targetMap);
+
+    } catch(e) {
+      console.warn("safeInvalidateMap error:", e);
     }
   }, delay);
 }
+
 
 function normalizeAngleDifference(angle) {
   let a = angle % 360;
@@ -1740,8 +1897,17 @@ function safeGetPane(targetMap, name) {
   }
 }
 
-// --- easing helpers ---
-function lerp(a, b, t) { return a + (b - a) * t; }
+const SMOOTH_STEP = 0.00065;     // ความลื่นของการเคลื่อนที่ marker
+const FOLLOW_STEP = 0.00085;    // ความลื่นของ pan map
+const MARKER_LERP = 0.18;       // ตัวกรองหมุนรถ
+const MAP_LERP = 0.12;          // ตัวกรองหมุนแผนที่
+
+// --------------------
+// lerp helpers
+// --------------------
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
 function lerpAngle(a, b, t) {
   let diff = ((b - a + 540) % 360) - 180;
   return (a + diff * t + 360) % 360;
@@ -1750,114 +1916,86 @@ function lerpAngle(a, b, t) {
 // -----------------------------
 // autoFollowAndRotate
 // -----------------------------
-function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
-  if (!map || !vehicleMarker) return;
+function autoFollowAndRotate(targetLat, targetLng, speedKmh = 0, headingDeg = 0) {
+if (!map || !vehicleMarker) return;
 
-  autoFollowTarget = { lat, lon, heading: headingDeg };
+if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
-  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+const loop = () => {
+    const curPos = vehicleMarker.getLatLng();
 
-  const animate = () => {
-    if (!map || !vehicleMarker) return;
-
-    const curr = vehicleMarker.getLatLng();
-    const dx = autoFollowTarget.lat - curr.lat;
-    const dy = autoFollowTarget.lon - curr.lng;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    // smooth marker movement
-    const maxStep = 0.0006;
-    let newLat = curr.lat;
-    let newLng = curr.lng;
-    if (dist > maxStep) {
-      newLat += (dx / dist) * maxStep;
-      newLng += (dy / dist) * maxStep;
-    } else {
-      newLat = autoFollowTarget.lat;
-      newLng = autoFollowTarget.lon;
-    }
+    // --- Marker movement (smooth) ---
+    const dx = targetLat - curPos.lat;
+    const dy = targetLng - curPos.lng;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 1e-8;
+    const step = Math.min(dist, SMOOTH_STEP);
+    const newLat = curPos.lat + (dx / dist) * step;
+    const newLng = curPos.lng + (dy / dist) * step;
     vehicleMarker.setLatLng([newLat, newLng]);
 
-    // map pan smooth
+    // --- Map pan (smooth) ---
     if (autoFollow) {
-      const center = map.getCenter();
-      const dxMap = newLat - center.lat;
-      const dyMap = newLng - center.lng;
-      const distMap = Math.sqrt(dxMap*dxMap + dyMap*dyMap);
-      if (distMap > 0.00002) {
-        const step = Math.min(distMap, 0.0007);
-        const cx = center.lat + (dxMap / distMap) * step;
-        const cy = center.lng + (dyMap / distMap) * step;
-        map.panTo([cx, cy], { animate: false });
-      }
+        const mapCenter = map.getCenter();
+        const mx = newLat - mapCenter.lat;
+        const my = newLng - mapCenter.lng;
+        const md = Math.sqrt(mx*mx + my*my) || 1e-8;
+        const ms = Math.min(md, FOLLOW_STEP);
+        map.panTo([mapCenter.lat + mx/md * ms, mapCenter.lng + my/md * ms], { animate: false });
     }
 
-    // marker rotation
-    if (vehicleMarker.setRotationAngle) {
-      lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, 0.2);
-      vehicleMarker.setRotationAngle(lastMarkerAngle);
+    // --- Marker rotation (smooth) ---
+    lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, MARKER_LERP);
+    vehicleMarker.setRotationAngle(lastMarkerAngle);
+
+    // --- Map rotation (smooth) ---
+    if (autoRotate && map) {
+        // อัปเดต transformOrigin เฉพาะเมื่อ heading เปลี่ยน >1°
+        if (lastTransformHeading === null || Math.abs(lastTransformHeading - headingDeg) > 3) {
+            setMapPaneTransformOriginToVehicle();
+            lastTransformHeading = headingDeg;
+        }
+        lastMapRotation = lerpAngle(lastMapRotation, headingDeg, MAP_LERP);
+        const mapPane = map.getPane("mapPane");
+        if (mapPane) mapPane.style.transform = `rotate(${-lastMapRotation}deg)`;
     }
 
-    // map rotation
-if (autoRotate) {
-    const mapPane = map.getPane('mapPane');
-    if (mapPane) {
-        lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, 0.15);
-        mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
-        isMapRotated = true;
-    }
+    // --- loop next frame ---
+    autoFollowAnimFrame = requestAnimationFrame(loop);
+};
+
+autoFollowAnimFrame = requestAnimationFrame(loop);
+
 }
 
-
-    autoFollowAnimFrame = requestAnimationFrame(animate);
-  };
-
-  autoFollowAnimFrame = requestAnimationFrame(animate);
-}
 // ==============================
 // 🔹 startAutoFollow (safe)
 // ==============================
 function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   if (!map || !vehicleMarker) return;
+  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
-  // cancel previous animations
-  if (autoFollowAnimFrame !== null) {
-    cancelAnimationFrame(autoFollowAnimFrame);
-    autoFollowAnimFrame = null;
-  }
-  if (rotationAnimFrame !== null) {
-    cancelAnimationFrame(rotationAnimFrame);
-    rotationAnimFrame = null;
-  }
-
-  lastMarkerAngle = 0;
-  lastMapRotation = headingDeg;
-
-  // disable user interaction
   map.dragging.disable();
   map.scrollWheelZoom.disable();
   map.doubleClickZoom.disable();
-  map.boxZoom.disable();
   map.keyboard.disable();
-  map.touchZoom.disable();
 
-  // center map
   map.setView([lat, lon], map.getZoom(), { animate: false });
 
-  // reset marker rotation
-  if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(0);
+  lastMarkerAngle = headingDeg;
+  lastMapRotation = headingDeg;
 
-  // set map rotation initially
-  const mapPane = map.getPane('mapPane');
+  const mapPane = map.getPane("mapPane");
   if (mapPane) {
     setMapPaneTransformOriginToCenter(map);
-    mapPane.style.transition = 'none';
+    mapPane.style.transition = "transform 0.15s linear";
     mapPane.style.transform = `rotate(${-headingDeg}deg)`;
   }
 
-  // start smooth pan & rotate
-  autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
+  requestAnimationFrame(() => {
+    autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
+  });
 }
+
 
 function updateAutoRotate(speedKmh) {
   autoRotate = speedKmh >= 3 ;
@@ -1866,15 +2004,19 @@ function updateAutoRotate(speedKmh) {
 // set transform origin at center
 // -----------------------------
 function setMapPaneTransformOriginToCenter(targetMap = map) {
-    if (!targetMap) return;
+  if (!targetMap) return;
+  const center = targetMap.latLngToContainerPoint(targetMap.getCenter());
+  const origin = `${center.x}px ${center.y}px`;
 
-    const center = targetMap.latLngToContainerPoint(targetMap.getCenter());
-    const origin = `${center.x}px ${center.y}px`;
-
-    const mapPane = targetMap.getPane('mapPane');
-    if (mapPane) mapPane.style.transformOrigin = origin;
+  const mapPane = targetMap.getPane('mapPane');
+  if (mapPane) mapPane.style.transformOrigin = origin;
 }
-
+function setMapPaneTransformOriginToVehicle() {
+  if (!map || !vehicleMarker) return;
+  const pos = map.latLngToContainerPoint(vehicleMarker.getLatLng());
+  const mapPane = map.getPane('mapPane');
+  if (mapPane) mapPane.style.transformOrigin = `${pos.x}px ${pos.y}px`;
+}
 
 // -----------------------------
 // helper: คำนวณ heading จากตำแหน่งก่อนหน้า
@@ -1934,81 +2076,50 @@ function initMap(lat, lon) {
   map.whenReady(() => {
     isMapReady = true;
     autoFollow = true;
+
     updateAutoRotate(window.lastFinalSpeed ?? 0);
+
     setMapPaneTransformOriginToCenter(map);
-    attachMapEventListeners();
 
-    if (vehicleMarker && vehicleMarker.getLatLng()) {
-      const { lat, lng } = vehicleMarker.getLatLng();
-      map.setView([lat, lng], BASE_ZOOM, { animate: false });
-    }
+    map.on('move zoom resize', () => {
+      setMapPaneTransformOriginToCenter(map);
+    });
 
-    safeInvalidateMap(map, 300);
-    setTimeout(() => map.invalidateSize(), 800);
-    setTimeout(updateVehicleIconSize, 500);
+    const pos = vehicleMarker.getLatLng();
+    map.setView([pos.lat, pos.lng], BASE_ZOOM, { animate: false });
   });
-
 }
-
 
 let isMapBeingDestroyed = false;
 
 function destroyMap() {
-  if (!map || isMapBeingDestroyed) return;
-  isMapBeingDestroyed = true;
-  map._destroyed = true;
+  if (!map) return;
 
-  try {
-    if (autoFollowTimeout) {
-      clearTimeout(autoFollowTimeout);
-      autoFollowTimeout = null;
-    }
+  // stop animations
+  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+  if (rotationAnimationFrame) cancelAnimationFrame(rotationAnimationFrame);
+  if (rotationAnimFrame) cancelAnimationFrame(rotationAnimFrame);
 
-    if (rotationAnimationFrame) cancelAnimationFrame(rotationAnimationFrame);
-    rotationAnimationFrame = null;
+  const mapPane = safeGetPane(map, "mapPane");
 
-    // ✅ เพิ่มตรงนี้
-    if (rotationAnimFrame) {
-      cancelAnimationFrame(rotationAnimFrame);
-      rotationAnimFrame = null;
-    }
-
-    if (autoFollowAnimFrame !== null) {
-      cancelAnimationFrame(autoFollowAnimFrame);
-      autoFollowAnimFrame = null;
-    }
-
-    const mapPane = safeGetPane(map, 'mapPane');
-    const container = map.getContainer && map.getContainer();
-
-    if (mapPane && mapPane.style) {
-      mapPane.style.transform = '';
-      mapPane.style.transition = '';
-      mapPane.style.removeProperty('transform');
-      mapPane.style.removeProperty('transition');
-    }
-    
-    map.off();
-    map.remove();
-  } catch (e) {
-    console.warn("⚠️ destroyMap error:", e);
+  if (mapPane) {
+    mapPane.style.transition = "";
+    mapPane.style.transform = "";
+    mapPane.style.removeProperty("transition");
+    mapPane.style.removeProperty("transform");
+    mapPane.style.removeProperty("transform-origin");
   }
 
-  // reset state
+  map.off();
+  map.remove();
+
+  // reset vars
   map = null;
   vehicleMarker = null;
   routeLayer = null;
-  pathCoordinates = [];
-  isMapReady = false;
-  watchId = null;
-  mapListenersAttached = false;
-  autoFollow = true;
-  updateAutoRotate(window.lastFinalSpeed ?? 0);
-  isMapBeingDestroyed = false;
   isMapRotated = false;
-  lastRotation = 0;
-  targetRotation = 0;
-  isRotationAnimating = false;
+  lastMapRotation = 0;
+  lastMarkerAngle = 0;
 }
 
 
@@ -2064,69 +2175,65 @@ function attachMapEventListeners() {
 // 🚗 UPDATE ROUTE (IMPROVED)
 // =============================
 function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
-  if (!map || !routeLayer || !vehicleMarker) return;
+    if (!map || !routeLayer || !vehicleMarker) return;
 
-  const curr = L.latLng(lat, lon);
+    const curr = L.latLng(lat, lon);
 
-  if (lastLat === null || lastLon === null) {
+    if (lastLat === null || lastLon === null) {
+        lastLat = lat;
+        lastLon = lon;
+        pathCoordinates.push([lat, lon, speedKmh || 0, Date.now()]);
+        vehicleMarker.setLatLng([lat, lon]);
+
+        const heading = typeof headingDegInput === "number" ? headingDegInput : 0;
+        lastValidHeading = heading;
+        lastMarkerAngle = heading;
+
+        autoFollowAndRotate(lat, lon, speedKmh, heading);
+        updateAutoZoom(speedKmh);
+        updateVehicleIconBySpeed(speedKmh);
+        return;
+    }
+
+    const prev = L.latLng(lastLat, lastLon);
+    const dist = map.distance(prev, curr);
+    if (dist < 3) return;
+
+    const now = Date.now();
+    pathCoordinates.push([lat, lon, speedKmh || 0, now]);
+
+    // Batch polyline
+    if (pathCoordinates.length >= 2) {
+        const a = pathCoordinates[pathCoordinates.length - 2];
+        const b = pathCoordinates[pathCoordinates.length - 1];
+        const color = getSpeedColor(b[2] || 0);
+
+        let lastBatch = routeBatchLayers[routeBatchLayers.length - 1];
+        if (!lastBatch || lastBatch.length >= POLYLINE_BATCH_SIZE) {
+            lastBatch = [];
+            routeBatchLayers.push(lastBatch);
+        }
+
+        const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
+            color,
+            weight: 4,
+            opacity: 0.95,
+            interactive: false
+        }).addTo(routeLayer);
+        lastBatch.push(seg);
+    }
+
     lastLat = lat;
     lastLon = lon;
-    pathCoordinates.push([lat, lon, speedKmh || 0, Date.now()]);
 
-    vehicleMarker.setLatLng([lat, lon]);
-
-    const heading = (typeof headingDegInput === "number") ? headingDegInput : 0;
+    const heading = typeof headingDegInput === "number" ? headingDegInput : lastValidHeading ?? 0;
     lastValidHeading = heading;
-    lastMarkerAngle = heading;
 
     autoFollowAndRotate(lat, lon, speedKmh, heading);
     updateAutoZoom(speedKmh);
     updateVehicleIconBySpeed(speedKmh);
-    return;
-  }
-
-  const prev = L.latLng(lastLat, lastLon);
-  const dist = map.distance(prev, curr);
-  const now = Date.now();
-  const dt = pathCoordinates.length
-    ? (now - pathCoordinates[pathCoordinates.length - 1][3]) / 1000
-    : 0.1;
-  const maxReasonableDist = Math.max(100, (speedKmh / 3.6) * dt * 2.0);
-
-  if (dist < 3) return;
-
-  pathCoordinates.push([lat, lon, speedKmh || 0, now]);
-
-  if (dist <= maxReasonableDist && pathCoordinates.length >= 2) {
-    const a = pathCoordinates[pathCoordinates.length - 2];
-    const b = pathCoordinates[pathCoordinates.length - 1];
-    const color = getSpeedColor(b[2] || 0);
-
-    let lastBatch = routeBatchLayers[routeBatchLayers.length - 1];
-    if (!lastBatch || lastBatch.length >= POLYLINE_BATCH_SIZE) {
-      lastBatch = [];
-      routeBatchLayers.push(lastBatch);
-    }
-
-    const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
-      color,
-      weight: 4,
-      opacity: 0.95,
-      interactive: false
-    }).addTo(routeLayer);
-    lastBatch.push(seg);
-  }
-
-  lastLat = lat;
-  lastLon = lon;
-
-  const heading = (typeof headingDegInput === "number") ? headingDegInput : lastValidHeading ?? 0;
-  lastValidHeading = heading;
-  autoFollowAndRotate(lat, lon, speedKmh, heading);
-
-  updateAutoZoom(speedKmh);
-  updateVehicleIconBySpeed(speedKmh);
 }
+
 // =============================
 // DRAW HISTORY ROUTE (UNCHANGED)
 // =============================
@@ -2235,7 +2342,6 @@ function startTracking() {
   idleTimeTotal = 0;
   elapsedTime = 0;
   totalDistance = 0;
-  startAvgEfficiencyTracking();
 
   // --- Update UI ---
   startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
@@ -2262,13 +2368,11 @@ function startTracking() {
     (pos) => {
       const { latitude, longitude, heading } = pos.coords;
       const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
-
+      const headingDeg = (typeof heading === 'number' && isFinite(heading) && heading >= 0) ? heading : 0;
       // สร้าง map
       initMap(latitude, longitude);
-
-      const headingDeg = (typeof heading === 'number' && isFinite(heading) && heading >= 0) ? heading : 0;
       startAutoFollow(latitude, longitude, headingDeg, 0);
-
+      
       prevPos = { latitude, longitude };
       prevTimestamp = pos.timestamp;
       tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
@@ -2527,7 +2631,6 @@ const pathCoords = tripLog
 if (isMapRotated) resetMapRotation(() => drawHistoryRoute(pathCoords));
 else drawHistoryRoute(pathCoords);
 
-const finalAvgEfficiency = stopAvgEfficiencyTracking();
   const finalTrip = {
     plateNumber: plateInput.value.trim(),
     startTime: tripStartTime,
@@ -2548,7 +2651,6 @@ const finalAvgEfficiency = stopAvgEfficiencyTracking();
     idleTimeFormatted: formatTime(Math.floor(idleTimeTotal)),
     idleTimeSeconds: Math.floor(idleTimeTotal),
     totalRegenEnergy: totalRegenEnergyWh ? totalRegenEnergyWh / 1000 : 0,
-	avgEfficiencyPerPercent: parseFloat(finalAvgEfficiency.toFixed(3)) || 0,
     path: tripLog
   };
 
@@ -2593,6 +2695,7 @@ window.addEventListener('beforeunload', () => {
   }
 });
 })();
+
 // ✅ เวอร์ชันใหม่ (ป้องกัน NotFoundError และ rebuild อัตโนมัติ)
 function saveTripToIndexedDB(tripData) {
   return new Promise((resolve, reject) => {
