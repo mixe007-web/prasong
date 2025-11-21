@@ -2425,61 +2425,69 @@ function lerpAngle(a, b, t) {
 // -----------------------------
 // autoFollowAndRotate
 // -----------------------------
-function autoFollowAndRotate(targetLat, targetLng, speedKmh = 0, headingDeg = 0) {
-if (!map || !vehicleMarker) return;
+function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
+  if (!map || !vehicleMarker) return;
 
-if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+  autoFollowTarget = { lat, lon, heading: headingDeg };
 
-const loop = () => {
-    const curPos = vehicleMarker.getLatLng();
+  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
-    // --- Marker movement (smooth) ---
-    const dx = targetLat - curPos.lat;
-    const dy = targetLng - curPos.lng;
-    const dist = Math.sqrt(dx*dx + dy*dy) || 1e-8;
-    const step = Math.min(dist, SMOOTH_STEP);
-    const newLat = curPos.lat + (dx / dist) * step;
-    const newLng = curPos.lng + (dy / dist) * step;
+  const animate = () => {
+    if (!map || !vehicleMarker) return;
+
+    const curr = vehicleMarker.getLatLng();
+    const dx = autoFollowTarget.lat - curr.lat;
+    const dy = autoFollowTarget.lon - curr.lng;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // smooth marker movement
+    const maxStep = 0.0006;
+    let newLat = curr.lat;
+    let newLng = curr.lng;
+    if (dist > maxStep) {
+      newLat += (dx / dist) * maxStep;
+      newLng += (dy / dist) * maxStep;
+    } else {
+      newLat = autoFollowTarget.lat;
+      newLng = autoFollowTarget.lon;
+    }
     vehicleMarker.setLatLng([newLat, newLng]);
 
-    // --- Map pan (smooth) ---
+    // map pan smooth
     if (autoFollow) {
-        const mapCenter = map.getCenter();
-        const mx = newLat - mapCenter.lat;
-        const my = newLng - mapCenter.lng;
-        const md = Math.sqrt(mx*mx + my*my) || 1e-8;
-        const ms = Math.min(md, FOLLOW_STEP);
-        const targetCenterLat = mapCenter.lat + mx;
-        const targetCenterLng = mapCenter.lng + my;
-		const smoothLat = lerp(mapCenter.lat, targetCenterLat, FOLLOW_STEP / md);
-		const smoothLng = lerp(mapCenter.lng, targetCenterLng, FOLLOW_STEP / md);
-		map.setView([smoothLat, smoothLng], map.getZoom(), { animate: false });
+      const center = map.getCenter();
+      const dxMap = newLat - center.lat;
+      const dyMap = newLng - center.lng;
+      const distMap = Math.sqrt(dxMap*dxMap + dyMap*dyMap);
+      if (distMap > 0.00002) {
+        const step = Math.min(distMap, 0.0007);
+        const cx = center.lat + (dxMap / distMap) * step;
+        const cy = center.lng + (dyMap / distMap) * step;
+        map.panTo([cx, cy], { animate: false });
+      }
     }
 
-    // --- Marker rotation (smooth) ---
-    lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, MARKER_LERP);
-    vehicleMarker.setRotationAngle(lastMarkerAngle);
-
-// --- Map rotation (smooth) ---
-if (autoRotate && map) {
-    setMapPaneTransformOriginToCenter(map);
-    const newRotation = lerpAngle(lastMapRotation, headingDeg, MAP_LERP);
-    if (Math.abs(normalizeAngleDifference(newRotation - lastMapRotation)) > 0.5) {
-        lastMapRotation = newRotation;
-        const mapPane = map.getPane("mapPane");
-        if (mapPane) {
-            mapPane.style.transition = "transform 0.12s linear";
-            mapPane.style.transform = `rotate(${-lastMapRotation}deg)`;
-            isMapRotated = true;
-        }
+    // marker rotation
+    if (vehicleMarker.setRotationAngle) {
+      lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, 0.2);
+      vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
-}
 
-    autoFollowAnimFrame = requestAnimationFrame(loop);
-};
+    // map rotation
+    if (autoRotate) {
+      const mapPane = map.getPane('mapPane');
+      if (mapPane) {
+        setMapPaneTransformOriginToCenter(map);
+        lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, 0.15);
+        mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
+        isMapRotated = true;
+      }
+    }
 
-autoFollowAnimFrame = requestAnimationFrame(loop);
+    autoFollowAnimFrame = requestAnimationFrame(animate);
+  };
 
+  autoFollowAnimFrame = requestAnimationFrame(animate);
 }
 
 // ==============================
@@ -2684,18 +2692,18 @@ function attachMapEventListeners() {
 // 🚗 UPDATE ROUTE (IMPROVED)
 // =============================
 function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
-if (!map || !routeLayer || !vehicleMarker) return;
+  if (!map || !routeLayer || !vehicleMarker) return;
 
-const curr = L.latLng(lat, lon);
+  const curr = L.latLng(lat, lon);
 
-// --- ถ้าเป็นตำแหน่งแรก ---
-if (lastLat === null || lastLon === null) {
+  if (lastLat === null || lastLon === null) {
     lastLat = lat;
     lastLon = lon;
     pathCoordinates.push([lat, lon, speedKmh || 0, Date.now()]);
+
     vehicleMarker.setLatLng([lat, lon]);
 
-    let heading = (typeof headingDegInput === "number") ? headingDegInput : 0;
+    const heading = (typeof headingDegInput === "number") ? headingDegInput : 0;
     lastValidHeading = heading;
     lastMarkerAngle = heading;
 
@@ -2703,38 +2711,42 @@ if (lastLat === null || lastLon === null) {
     updateAutoZoom(speedKmh);
     updateVehicleIconBySpeed(speedKmh);
     return;
-}
+  }
 
-const prev = L.latLng(lastLat, lastLon);
-const dist = map.distance(prev, curr);
-if (dist < 3) return; // skip ถ้าใกล้เกินไป
+  const prev = L.latLng(lastLat, lastLon);
+  const dist = map.distance(prev, curr);
+  const now = Date.now();
+  const dt = pathCoordinates.length
+    ? (now - pathCoordinates[pathCoordinates.length - 1][3]) / 1000
+    : 0.1;
+  const maxReasonableDist = Math.max(100, (speedKmh / 3.6) * dt * 2.0);
 
-const now = Date.now();
-pathCoordinates.push([lat, lon, speedKmh || 0, now]);
+  if (dist < 3) return;
 
-// --- batch polyline ---
-if (pathCoordinates.length >= 2) {
+  pathCoordinates.push([lat, lon, speedKmh || 0, now]);
+
+  if (dist <= maxReasonableDist && pathCoordinates.length >= 2) {
     const a = pathCoordinates[pathCoordinates.length - 2];
     const b = pathCoordinates[pathCoordinates.length - 1];
     const color = getSpeedColor(b[2] || 0);
 
     let lastBatch = routeBatchLayers[routeBatchLayers.length - 1];
     if (!lastBatch || lastBatch.length >= POLYLINE_BATCH_SIZE) {
-        lastBatch = [];
-        routeBatchLayers.push(lastBatch);
+      lastBatch = [];
+      routeBatchLayers.push(lastBatch);
     }
 
     const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
-        color,
-        weight: 4,
-        opacity: 0.95,
-        interactive: false
+      color,
+      weight: 4,
+      opacity: 0.95,
+      interactive: false
     }).addTo(routeLayer);
     lastBatch.push(seg);
-}
+  }
 
-lastLat = lat;
-lastLon = lon;
+  lastLat = lat;
+  lastLon = lon;
 
 // --- คำนวณ heading ---
 let heading = (typeof headingDegInput === "number") ? headingDegInput : lastValidHeading ?? 0;
@@ -2744,16 +2756,12 @@ if ((heading === 0 || heading === null) && pathCoordinates.length >= 2) {
     const prevPos = pathCoordinates[pathCoordinates.length - 2];
     heading = getHeadingFromPrev(prevPos[0], prevPos[1], lat, lon);
 }
-
-lastValidHeading = heading;
-
 // --- เรียก auto follow & rotate ---
 autoFollowAndRotate(lat, lon, speedKmh, heading);
+lastValidHeading = heading;
 
-// --- อัปเดต zoom และ icon size ---
-updateAutoZoom(speedKmh);
-updateVehicleIconBySpeed(speedKmh);
-
+  updateAutoZoom(speedKmh);
+  updateVehicleIconBySpeed(speedKmh);
 }
 
 // =============================
