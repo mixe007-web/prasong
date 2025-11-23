@@ -731,7 +731,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 27.SOS</h2>
+<h2>Trip A-B Version 27.S-3</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2347,6 +2347,7 @@ if (L.Marker && !L.Marker.prototype.setRotationAngle) {
   console.warn("⚠️ leaflet.rotatedMarker plugin missing — improved fallback applied.");
 }
 
+// safeInvalidateMap: preserve behavior but operate on container, not pane
 function safeInvalidateMap(targetMap, delay = 300) {
   if (!targetMap || !targetMap.invalidateSize) return;
   clearTimeout(targetMap._invalidateTimeout);
@@ -2357,9 +2358,9 @@ function safeInvalidateMap(targetMap, delay = 300) {
     try {
       targetMap.invalidateSize();
 
-      const mapPane = targetMap.getPane("mapPane");
-      if (mapPane && isMapRotated) {
-        mapPane.style.transform = `rotate(${-rotation}deg)`;
+      const rotEl = getRotationElement(targetMap);
+      if (rotEl && isMapRotated) {
+        rotEl.style.transform = `rotate(${rotation}deg)`; // rotation is stored as actual applied rotation (deg)
       }
 
       setMapPaneTransformOriginToCenter(targetMap);
@@ -2370,31 +2371,40 @@ function safeInvalidateMap(targetMap, delay = 300) {
   }, delay);
 }
 
-
 function normalizeAngleDifference(angle) {
   let a = angle % 360;
   if (a > 180) a -= 360;
   if (a < -180) a += 360;
   return a;
 }
+// reset map rotation -> operate on container
 function resetMapRotation(callback) {
-    if (!map) return callback?.();
+  if (!map) return callback?.();
 
-    const mapPane = map.getPane('mapPane');
-    if (!mapPane) return callback?.();
+  // ❗ ยกเลิก animation ทั้งหมดก่อน reset
+  if (rotationAnimFrame) cancelAnimationFrame(rotationAnimFrame);
+  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
-    mapPane.style.transition = 'transform 0.35s ease-out';
-    mapPane.style.transform = 'rotate(0deg)';
+  const rotEl = getRotationElement(map);
+  if (!rotEl) return callback?.();
 
-    setTimeout(() => {
-        mapPane.style.transition = '';
-        mapPane.style.transform = '';
-        isMapRotated = false;
-        lastMapRotation = 0;
-        callback?.();
-    }, 400);
+  rotEl.style.transition = 'transform 0.35s ease-out';
+  rotEl.style.transform = 'rotate(0deg)';
+
+  setTimeout(() => {
+      rotEl.style.transition = '';
+      rotEl.style.transform = '';
+
+      isMapRotated = false;
+      lastMapRotation = 0;
+
+      // ป้องกัน auto-rotate ทำงานสวนทางหลัง reset
+      rotationAnimFrame = null;
+      autoFollowAnimFrame = null;
+
+      callback?.();
+  }, 400);
 }
-
 
 function safeGetPane(targetMap, name) {
   if (!targetMap || !name) return null;
@@ -2475,15 +2485,15 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
 
     // map rotation
     if (autoRotate) {
-      const mapPane = map.getPane('mapPane');
-      if (mapPane) {
-        setMapPaneTransformOriginToCenter(map);
-        lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, 0.15);
-        mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
-        isMapRotated = true;
-      }
-    }
-
+  const rotEl = getRotationElement(map);
+  if (rotEl) {
+    setMapPaneTransformOriginToCenter(map);
+    // target rotation we apply to the element is -headingDeg
+    lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, 0.10);
+    rotEl.style.transform = `rotate(${lastMapRotation}deg)`;
+    isMapRotated = true;
+  }
+}
     autoFollowAnimFrame = requestAnimationFrame(animate);
   };
 
@@ -2505,13 +2515,14 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   map.setView([lat, lon], map.getZoom(), { animate: false });
 
   lastMarkerAngle = headingDeg;
-  lastMapRotation = headingDeg;
+  // store the actual applied rotation (we apply -headingDeg to map container)
+  lastMapRotation = -headingDeg;
 
-  const mapPane = map.getPane("mapPane");
-  if (mapPane) {
+  const rotEl = getRotationElement(map);
+  if (rotEl) {
     setMapPaneTransformOriginToCenter(map);
-    mapPane.style.transition = "transform 0.15s linear";
-    mapPane.style.transform = `rotate(${-headingDeg}deg)`;
+    rotEl.style.transition = "transform 0.15s linear";
+    rotEl.style.transform = `rotate(${-headingDeg}deg)`;
   }
 
   requestAnimationFrame(() => {
@@ -2519,20 +2530,31 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   });
 }
 
-
 function updateAutoRotate(speedKmh) {
   autoRotate = speedKmh >= 3 ;
 }
 
-// set transform origin at center
-// -----------------------------
+// --- Helper: get rotation target element (use map container, not mapPane) ---
+function getRotationElement(targetMap = map) {
+  if (!targetMap) return null;
+  try {
+    return targetMap.getContainer(); // safer than mapPane (Leaflet uses mapPane transform for translate)
+  } catch (e) {
+    console.warn("getRotationElement error:", e);
+    return null;
+  }
+}
+
+
+// set transform origin at center (for the rotation element)
 function setMapPaneTransformOriginToCenter(targetMap = map) {
   if (!targetMap) return;
-  const center = targetMap.latLngToContainerPoint(targetMap.getCenter());
-  const origin = `${center.x}px ${center.y}px`;
+  // center in pixels of the container
+  const size = targetMap.getSize();
+  const origin = `${Math.floor(size.x/2)}px ${Math.floor(size.y/2)}px`;
 
-  const mapPane = targetMap.getPane('mapPane');
-  if (mapPane) mapPane.style.transformOrigin = origin;
+  const rotEl = getRotationElement(targetMap);
+  if (rotEl) rotEl.style.transformOrigin = origin;
 }
 
 // -----------------------------
