@@ -731,7 +731,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 27.SsS</h2>
+<h2>Trip A-B Version 27.AionV</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2373,36 +2373,48 @@ function safeInvalidateMap(targetMap, delay = 300) {
   }, delay);
 }
 
-function normalizeAngleDifference(angle) {
-  let a = angle % 360;
-  if (a > 180) a -= 360;
-  if (a < -180) a += 360;
-  return a;
+function normalizeAngleDifference(target, current) {
+  let diff = (target - current) % 360;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  return diff;
 }
+
 // reset map rotation -> operate on container
 function resetMapRotation(callback) {
   if (!map) return callback?.();
+
   if (rotationAnimFrame) cancelAnimationFrame(rotationAnimFrame);
   if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
   const rotEl = getRotationElement(map);
   if (!rotEl) return callback?.();
 
-  rotEl.style.transition = 'transform 0.35s ease-out';
-  rotEl.style.transform = 'rotate(0deg)';
+  const startRot = lastMapRotation;
+  const duration = 350;
+  const startTime = performance.now();
 
-  setTimeout(() => {
-      rotEl.style.transition = '';
+  const animate = (t) => {
+    const p = Math.min((t - startTime) / duration, 1);
+    const eased = p < 0.5 ? 2*p*p : -1+(4-2*p)*p; // easeInOut
+
+    const currentRot = startRot + normalizeAngleDifference(0, startRot) * eased;
+    rotEl.style.transform = `rotate(${currentRot}deg)`;
+
+    if (p < 1) rotationAnimFrame = requestAnimationFrame(animate);
+    else {
       rotEl.style.transform = '';
-
       isMapRotated = false;
       lastMapRotation = 0;
       rotationAnimFrame = null;
       autoFollowAnimFrame = null;
-
       callback?.();
-  }, 400);
+    }
+  };
+
+  rotationAnimFrame = requestAnimationFrame(animate);
 }
+
 
 function safeGetPane(targetMap, name) {
   if (!targetMap || !name) return null;
@@ -2436,84 +2448,110 @@ function getMaxPanStep(speedKmh) {
 // autoFollowAndRotate
 // -----------------------------
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
+  if (!map || !vehicleMarker) return;
+
+  autoFollowTarget = { lat, lon, heading: headingDeg };
+  speedKmh = Number(speedKmh) || 0;
+  headingDeg = Number(headingDeg) || 0;
+
+  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+
+  const animate = () => {
     if (!map || !vehicleMarker) return;
 
-    autoFollowTarget = { lat, lon, heading: headingDeg };
-    speedKmh = Number(speedKmh) || 0;
-    headingDeg = Number(headingDeg) || 0;
+    const curr = vehicleMarker.getLatLng();
+    const dLat = autoFollowTarget.lat - curr.lat;
+    const dLng = autoFollowTarget.lon - curr.lng;
+    const dist = Math.sqrt(dLat*dLat + dLng*dLng);
 
-    if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+    const maxStep = getMaxPanStep(speedKmh);
+    let newLat = curr.lat;
+    let newLng = curr.lng;
 
-    const animate = () => {
-        if (!map || !vehicleMarker) return;
+    if (dist > maxStep) {
+      newLat += (dLat / dist) * maxStep;
+      newLng += (dLng / dist) * maxStep;
+    } else {
+      newLat = autoFollowTarget.lat;
+      newLng = autoFollowTarget.lon;
+    }
 
-        const curr = vehicleMarker.getLatLng();
-        const dLat = autoFollowTarget.lat - curr.lat;
-        const dLng = autoFollowTarget.lon - curr.lng;
-        const dist = Math.sqrt(dLat*dLat + dLng*dLng);
+    vehicleMarker.setLatLng([newLat, newLng]);
 
-        const maxStep = getMaxPanStep(speedKmh);
+    if (autoFollow) {
+      map.setView([newLat, newLng], map.getZoom(), { animate: false });
+    }
 
-        let newLat = curr.lat;
-        let newLng = curr.lng;
+    // Marker rotation
+    if (vehicleMarker.setRotationAngle) {
+      const factor = speedKmh >= 4 ? 0.22 : 0.12;
+      lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, factor);
+      vehicleMarker.setRotationAngle(lastMarkerAngle);
+    }
 
-        if (dist > 1e-12 && dist > maxStep) {
-            // scale movement proportional to distance
-            newLat += (dLat / dist) * maxStep;
-            newLng += (dLng / dist) * maxStep;
-        } else {
-            newLat = autoFollowTarget.lat;
-            newLng = autoFollowTarget.lon;
-        }
-        vehicleMarker.setLatLng([newLat, newLng]);
-        if (autoFollow) {
-            map.setView([newLat, newLng], map.getZoom(), { animate: false });
-        }
-        // Marker rotation
-        if (vehicleMarker.setRotationAngle) {
-            const markerFactor = speedKmh >= 5 ? 0.25 : 0.18;
-            lastMarkerAngle = lerpAngle(lastMarkerAngle, headingDeg, markerFactor);
-            vehicleMarker.setRotationAngle(lastMarkerAngle);
-        }
-        // Map rotation
-        if (autoRotate) {
-            const rotEl = getRotationElement(map);
-            if (rotEl) {
-                setMapPaneTransformOriginToCenter(map);
-                const speedFactor = Math.min(Math.max(speedKmh / 60, 0.05), 0.3);
-                lastMapRotation = lerpAngle(lastMapRotation, -headingDeg, speedFactor);
-                rotEl.style.transform = `rotate(${lastMapRotation}deg)`;
-                isMapRotated = true;
-            }
-        }
-        autoFollowAnimFrame = requestAnimationFrame(animate);
-    };
+    // Map rotation
+    if (autoRotate) {
+      const rotEl = getRotationElement(map);
+      if (rotEl) {
+        setMapPaneTransformOriginToCenter(map);
+
+        const factor = Math.min(Math.max(speedKmh / 80, 0.1), 0.22);
+        const diff = normalizeAngleDifference(-headingDeg, lastMapRotation);
+
+        lastMapRotation += diff * factor;
+        rotEl.style.transform = `rotate(${lastMapRotation}deg)`;
+
+        isMapRotated = true;
+      }
+    }
+
     autoFollowAnimFrame = requestAnimationFrame(animate);
+  };
+
+  autoFollowAnimFrame = requestAnimationFrame(animate);
 }
 
 // ==============================
 // 🔹 startAutoFollow (safe)
 // ==============================
 function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
-if (!map || !vehicleMarker) return;
+  if (!map || !vehicleMarker) return;
 
-if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
-autoRotate = true;
-map.dragging.disable();
-map.scrollWheelZoom.disable();
-map.doubleClickZoom.disable();
-map.keyboard.disable();
+  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+  if (rotationAnimFrame) cancelAnimationFrame(rotationAnimFrame);
 
-map.setView([lat, lon], map.getZoom(), { animate: false });
+  autoFollow = true;
+  autoRotate = true;
 
-lastMarkerAngle = headingDeg;
-lastMapRotation = -headingDeg;
+  map.dragging.disable();
+  map.scrollWheelZoom.disable();
+  map.doubleClickZoom.disable();
+  map.keyboard.disable();
 
+  map.setView([lat, lon], map.getZoom(), { animate: false });
+
+  lastMarkerAngle = headingDeg;
+  lastMapRotation = -headingDeg;
+
+  const rotEl = getRotationElement(map);
+  if (rotEl) {
+    rotEl.style.transform = `rotate(${-headingDeg}deg)`;
+    setMapPaneTransformOriginToCenter(map);
+    isMapRotated = true;
+  }
+
+  autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
 }
+
 
 function updateAutoRotate(speedKmh) {
-  autoRotate = speedKmh >= 3 ;
+  const enable = speedKmh >= 3.5;   // hysteresis กัน flapping
+  const disable = speedKmh < 2.2;
+
+  if (enable) autoRotate = true;
+  else if (disable) autoRotate = false;
 }
+
 
 function getRotationElement(targetMap = map) {
     return targetMap.getPane("mapPane");
