@@ -730,7 +730,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 27.27</h2>
+<h2>Trip A-B Version 27.28</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2403,88 +2403,80 @@ function resetMapRotation(callback = null) {
 // --------------------
 function lerp(a, b, t) { return a + (b - a) * t; }
 function lerpAngle(a, b, t) { let diff = ((b - a + 540) % 360) - 180; return (a + diff * t + 360) % 360; }
+
 // -----------------------------
 // AUTO FOLLOW & ROTATE
 // -----------------------------
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
-  if (!map || !vehicleMarker) return;
+    if (!map || !vehicleMarker) return;
 
-  autoFollowTarget = { lat, lon, heading: headingDeg, speedKmh };
+    autoFollowTarget = { lat, lon, heading: headingDeg, speedKmh };
 
-  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+    if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
 
-  function step() {
-    if (!autoFollow || !map || !vehicleMarker) return;
+    function step() {
+        if (!autoFollow || !map || !vehicleMarker) return;
 
-    const { lat: tgtLat, lon: tgtLon, heading: tgtHeading, speedKmh: tgtSpeed } = autoFollowTarget;
+        const { lat: tgtLat, lon: tgtLon, heading: tgtHeading } = autoFollowTarget;
 
-    // --- update marker position and rotation ---
-    vehicleMarker.setLatLng([tgtLat, tgtLon]);
-    if (vehicleMarker.setRotationAngle) {
-      lastMarkerAngle = lerpAngle(lastMarkerAngle, tgtHeading, 0.2);
-      vehicleMarker.setRotationAngle(lastMarkerAngle);
-    }
+        // 1) อัปเดตตำแหน่ง marker
+        vehicleMarker.setLatLng([tgtLat, tgtLon]);
+        if (vehicleMarker.setRotationAngle) {
+            lastMarkerAngle = lerpAngle(lastMarkerAngle, tgtHeading, 0.25);
+            vehicleMarker.setRotationAngle(lastMarkerAngle);
+        }
 
-    const el = getRotationElement(map);
-    if (el) {
-      const mapSize = map.getSize();
+        // 2) ให้ตำแหน่งอยู่กลางแผนที่ (ไม่ใช้ translate)
+        map.setView([tgtLat, tgtLon], currentTargetZoom, { animate: false });
 
-      // 1️⃣ คำนวณ translation ให้ marker อยู่ตรงกลางก่อนหมุน
-      const markerPx = map.latLngToContainerPoint([tgtLat, tgtLon]);
-      const dx = mapSize.x / 2 - markerPx.x;
-      const dy = mapSize.y / 2 - markerPx.y;
+        // 3) หมุนแผนที่รอบ marker
+        const el = getRotationElement(map);
+        if (el) {
+            const size = map.getSize();
+            lastMapRotation = lerpAngle(lastMapRotation, -tgtHeading, 0.25);
+//console.log("ROTATE: lastMapRotation =", lastMapRotation, "heading =", tgtHeading);
+            el.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
+            el.style.transform = `rotate(${lastMapRotation}deg)`;
+        }
 
-      // lerp translation เพื่อ smooth
-      lastTranslateX = lerp(lastTranslateX, dx, 0.2);
-      lastTranslateY = lerp(lastTranslateY, dy, 0.2);
-
-      // 2️⃣ หมุน map รอบ marker
-      // หมุน map ให้ทิศทางขับของ marker ชี้ขึ้นบนจอ
-      const rotationFactor = Math.min(0.2 + tgtSpeed / 200, 0.5);
-      // หมุน map = -heading marker
-      lastMapRotation = lerpAngle(lastMapRotation, -tgtHeading, rotationFactor);
-
-      // 3️⃣ apply transform
-      el.style.transformOrigin = `${mapSize.x/2}px ${mapSize.y/2}px`;
-      el.style.transform = `translate(${lastTranslateX}px, ${lastTranslateY}px) rotate(${lastMapRotation}deg)`;
+        autoFollowAnimFrame = requestAnimationFrame(step);
     }
 
     autoFollowAnimFrame = requestAnimationFrame(step);
-  }
-
-  autoFollowAnimFrame = requestAnimationFrame(step);
 }
 
 function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
-  if (!map || !vehicleMarker) return;
+    if (!map || !vehicleMarker) return;
 
-  autoFollow = true;
+    autoFollow = true;
 
-  map.dragging.disable();
-  map.scrollWheelZoom.disable();
-  map.doubleClickZoom.disable();
-  map.keyboard.disable();
-  map.touchZoom.disable();
+    map.dragging.disable();
+    map.scrollWheelZoom.disable();
+    map.doubleClickZoom.disable();
+    map.keyboard.disable();
+    map.touchZoom.disable();
 
-  vehicleMarker.setLatLng([lat, lon]);
+    // ตั้ง marker ครั้งแรก
+    vehicleMarker.setLatLng([lat, lon]);
 
-  const el = getRotationElement(map);
-  if (!el) return;
+    // ตั้งค่าเริ่มต้น
+    lastMapRotation = -headingDeg;
+    lastMarkerAngle = headingDeg;
 
-  const mapSize = map.getSize();
-  lastTranslateX = 0;
-  lastTranslateY = 0;
-  lastMapRotation = -headingDeg;
-  lastMarkerAngle = headingDeg;
+    // ตั้งศูนย์กลางจริง (ไม่ใช้ translate)
+    map.setView([lat, lon], BASE_ZOOM, { animate: false });
 
-  el.style.transformOrigin = `${mapSize.x/2}px ${mapSize.y/2}px`;
-  el.style.transform = `translate(${lastTranslateX}px, ${lastTranslateY}px) rotate(${lastMapRotation}deg)`;
+    const el = getRotationElement(map);
+    if (el) {
+        const size = map.getSize();
+        el.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
+        el.style.transform = `rotate(${lastMapRotation}deg)`;
+    }
 
-  setMapPaneTransformOriginToCenter(map);
-
-  autoFollowTarget = { lat, lon, heading: headingDeg, speedKmh };
-  autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
+    autoFollowTarget = { lat, lon, heading: headingDeg, speedKmh };
+    autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
 }
+
 function updateAutoRotate(speedKmh) {
 autoRotate = speedKmh >= 2 || autoFollow;
 }
@@ -2852,8 +2844,6 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
 // Throttled wrapper สำหรับ live update
 const throttledUpdateRoute = throttle(updateRoute, 100);
 
-let speedKmh = 0;
-
 function startTracking() {
   if (isTrackingStarted || isTracking) {
     alert("Trip กำลังทำงานอยู่แล้ว");
@@ -2986,6 +2976,7 @@ function startTracking() {
 }
       if (latitude == null || longitude == null) return;
       if (accuracy > 30) return;
+	  let speedKmh = 0;
     if (speed !== null && speed !== undefined && speed > 0) {
       speedKmh = speed * 3.6;
     } else if (prevPos && prevTimestamp) {
