@@ -361,7 +361,6 @@
 .leaflet-marker-icon {
   z-index: 10000;
 }
-
 #map-container {
   position: relative;
   width: 100%;
@@ -731,7 +730,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 27.SSZ</h2>
+<h2>Trip A-B Version 27.27</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1587,11 +1586,8 @@ updateEfficiency = function() {
 function updateSpeed(newSpeed) {
   if (isNaN(newSpeed) || newSpeed < 0) newSpeed = 0;
   speed = newSpeed;
-
-  // 1️⃣ อัปเดต digitalSpeed ทันทีแบบ smooth
   updateSpeedometer(speed);
 
-  // 2️⃣ อัปเดต maxSpeed และ avgSpeed
   if (speed > maxSpeed) {
     maxSpeed = speed;
     maxSpeedSpan.textContent = maxSpeed.toFixed(1);
@@ -1604,38 +1600,28 @@ function updateSpeed(newSpeed) {
     avgSpeedSpan.textContent = avgSpeed.toFixed(1);
   }
 
-  // 3️⃣ ฟังก์ชันหนัก ๆ เรียกทีหลังแบบ async
-  setTimeout(() => {
-    try { updateEfficiency(); } catch(e) {}
-    try { updateAvgEfficiencyPerPercent(); } catch(e) {}
-    try { detectBraking(speed); } catch(e) {}
-  }, 0);
+  updateEfficiency();
+
+  try { updateAvgEfficiencyPerPercent(); } catch(e) {}
+  try { detectBraking(newSpeed); } catch(e) {}
 }
+
 
 const digitalSpeed = document.getElementById("digitalSpeed");
 
 function updateSpeedometer(speed) {
-  if (!digitalSpeed) return;
-  if (isNaN(speed) || speed < 0) speed = 0;
-
-  // ใช้ requestAnimationFrame ให้ browser ทำ UI update แบบ smooth
-  requestAnimationFrame(() => {
-    // อัปเดตค่าความเร็ว
-    digitalSpeed.textContent = `${speed.toFixed(1)} km/h`;
-
-    // อัปเดต class ของ digitalSpeed (speed-low/medium/high)
-    const prevClass = digitalSpeed.className;
-    let newClass = '';
-    if (speed < 80) newClass = 'speed-low';
-    else if (speed < 110) newClass = 'speed-medium';
-    else newClass = 'speed-high';
-
-    if (prevClass !== newClass) {
-      digitalSpeed.className = newClass;
-    }
-  });
+if (!digitalSpeed) return;
+if (isNaN(speed) || speed < 0) speed = 0;
+  digitalSpeed.textContent = `${speed.toFixed(1)} km/h`;
+  digitalSpeed.classList.remove('speed-low', 'speed-medium', 'speed-high');
+if (speed < 80) {
+  digitalSpeed.classList.add('speed-low');
+} else if (speed >= 80 && speed < 110) {
+  digitalSpeed.classList.add('speed-medium');
+} else {
+  digitalSpeed.classList.add('speed-high');
 }
-
+}
 function checkIdleStatus() {
   const now = Date.now();
 
@@ -2309,13 +2295,16 @@ let mapListenersAttached = false;
 let isPanAnimating = false;
 let isRotateAnimating = false;
 let rotationAnimFrame = null;
+let lastMarkerAngle = 0;
+let lastMapRotation = 0;
+let lastTranslateX = 0;
+let lastTranslateY = 0;
 let autoFollowAnimFrame = null;
 let autoFollowTimeout = null;
 let autoFollow = true;
 let autoRotate = true;
 let lastTransformHeading = null;
-let lastMarkerAngle = 0;
-let lastMapRotation = 0;
+
 let autoFollowTarget = { lat: 0, lon: 0, heading: 0 };
 let currentIconSize = 32;
 let lastReliableHeading = 0;
@@ -2412,23 +2401,10 @@ function resetMapRotation(callback = null) {
 // --------------------
 // lerp helpers
 // --------------------
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
-function lerpAngle(a, b, t) {
-  let diff = ((b - a + 540) % 360) - 180;
-  return (a + diff * t + 360) % 360;
-}
-function getMaxPanStep(speedKmh) {
-    const minStep = 0.0001;  // ~11 m
-    const maxStep = 0.002;   // ~220 m
-    const speedMax = 160;     // km/h
-    const step = minStep + (Math.min(speedKmh, speedMax) / speedMax) * (maxStep - minStep);
-    return step;
-}
-
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpAngle(a, b, t) { let diff = ((b - a + 540) % 360) - 180; return (a + diff * t + 360) % 360; }
 // -----------------------------
-// autoFollowAndRotate
+// AUTO FOLLOW & ROTATE
 // -----------------------------
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   if (!map || !vehicleMarker) return;
@@ -2442,116 +2418,89 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
 
     const { lat: tgtLat, lon: tgtLon, heading: tgtHeading, speedKmh: tgtSpeed } = autoFollowTarget;
 
-    // --- Update marker position ---
-    const pos = vehicleMarker.getLatLng();
-    const dLat = tgtLat - pos.lat;
-    const dLng = tgtLon - pos.lng;
-    const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-    const stepSize = getMaxPanStep(tgtSpeed);
-
-    let newLat = pos.lat;
-    let newLng = pos.lng;
-    if (dist > stepSize) {
-      newLat += (dLat / dist) * stepSize;
-      newLng += (dLng / dist) * stepSize;
-    } else {
-      newLat = tgtLat;
-      newLng = tgtLon;
+    // --- update marker position and rotation ---
+    vehicleMarker.setLatLng([tgtLat, tgtLon]);
+    if (vehicleMarker.setRotationAngle) {
+      lastMarkerAngle = lerpAngle(lastMarkerAngle, tgtHeading, 0.2);
+      vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
 
-  vehicleMarker.setLatLng([newLat, newLng]);
+    const el = getRotationElement(map);
+    if (el) {
+      const mapSize = map.getSize();
 
-  // rotate marker
-  if (vehicleMarker.setRotationAngle) {
-    const f = speedKmh >= 10 ? 0.25 : 0.15;
-    lastMarkerAngle = lerpAngle(lastMarkerAngle || 0, headingDeg || 0, f);
-    vehicleMarker.setRotationAngle(lastMarkerAngle);
-  }
-    // --- Pan map smoothly ---
-    if (autoFollow) {
-	//console.log("Map center before pan:", map.getCenter());
-      try {
-        const center = map.getCenter();
-        const cpt = map.latLngToContainerPoint(center);
-        const tgt = map.latLngToContainerPoint([newLat, newLng]);
-        const f = tgtSpeed >= 10 ? 0.35 : 0.2;
-        const dx = (tgt.x - cpt.x) * f;
-        const dy = (tgt.y - cpt.y) * f;
-        map.panBy([dx, dy], { animate: false });
-      } catch (e) {}
+      // 1️⃣ คำนวณ translation ให้ marker อยู่ตรงกลางก่อนหมุน
+      const markerPx = map.latLngToContainerPoint([tgtLat, tgtLon]);
+      const dx = mapSize.x / 2 - markerPx.x;
+      const dy = mapSize.y / 2 - markerPx.y;
+
+      // lerp translation เพื่อ smooth
+      lastTranslateX = lerp(lastTranslateX, dx, 0.2);
+      lastTranslateY = lerp(lastTranslateY, dy, 0.2);
+
+      // 2️⃣ หมุน map รอบ marker
+      // หมุน map ให้ทิศทางขับของ marker ชี้ขึ้นบนจอ
+      const rotationFactor = Math.min(0.2 + tgtSpeed / 200, 0.5);
+      // หมุน map = -heading marker
+      lastMapRotation = lerpAngle(lastMapRotation, -tgtHeading, rotationFactor);
+
+      // 3️⃣ apply transform
+      el.style.transformOrigin = `${mapSize.x/2}px ${mapSize.y/2}px`;
+      el.style.transform = `translate(${lastTranslateX}px, ${lastTranslateY}px) rotate(${lastMapRotation}deg)`;
     }
 
-  // rotate map
-if (autoRotate) {
-  const el = getRotationElement(map);
-  if (el) {
-    setMapPaneTransformOriginToCenter(map);
-    const f = Math.min(Math.max(speedKmh / 120, 0.1), 0.3);
-    lastMapRotation = lerpAngle(lastMapRotation || 0, -headingDeg, f);
-    el.style.transform = `rotate(${lastMapRotation}deg)`;
-    isMapRotated = true;
-	//console.log("ROTATE: lastMapRotation =", lastMapRotation, "heading =", headingDeg);
-  }
-}
-
-    // --- request next frame ---
     autoFollowAnimFrame = requestAnimationFrame(step);
   }
 
   autoFollowAnimFrame = requestAnimationFrame(step);
 }
 
-// ==============================
-// 🔹 startAutoFollow (safe)
-// ==============================
 function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
   if (!map || !vehicleMarker) return;
 
-  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
   autoFollow = true;
-  autoRotate = true;
-  updateAutoRotate(speedKmh);
+
   map.dragging.disable();
   map.scrollWheelZoom.disable();
   map.doubleClickZoom.disable();
   map.keyboard.disable();
   map.touchZoom.disable();
+
   vehicleMarker.setLatLng([lat, lon]);
-  lastMarkerAngle = headingDeg;
+
+  const el = getRotationElement(map);
+  if (!el) return;
+
+  const mapSize = map.getSize();
+  lastTranslateX = 0;
+  lastTranslateY = 0;
   lastMapRotation = -headingDeg;
-  const rotEl = getRotationElement(map);
-  if (rotEl) {
-    rotEl.style.transform = `rotate(${-headingDeg}deg)`;
-    setMapPaneTransformOriginToCenter(map);
-    isMapRotated = true;
-  }
-  map.setView([lat, lon], map.getZoom(), { animate: false });
-  autoFollowTarget = { lat, lon, speedKmh, heading: headingDeg };
+  lastMarkerAngle = headingDeg;
+
+  el.style.transformOrigin = `${mapSize.x/2}px ${mapSize.y/2}px`;
+  el.style.transform = `translate(${lastTranslateX}px, ${lastTranslateY}px) rotate(${lastMapRotation}deg)`;
+
+  setMapPaneTransformOriginToCenter(map);
+
+  autoFollowTarget = { lat, lon, heading: headingDeg, speedKmh };
   autoFollowAndRotate(lat, lon, speedKmh, headingDeg);
 }
-
 function updateAutoRotate(speedKmh) {
 autoRotate = speedKmh >= 2 || autoFollow;
 }
-function getRotationElement(targetMap = map) {
-    return targetMap.getPane("mapPane");
-}
-
+function getRotationElement(targetMap = map) { return targetMap.getPane("mapPane"); }
 function clampLatLng(lat, lng) {
   const clampedLat = Math.max(Math.min(lat, 85), -85);
   let clampedLng = ((lng + 180) % 360 + 360) % 360 - 180;
   return [clampedLat, clampedLng];
 }
-
-function setMapPaneTransformOriginToCenter(targetMap = map) {
-  try {
-    const size = targetMap.getSize();
-    const el = getRotationElement(targetMap);
-    if (!size || !el) return;
-    el.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
-  } catch (e) {}
+function setMapPaneTransformOriginToCenter(targetMap) {
+  if (!targetMap) return;
+  const size = targetMap.getSize();
+  const el = getRotationElement(targetMap);
+  if (!size || !el) return;
+  el.style.transformOrigin = `${size.x/2}px ${size.y/2}px`;
 }
-
 // -----------------------------
 // Helper: แปลงองศา / เรเดียน
 // -----------------------------
@@ -2645,7 +2594,6 @@ function initMap(lat, lon) {
     });
     const safeCenter = clampLatLng(lat, lon);
     map.setView([safeCenter[0], safeCenter[1]], BASE_ZOOM, { animate: false });
-	autoFollowAndRotate(lat, lon, 0, headingDeg);
   });
 }
 
@@ -3054,7 +3002,7 @@ function startTracking() {
     window.lastFinalSpeed = finalSpeedKmh;
      
     // --- Update display + map ---
-    updateSpeedometer(finalSpeedKmh);
+    //updateSpeedometer(finalSpeedKmh);
     updateSpeed(finalSpeedKmh);
 	
 	
