@@ -730,7 +730,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 27.29</h2>
+<h2>Trip A-B Version 28.11</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2410,14 +2410,21 @@ function lerpAngle(a, b, t) { let diff = ((b - a + 540) % 360) - 180; return (a 
 function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
   if (!map || !vehicleMarker) return;
 
+  // อัปเดตค่าเป้าหมายให้ loop ปัจจุบันใช้
   autoFollowTarget = { lat, lon, heading: headingDeg, speedKmh };
 
-  if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+  // ❗ ถ้ามี animation loop อยู่แล้ว → ห้ามสร้างใหม่
+  if (autoFollowAnimFrame) {
+    return;
+  }
 
   let lastStepTime = 0;
 
   function step(now) {
-    if (!autoFollow || !map || !vehicleMarker) return;
+    if (!autoFollow || !map || !vehicleMarker) {
+      autoFollowAnimFrame = null;
+      return;
+    }
 
     const delta = now - lastStepTime;
     if (delta < 50) { // throttle ~20fps
@@ -2435,10 +2442,10 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
       vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
 
-    // 2) pan map smoothly
-    map.panTo([tgtLat, tgtLon], { animate: true, duration: 0.2 });
+    // 2) pan map (disable animation while rotating map)
+    map.setView([tgtLat, tgtLon], map.getZoom(), { animate: false });
 
-    // 3) rotate map smoothly
+    // 3) rotate map
     if (autoRotate) {
       const el = getRotationElement(map);
       if (el) {
@@ -2449,8 +2456,12 @@ function autoFollowAndRotate(lat, lon, speedKmh = 0, headingDeg = 0) {
         el.style.transform = `rotate(${lastMapRotation}deg)`;
       }
     }
+
+    // loop ต่อไป
     autoFollowAnimFrame = requestAnimationFrame(step);
   }
+
+  // ❗ เริ่ม loop ครั้งเดียวเท่านั้น
   autoFollowAnimFrame = requestAnimationFrame(step);
 }
 
@@ -2727,7 +2738,6 @@ function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
   lastLon = lon;
 
   // --- smooth updates ---
-  autoFollowAndRotate(lat, lon, speedKmh, reliableHeading);
   updateVehicleIconBySpeed(speedKmh);
   updateAutoZoom(speedKmh);
 }
