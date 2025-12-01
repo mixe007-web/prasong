@@ -730,7 +730,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 30.01</h2>
+<h2>Trip A-B Version 30.03</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2396,10 +2396,16 @@ function lerpAngle(a, b, t) {
   let diff = ((b - a + 540) % 360) - 180;
   return (a + diff * t + 360) % 360;
 }
-function getPanLerpFactor(speedKmh){
-    // speed 0 -> 0.15, speed 160 -> 0.35
+function getMarkerLerpFactor(speedKmh) {
     const minFactor = 0.15;
     const maxFactor = 0.35;
+    const clampedSpeed = Math.min(Math.max(speedKmh, 0), 160);
+    return minFactor + (maxFactor - minFactor) * (clampedSpeed / 160);
+}
+
+function getMapPanLerpFactor(speedKmh) {
+    const minFactor = 0.08;
+    const maxFactor = 0.20;
     const clampedSpeed = Math.min(Math.max(speedKmh, 0), 160);
     return minFactor + (maxFactor - minFactor) * (clampedSpeed / 160);
 }
@@ -2407,28 +2413,32 @@ function getPanLerpFactor(speedKmh){
 // AUTO FOLLOW & ROTATE
 // -----------------------------
 function autoFollowAndRotate() {
-    if (!map || !vehicleMarker) return;
-    if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+    if (autoFollowAnimFrame) return;
 
     function step() {
-        if (!map || !vehicleMarker) return;
-        const { lat, lon, heading, speedKmh } = autoFollowTarget || {};
-        if (!lat || !lon) {
-            autoFollowAnimFrame = requestAnimationFrame(step);
-            return;
-        }
-        const factor = getPanLerpFactor(speedKmh);
-        // --- Smooth marker position ---
-        const curPos = vehicleMarker.getLatLng();
-        const newLat = lerp(curPos.lat, lat, factor);
-        const newLon = lerp(curPos.lng, lon, factor);
-        vehicleMarker.setLatLng([newLat, newLon]);
+    if (!map || !vehicleMarker) {
+        autoFollowAnimFrame = null;
+        return;
+    }
+    const { lat, lon, heading, speedKmh } = autoFollowTarget || {};
+    if (!lat || !lon) {
+        autoFollowAnimFrame = requestAnimationFrame(step);
+        return;
+    }
 
-        // --- Map center follows marker smoothly ---
-        const mapCenter = map.getCenter();
-        const centerLat = lerp(mapCenter.lat, lat, factor);
-        const centerLon = lerp(mapCenter.lng, lon, factor);
-        map.setView([centerLat, centerLon], map.getZoom(), { animate: false });
+// --- Smooth marker position ---
+    const markerFactor = getMarkerLerpFactor(speedKmh);
+	const curPos = vehicleMarker.getLatLng();
+	const newLat = lerp(curPos.lat, lat, markerFactor);
+	const newLon = lerp(curPos.lng, lon, markerFactor);
+	vehicleMarker.setLatLng([newLat, newLon]);
+
+// --- Smooth map pan ---
+	const mapCenter = map.getCenter();
+	const mapFactor = getMapPanLerpFactor(speedKmh);
+	const interpLat = lerp(mapCenter.lat, newLat, mapFactor);
+	const interpLon = lerp(mapCenter.lng, newLon, mapFactor);
+	map.setView([interpLat, interpLon], map.getZoom(), { animate: false });
 
         // --- Map rotation ---
 if (autoRotate) {
@@ -2436,18 +2446,15 @@ if (autoRotate) {
     if (mapPane) {
         const desiredRot = (-heading + 360) % 360;
         lastMapRotation = lerpAngle(lastMapRotation, desiredRot, 0.12);
-        mapPane.style.transformOrigin = `${map.getSize().x/2}px ${map.getSize().y/2}px`;
+        //mapPane.style.transformOrigin = `${map.getSize().x/2}px ${map.getSize().y/2}px`;
         mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
 
         // marker หมุนเองตาม heading + map rotation
-        if (vehicleMarker.setRotationAngle) {
-            const markerRotation = heading + lastMapRotation;
-            vehicleMarker.setRotationAngle(markerRotation);
-        }
+        vehicleMarker.setRotationAngle(heading + lastMapRotation);
     }
-} else if (vehicleMarker.setRotationAngle) {
+	} else if (vehicleMarker.setRotationAngle) {
     vehicleMarker.setRotationAngle(heading);
-}
+  }
 
         // --- Smooth zoom ---
         const targetZoom = calculateTargetZoom(speedKmh);
@@ -2470,7 +2477,6 @@ if (autoRotate) {
 
     autoFollowAnimFrame = requestAnimationFrame(step);
 }
-
 
 function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
     if (!map || !vehicleMarker) return;
@@ -2500,7 +2506,7 @@ function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
     lastMapRotation = (-headingDeg + 360) % 360;
     const mapPane = getRotationElement(map);
     if(mapPane){
-        mapPane.style.transformOrigin = `${map.getSize().x/2}px ${map.getSize().y/2}px`;
+       // mapPane.style.transformOrigin = `${map.getSize().x/2}px ${map.getSize().y/2}px`;
         mapPane.style.transform = `rotate(${lastMapRotation}deg)`;
     }
 
@@ -3119,7 +3125,6 @@ const finalAvgEfficiency = stopAvgEfficiencyTracking();
 
   loadHistory();
 }
-
   startBtn.onclick = startTracking;
   stopBtn.onclick = stopTracking;
   document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
