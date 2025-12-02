@@ -730,7 +730,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 30.03</h2>
+<h2>Trip A-B Version 30.33</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2403,12 +2403,6 @@ function getMarkerLerpFactor(speedKmh) {
     return minFactor + (maxFactor - minFactor) * (clampedSpeed / 160);
 }
 
-function getMapPanLerpFactor(speedKmh) {
-    const minFactor = 0.08;
-    const maxFactor = 0.20;
-    const clampedSpeed = Math.min(Math.max(speedKmh, 0), 160);
-    return minFactor + (maxFactor - minFactor) * (clampedSpeed / 160);
-}
 // -----------------------------
 // AUTO FOLLOW & ROTATE
 // -----------------------------
@@ -2432,13 +2426,6 @@ function autoFollowAndRotate() {
 	const newLat = lerp(curPos.lat, lat, markerFactor);
 	const newLon = lerp(curPos.lng, lon, markerFactor);
 	vehicleMarker.setLatLng([newLat, newLon]);
-
-// --- Smooth map pan ---
-	const mapCenter = map.getCenter();
-	const mapFactor = getMapPanLerpFactor(speedKmh);
-	const interpLat = lerp(mapCenter.lat, newLat, mapFactor);
-	const interpLon = lerp(mapCenter.lng, newLon, mapFactor);
-	map.setView([interpLat, interpLon], map.getZoom(), { animate: false });
 
         // --- Map rotation ---
 if (autoRotate) {
@@ -2660,7 +2647,17 @@ if (!map || !vehicleMarker) return;
 const speedKmh = window.lastFinalSpeed ?? 0;
 updateVehicleIconBySpeed(speedKmh);
 }
+function updateMapPan(lat, lon) {
+    if (!map) return;
 
+    const center = map.getCenter();
+    const dist = map.distance(center, [lat, lon]);
+
+    // ถ้าหลุดจากจอ > 15px หรือห่าง > 2m ⇒ ค่อย pan
+    if (dist > 2) {
+        map.setView([lat, lon], map.getZoom(), { animate: false });
+    }
+}
 // =============================
 // 🚗 UPDATE ROUTE (IMPROVED)
 // =============================
@@ -2718,6 +2715,7 @@ function updateRoute(lat, lon, speedKmh, headingDegInput = null){
 
     // Update autoFollow target
     autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
+	updateMapPan(lat, lon);
     if(!autoFollowAnimFrame) autoFollowAndRotate();
 }
 // =============================
