@@ -2506,9 +2506,9 @@ function autoFollowAndRotate() {
 		}
 		// --- Map rotation ---
 		if (autoRotate && speedKmh >= 2 && map.getSize() && !isRotationAnimating) {
-		console.log(
-        "ROTATE → heading:", tHeading,
-        "lastMapRotation(before):", lastMapRotation
+		//console.log(
+       // "ROTATE → heading:", tHeading,
+       // "lastMapRotation(before):", lastMapRotation
     );
 			const ROT_LERP = speedKmh < 3 ? 0.05 : 0.1;
 			const targetMapRot = (-tHeading + 360) % 360;
@@ -2518,7 +2518,7 @@ function autoFollowAndRotate() {
 			if (pane) {
 				setMapPaneTransformOriginToCenter(map);
 				pane.style.transform = `rotate(${lastMapRotation}deg)`;
-				console.log("ROTATE → applied:", lastMapRotation);
+				//console.log("ROTATE → applied:", lastMapRotation);
 				isMapRotated = true;
 			}
 		}
