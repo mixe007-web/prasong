@@ -730,7 +730,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 34.07</h2>
+<h2>Trip A-B Version 34.08</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2506,10 +2506,10 @@ function autoFollowAndRotate() {
 		}
 		// --- Map rotation ---
 		if (autoRotate && speedKmh >= 2 && map.getSize() && !isRotationAnimating) {
-		//console.log(
-       // "ROTATE → heading:", tHeading,
-       // "lastMapRotation(before):", lastMapRotation
-    );
+		/*console.log(
+       "ROTATE → heading:", tHeading,
+      "lastMapRotation(before):", lastMapRotation
+    );*/
 			const ROT_LERP = speedKmh < 3 ? 0.05 : 0.1;
 			const targetMapRot = (-tHeading + 360) % 360;
 			lastMapRotation = lerpAngle(lastMapRotation ?? targetMapRot, targetMapRot, ROT_LERP);
