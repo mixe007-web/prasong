@@ -730,7 +730,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 34.08</h2>
+<h2>Trip A-B Version 34.09</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2473,115 +2473,110 @@ function normalizeAngleDifference(target, current) {
 // 🚗 AUTO FOLLOW & ROTATE CLEAN
 // ==============================
 function autoFollowAndRotate() {
-	if (!map || !vehicleMarker || !autoFollowTarget) return;
-	if (autoFollowAnimFrame) {
-		cancelAnimationFrame(autoFollowAnimFrame);
-		autoFollowAnimFrame = null;
-		autoFollowRunning = false;
-	}
-	autoFollowRunning = true;
-	function loop() {
-		if (!map || !vehicleMarker || !autoFollowTarget) {
-			autoFollowRunning = false;
-			return;
-		}
-		const { lat: tLat, lon: tLon, heading: tHeading, speedKmh } = autoFollowTarget;
-		const currentPos = vehicleMarker.getLatLng();
-		const nextLat = lerp(currentPos.lat, tLat, 0.1);
-		const nextLng = lerp(currentPos.lng, tLon, 0.1);
-		vehicleMarker.setLatLng([nextLat, nextLng]);
-		// --- Pan map smoothly ---
-		if (autoFollow && map.getSize()) {
-			const mapCenter = map.getCenter();
-			const PAN_LERP = speedKmh < 3 ? 0.05 : 0.1;
-			const centerLat = lerp(mapCenter.lat, nextLat, PAN_LERP);
-			const centerLng = lerp(mapCenter.lng, nextLng, PAN_LERP);
-			map.panTo([centerLat, centerLng], { animate: false });
-		}
-		// --- Marker rotation ---
-		if (vehicleMarker.setRotationAngle) {
-			const smoothHeading = lerpAngle(lastMarkerAngle ?? 0, tHeading, speedKmh < 2 ? 0.05 : 0.2);
-			vehicleMarker.setRotationAngle(smoothHeading);
-			lastMarkerAngle = smoothHeading;
-		}
-		// --- Map rotation ---
-		if (autoRotate && speedKmh >= 2 && map.getSize() && !isRotationAnimating) {
-		/*console.log(
-       "ROTATE → heading:", tHeading,
-      "lastMapRotation(before):", lastMapRotation
-    );*/
-			const ROT_LERP = speedKmh < 3 ? 0.05 : 0.1;
-			const targetMapRot = (-tHeading + 360) % 360;
-			lastMapRotation = lerpAngle(lastMapRotation ?? targetMapRot, targetMapRot, ROT_LERP);
+    if (!map || !vehicleMarker || !autoFollowTarget) return;
 
-			const pane = getRotationElement(map);
-			if (pane) {
-				setMapPaneTransformOriginToCenter(map);
-				pane.style.transform = `rotate(${lastMapRotation}deg)`;
-				//console.log("ROTATE → applied:", lastMapRotation);
-				isMapRotated = true;
-			}
-		}
-		// --- Icon size ---
-		const now = performance.now();
-		if (now - lastIconUpdateTime > 200) {
-			lastIconUpdateTime = now;
-			const targetSize = calculateIconSize(speedKmh);
-			if (targetSize !== currentIconSize) {
-				currentIconSize = targetSize;
-				vehicleMarker.setIcon(L.icon({
-					iconUrl: vehicleIcon.options.iconUrl,
-					iconSize: [currentIconSize, currentIconSize],
-					iconAnchor: [currentIconSize / 2, currentIconSize / 2]
-				}));
-			}
-		}
-		updateAutoZoom(speedKmh);
-		autoFollowAnimFrame = requestAnimationFrame(loop);
-	}
-	loop();
+    cancelAnimationFrame(autoFollowAnimFrame);
+    autoFollowRunning = true;
+
+    function loop() {
+
+        if (!map || !vehicleMarker || !autoFollowTarget) {
+            autoFollowRunning = false;
+            return;
+        }
+
+        const { lat: tLat, lon: tLon, heading: tHeading, speedKmh } = autoFollowTarget;
+
+        // --- Smooth marker movement ---
+        const curPos = vehicleMarker.getLatLng();
+        const nextLat = lerp(curPos.lat, tLat, 0.1);
+        const nextLng = lerp(curPos.lng, tLon, 0.1);
+        vehicleMarker.setLatLng([nextLat, nextLng]);
+
+        // --- Smooth marker rotation ---
+        if (vehicleMarker.setRotationAngle) {
+            const smoothHeading = lerpAngle(lastMarkerAngle ?? 0, tHeading, speedKmh < 2 ? 0.05 : 0.2);
+            lastMarkerAngle = smoothHeading;
+        }
+
+        // --- Smooth map rotation BEFORE pan ---
+        if (autoRotate && speedKmh >= 2 && !isRotationAnimating) {
+            const ROT_LERP = speedKmh < 3 ? 0.05 : 0.1;
+            const targetMapRot = (-tHeading + 360) % 360;
+            lastMapRotation = lerpAngle(lastMapRotation, targetMapRot, ROT_LERP);
+            const pane = getRotationElement(map);
+            if (pane) {
+                setMapPaneTransformOriginToCenter(map);
+                pane.style.transform = `rotate(${lastMapRotation}deg)`;
+            }
+        }
+
+        // --- Smooth pan AFTER rotation ---
+        if (autoFollow) {
+            const center = map.getCenter();
+            const PAN_LERP = speedKmh < 3 ? 0.05 : 0.1;
+            const newCenterLat = lerp(center.lat, nextLat, PAN_LERP);
+            const newCenterLng = lerp(center.lng, nextLng, PAN_LERP);
+
+            map.panTo([newCenterLat, newCenterLng], { animate: false });
+        }
+
+        updateAutoZoom(speedKmh);
+
+        autoFollowAnimFrame = requestAnimationFrame(loop);
+    }
+
+    loop();
 }
+
 
 // -----------------------------
 // Start auto-follow
 // -----------------------------
 function startAutoFollow(lat, lon, headingDeg = 0, speedKmh = 0) {
-	if (!map || !vehicleMarker) return;
-	if (autoFollowAnimFrame) {
-		cancelAnimationFrame(autoFollowAnimFrame);
-		autoFollowAnimFrame = null;
-		autoFollowRunning = false;
-	}
-	if (rotationAnimFrame) {
-		cancelAnimationFrame(rotationAnimFrame);
-		rotationAnimFrame = null;
-	}
-	autoFollow = true;
-	autoRotate = true;
-	autoFollowTarget = { lat, lon, heading: headingDeg, speedKmh };
-	//updateAutoRotate(speedKmh);
-	vehicleMarker.setLatLng([lat, lon]);
-	currentIconSize = calculateIconSize(speedKmh);
-	vehicleMarker.setIcon(L.icon({
-		iconUrl: vehicleIcon.options.iconUrl,
-		iconSize: [currentIconSize, currentIconSize],
-		iconAnchor: [currentIconSize / 2, currentIconSize / 2]
-	}));
-	lastMapRotation = (-headingDeg + 360) % 360;
-	const pane = getRotationElement(map);
-	if (pane) {
-		setMapPaneTransformOriginToCenter(map);
-		pane.style.transform = `rotate(${lastMapRotation}deg)`;
-	}
-	const screenAngle = (headingDeg - lastMapRotation + 360) % 360;
-	if (vehicleMarker.setRotationAngle) vehicleMarker.setRotationAngle(screenAngle);
-	lastMarkerAngle = headingDeg;
-	if (!autoFollowRunning) autoFollowAndRotate();
-}
+    if (!map || !vehicleMarker) return;
 
-function updateAutoRotate(speedKmh) {
-  if (!autoFollow) autoRotate = false;
-  else autoRotate = speedKmh >= 2;
+    // stop all animations first
+    if (autoFollowAnimFrame) cancelAnimationFrame(autoFollowAnimFrame);
+    if (rotationAnimFrame) cancelAnimationFrame(rotationAnimFrame);
+
+    autoFollow = true;
+    autoRotate = true;
+
+    autoFollowTarget = { lat, lon, heading: headingDeg, speedKmh };
+
+    // move marker instantly
+    vehicleMarker.setLatLng([lat, lon]);
+
+    // resize icon
+    currentIconSize = calculateIconSize(speedKmh);
+    vehicleMarker.setIcon(L.icon({
+        iconUrl: vehicleIcon.options.iconUrl,
+        iconSize: [currentIconSize, currentIconSize],
+        iconAnchor: [currentIconSize / 2, currentIconSize / 2]
+    }));
+
+    // set initial map rotation
+    lastMapRotation = (-headingDeg + 360) % 360;
+    const pane = getRotationElement(map);
+    if (pane) {
+        setMapPaneTransformOriginToCenter(map);
+        pane.style.transform = `rotate(${lastMapRotation}deg)`;
+    }
+
+    // IMPORTANT: recenter map AFTER rotation
+    map.setView([lat, lon], map.getZoom(), { animate: false });
+
+    // correct marker screen rotation
+    const screenAngle = (headingDeg - lastMapRotation + 360) % 360;
+    if (vehicleMarker.setRotationAngle) {
+        vehicleMarker.setRotationAngle(screenAngle);
+    }
+
+    lastMarkerAngle = headingDeg;
+
+    // start loop
+    if (!autoFollowRunning) autoFollowAndRotate();
 }
 
 function clampLatLng(lat, lng){
@@ -2901,7 +2896,6 @@ function startTracking() {
     
   // --- Reset state ---
 	autoFollow = true;
-	updateAutoRotate(0);
 	isTrackingStarted = true;
 	isTracking = true;
 	prevTimestamp = null;
@@ -3214,7 +3208,6 @@ function stopTracking() {
 	isTrackingStarted = false;
 	idleStartTime = null;
 	autoFollow = false;
-	updateAutoRotate(0);
 	loadHistory();
 }
 	startBtn.onclick = startTracking;
