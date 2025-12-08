@@ -730,7 +730,7 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 34.13</h2>
+<h2>Trip A-B Version 34.16</h2>
 <div>
 <div>
   <label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2380,24 +2380,24 @@ const vehicleIcon = L.icon({
 });
 
 if (L.Marker && !L.Marker.prototype.setRotationAngle) {
-  L.Marker.include({
-    setRotationAngle: function(angle) {
-      if (!this._icon) return;
-		try {
-			this._icon.style.transformOrigin = '50% 50%';
-			this._icon.style.transform = `rotate(${angle}deg) translateZ(0)`;
-			this._rotationAngle = angle;
-		} catch (e) {
-			console.warn('setRotationAngle fallback failed', e);
+	L.Marker.include({
+		setRotationAngle: function(angle) {
+			if (!this._icon) return;
+			try {
+				this._icon.style.transformOrigin = '50% 50%';
+				this._icon.style.transform = `rotate(${angle}deg) translateZ(0)`;
+				this._rotationAngle = angle;
+			} catch (e) {
+				console.warn('setRotationAngle fallback failed', e);
+			}
 		}
-    }
-  });
+	});
   console.warn("⚠️ leaflet.rotatedMarker fallback applied (improved).");
 }
 
 // safeInvalidateMap: preserve behavior but operate on container, not pane
 function safeInvalidateMap(targetMap, delay = 300) {
-  if (!targetMap || !targetMap.invalidateSize) return;
+	if (!targetMap || !targetMap.invalidateSize) return;
 	clearTimeout(targetMap._invalidateTimeout);
 	targetMap._invalidateTimeout = setTimeout(() => {
 		try {
@@ -2411,42 +2411,42 @@ function safeInvalidateMap(targetMap, delay = 300) {
 
 // reset map rotation -> operate on container
 function resetMapRotation(callback = null) {
-  if (!map) return;
-  if (rotationAnimFrame) {
-    cancelAnimationFrame(rotationAnimFrame);
-    rotationAnimFrame = null;
-    isRotationAnimating = false;
-  }
-  const pane = getRotationElement(map);
-  if (!pane) return;
-  isResettingRotation = true;
-  const start = lastMapRotation || 0;
-  const startTime = performance.now();
-  const duration = 400;
-  const oldAutoRotate = autoRotate;
-  autoRotate = false;
-  isRotationAnimating = true;
+	if (!map) return;
+	if (rotationAnimFrame) {
+		cancelAnimationFrame(rotationAnimFrame);
+		rotationAnimFrame = null;
+		isRotationAnimating = false;
+	}
+	const pane = getRotationElement(map);
+	if (!pane) return;
+	isResettingRotation = true;
+	const start = lastMapRotation || 0;
+	const startTime = performance.now();
+	const duration = 400;
+	const oldAutoRotate = autoRotate;
+	autoRotate = false;
+	isRotationAnimating = true;
   function step(now) {
-    const t = Math.min((now - startTime) / duration, 1);
-    const angle = lerp(start, 0, t);
-    const transform = pane.style.transform || '';
-    const translateMatch = transform.match(/translate\(([-0-9.]+)px,\s*([-0-9.]+)px\)/);
-    let dx = 0, dy = 0;
-    if (translateMatch) { dx = parseFloat(translateMatch[1]); dy = parseFloat(translateMatch[2]); }
-    pane.style.transform = `translate(${dx}px, ${dy}px) rotate(${angle}deg)`;
-    if (t < 1) {
-      rotationAnimFrame = requestAnimationFrame(step);
-    } else {
-      pane.style.transform = (dx || dy) ? `translate(${dx}px, ${dy}px)` : 'none';
-      lastMapRotation = 0;
-      isMapRotated = false;
-      autoRotate = oldAutoRotate;
-      isRotationAnimating = false;
-      rotationAnimFrame = null;
-      isResettingRotation = false;
-      if (callback) callback();
-    }
-  }
+		const t = Math.min((now - startTime) / duration, 1);
+		const angle = lerp(start, 0, t);
+		const transform = pane.style.transform || '';
+		const translateMatch = transform.match(/translate\(([-0-9.]+)px,\s*([-0-9.]+)px\)/);
+		let dx = 0, dy = 0;
+		if (translateMatch) { dx = parseFloat(translateMatch[1]); dy = parseFloat(translateMatch[2]); }
+		pane.style.transform = `translate(${dx}px, ${dy}px) rotate(${angle}deg)`;
+		if (t < 1) {
+			rotationAnimFrame = requestAnimationFrame(step);
+		} else {
+			pane.style.transform = (dx || dy) ? `translate(${dx}px, ${dy}px)` : 'none';
+			lastMapRotation = 0;
+			isMapRotated = false;
+			autoRotate = oldAutoRotate;
+			isRotationAnimating = false;
+			rotationAnimFrame = null;
+			isResettingRotation = false;
+			if (callback) callback();
+		}
+	}
   rotationAnimFrame = requestAnimationFrame(step);
 }
 
@@ -2455,65 +2455,93 @@ function resetMapRotation(callback = null) {
 // --------------------
 function lerp(a, b, t) { return a + (b - a) * t; }
 function lerpAngle(a, b, t) {
-  let diff = ((b - a + 540) % 360) - 180;
-  return (a + diff * t + 360) % 360;
+	let diff = ((b - a + 540) % 360) - 180;
+	return (a + diff * t + 360) % 360;
 }
 function normalizeAngleDifference(target, current) {
-  let diff = (target - current) % 360;
-  if (diff > 180) diff -= 360;
-  if (diff < -180) diff += 360;
-  return diff;
+	let diff = (target - current) % 360;
+	if (diff > 180) diff -= 360;
+	if (diff < -180) diff += 360;
+	return diff;
 }
 
-function applySmoothTransform(headingDeg, targetLat, targetLon) {
-if (!map || !vehicleMarker) return;
+function applySmoothTransform(targetLat, targetLon, headingDeg = null, speedKmh = 0) {
+	if (!map || !vehicleMarker) return;
+	setMapPaneTransformOriginToCenter(map);
+// --- Smooth pan ---
+	const curCenter = map.getCenter();
+	const interpLat = lerp(curCenter.lat, targetLat, 0.18);
+	const interpLng = lerp(curCenter.lng, targetLon, 0.18);
+	map.panTo([interpLat, interpLng], { animate: false });
+	//console.log(`[PAN] map center moving to: ${interpLat.toFixed(6)}, ${interpLng.toFixed(6)}`);
 
-setMapPaneTransformOriginToCenter(map);
+// --- Smooth zoom ---
+	const targetZoom = clamp(calculateTargetZoom(speedKmh), 0, 22);
+	const currentZoom = map.getZoom();
+	if (Math.abs(currentZoom - targetZoom) >= 0.05) {
+		const nextZoom = lerp(currentZoom, targetZoom, 0.05);
+		map.setZoom(nextZoom, { animate: false });
+	}
 
-// Smooth pan
-const curCenter = map.getCenter();
-const interpLat = lerp(curCenter.lat, targetLat, 0.18);
-const interpLng = lerp(curCenter.lng, targetLon, 0.18);
-map.panTo([interpLat, interpLng], { animate: false });
+// --- Smooth map rotation ---
+	if (autoRotate && headingDeg !== null && isFinite(headingDeg)) {
+		const targetRot = (-headingDeg + 360) % 360;
+		lastMapRotation = lerpAngle(lastMapRotation, targetRot, 0.15);
+		const pane = getRotationElement(map);
+		if (pane) {
+			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+		}
+		isMapRotated = true;
+		//console.log(`[MAP ROTATE] headingDeg=${headingDeg.toFixed(1)}°, lastMapRotation=${lastMapRotation.toFixed(1)}°`);
+	}
 
-// Smooth map rotation
-if (autoRotate && headingDeg !== null && isFinite(headingDeg)) {
-    const targetRot = (-headingDeg + 360) % 360;
-    lastMapRotation = lerpAngle(lastMapRotation, targetRot, 0.15);
-    const pane = getRotationElement(map);
-    if (pane) pane.style.transform = `rotate(${lastMapRotation}deg)`;
-}
-
-// Marker rotation relative to map
-if (vehicleMarker && vehicleMarker.setRotationAngle && headingDeg !== null && isFinite(headingDeg)) {
-    const screenAngle = (headingDeg - lastMapRotation + 360) % 360;
-    vehicleMarker.setRotationAngle(screenAngle);
-    lastMarkerAngle = screenAngle;
-}
-
+// --- Marker rotation relative to map ---
+	if (vehicleMarker && vehicleMarker.setRotationAngle && headingDeg !== null && isFinite(headingDeg)) {
+		const screenAngle = (headingDeg - lastMapRotation + 360) % 360;
+		const smoothAngle = lerpAngle(lastMarkerAngle, screenAngle, 0.2);
+		vehicleMarker.setRotationAngle(smoothAngle);
+		lastMarkerAngle = smoothAngle;
+		//console.log(`[VEHICLE ROTATE] screenAngle=${screenAngle.toFixed(1)}°, smoothAngle=${smoothAngle.toFixed(1)}°`);
+	}
 }
 // ==============================
 // 🚗 AUTO FOLLOW & ROTATE CLEAN
 // ==============================
 function autoFollowLoop() {
-if (!map || !vehicleMarker || !autoFollowTarget) {
-autoFollowRunning = false;
-return;
-}
+	if (!map || !vehicleMarker || !autoFollowTarget || !autoFollow) {
+		autoFollowRunning = false;
+		return;
+	}
 
-const { lat: tLat, lon: tLon, heading: tHeading } = autoFollowTarget;
+	autoFollowRunning = true;
 
-// Smooth marker position
-const curPos = vehicleMarker.getLatLng();
-const nextLat = lerp(curPos.lat, tLat, 0.18);
-const nextLon = lerp(curPos.lng, tLon, 0.18);
-vehicleMarker.setLatLng([nextLat, nextLon]);
+	const { lat: tLat, lon: tLon, heading: tHeading, speedKmh } = autoFollowTarget;
 
-// Smooth map pan + rotate
-applySmoothTransform(tHeading, nextLat, nextLon);
+// --- Smooth marker position ---
+	const curPos = vehicleMarker.getLatLng();
+	const nextLat = lerp(curPos.lat, tLat, 0.18);
+	const nextLon = lerp(curPos.lng, tLon, 0.18);
+	vehicleMarker.setLatLng([nextLat, nextLon]);
 
-autoFollowAnimFrame = requestAnimationFrame(autoFollowLoop);
+// --- Apply smooth pan, rotation, zoom ---
+	applySmoothTransform(nextLat, nextLon, tHeading, speedKmh);
 
+// --- Draw path in batch if enabled ---
+	if (routeLayer && pathCoordinates.length >= 2) {
+		const lastCoord = pathCoordinates[pathCoordinates.length - 1];
+		const prevCoord = pathCoordinates[pathCoordinates.length - 2];
+			if (prevCoord) {
+				const color = getSpeedColor(lastCoord[2] || 0);
+				const seg = L.polyline([[prevCoord[0], prevCoord[1]], [lastCoord[0], lastCoord[1]]], { color, weight: 4, opacity: 0.95, interactive: false }).addTo(routeLayer);
+					if (!routeBatchLayers.length || routeBatchLayers[routeBatchLayers.length - 1].length >= POLYLINE_BATCH_SIZE) {
+						routeBatchLayers.push([seg]);
+					} else {
+						routeBatchLayers[routeBatchLayers.length - 1].push(seg);
+					}
+			}
+	}
+
+	autoFollowAnimFrame = requestAnimationFrame(autoFollowLoop);
 }
 
 function clampLatLng(lat, lng){
@@ -2525,18 +2553,18 @@ function clampLatLng(lat, lng){
 // helper: get rotation element & set origin to center
 // -----------------------------
 function getRotationElement(targetMap = map) {
-  if (!targetMap) return null;
-  try { return targetMap.getPane('mapPane'); }
-  catch (e) {
-    return targetMap.getContainer()?.querySelector('.leaflet-map-pane') ?? null;
-  }
+	if (!targetMap) return null;
+	try { return targetMap.getPane('mapPane'); }
+	catch (e) {
+		return targetMap.getContainer()?.querySelector('.leaflet-map-pane') ?? null;
+	}
 }
 function setMapPaneTransformOriginToCenter(targetMap = map) {
-  if (!targetMap) return;
-  const pane = getRotationElement(targetMap);
-  if (!pane) return;
-  const size = targetMap.getSize();
-  pane.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
+	if (!targetMap) return;
+	const pane = getRotationElement(targetMap);
+	if (!pane) return;
+	const size = targetMap.getSize();
+	pane.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
 }
 // -----------------------------
 // Helper: แปลงองศา / เรเดียน
@@ -2596,26 +2624,26 @@ function clearWatchId() {
 // initMap (optimized + auto origin refresh)
 // -----------------------------
 function initMap(lat, lon) {
-  destroyMap();
+	destroyMap();
 
-  map = L.map("map", {
-    center: [lat, lon],
-    zoom: BASE_ZOOM,
-    zoomControl: false,
-    attributionControl: false,
-    worldCopyJump: true
-  });
+	map = L.map("map", {
+		center: [lat, lon],
+		zoom: BASE_ZOOM,
+		zoomControl: false,
+		attributionControl: false,
+		worldCopyJump: true
+	});
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
+	L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
 
-  routeLayer = L.layerGroup().addTo(map);
+	routeLayer = L.layerGroup().addTo(map);
 
-  vehicleMarker = L.marker([lat, lon], {
+	vehicleMarker = L.marker([lat, lon], {
 		icon: vehicleIcon,
 		interactive: false
 	}).addTo(map);
 
-  map.whenReady(() => {
+	map.whenReady(() => {
 		isMapReady = true;
 		setMapPaneTransformOriginToCenter(map);
 		safeInvalidateMap(map, 100);
@@ -2680,92 +2708,91 @@ function updateVehicleIconSize() {
 // Update route and autoFollow target
 // -----------------------------
 function updateRoute(lat, lon, speedKmh, headingDegInput = null) {
-if (!map || !vehicleMarker) return;
-if (!isFinite(lat) || !isFinite(lon)) return;
+	if (!map || !vehicleMarker) return;
+	if (!isFinite(lat) || !isFinite(lon)) return;
 
-const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput);
+	const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput);
 
 // Update target for auto-follow
-autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
+	autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
 
 // Add to pathCoordinates if moved enough
-const now = Date.now();
-const lastCoord = pathCoordinates[pathCoordinates.length - 1];
-const DIST_THRESHOLD_KM = 0.05;
-if (!lastCoord || getDistanceFromLatLonInKm(lastCoord[0], lastCoord[1], lat, lon) > DIST_THRESHOLD_KM) {
-    pathCoordinates.push([lat, lon, speedKmh || 0, now]);
-    if (pathCoordinates.length > 2000) pathCoordinates.shift();
+	const now = Date.now();
+	const lastCoord = pathCoordinates[pathCoordinates.length - 1];
+	const DIST_THRESHOLD_KM = 0.05;
+	if (!lastCoord || getDistanceFromLatLonInKm(lastCoord[0], lastCoord[1], lat, lon) > DIST_THRESHOLD_KM) {
+		pathCoordinates.push([lat, lon, speedKmh || 0, now]);
+		if (pathCoordinates.length > 2000) pathCoordinates.shift();
 
-    if (routeLayer && pathCoordinates.length >= 2) {
-        const a = pathCoordinates[pathCoordinates.length - 2];
-        const b = pathCoordinates[pathCoordinates.length - 1];
-        const color = getSpeedColor(b[2] || 0);
-        L.polyline([[a[0], a[1]], [b[0], b[1]]], { color, weight: 4, opacity: 0.95, interactive: false }).addTo(routeLayer);
-    }
-}
+		if (routeLayer && pathCoordinates.length >= 2) {
+			const a = pathCoordinates[pathCoordinates.length - 2];
+			const b = pathCoordinates[pathCoordinates.length - 1];
+			const color = getSpeedColor(b[2] || 0);
+			L.polyline([[a[0], a[1]], [b[0], b[1]]], { color, weight: 4, opacity: 0.95, interactive: false }).addTo(routeLayer);
+		}
+	}
 
 // Start auto-follow loop **once after first GPS**
-if (!autoFollowRunning) {
-    autoFollowRunning = true;
-    autoFollowLoop();
-}
-
+	if (!autoFollowRunning) {
+		autoFollowRunning = true;
+		autoFollowLoop();
+	}
 }
 // =============================
 // DRAW HISTORY ROUTE (UNCHANGED)
 // =============================
 function drawHistoryRoute(pathCoords) {
-  if (!map || pathCoords.length < 2) return;
-  if (!routeLayer) routeLayer = L.layerGroup().addTo(map);
-  else routeLayer.clearLayers();
+	if (!map || pathCoords.length < 2) return;
+	if (!routeLayer) routeLayer = L.layerGroup().addTo(map);
+	else routeLayer.clearLayers();
 
-  routeBatchLayers = [];
-  let batch = [];
+	routeBatchLayers = [];
+	let batch = [];
 
-  for (let i = 1; i < pathCoords.length; i++) {
-    const a = pathCoords[i - 1];
-    const b = pathCoords[i];
-    const color = getSpeedColor(b[2] || 0);
-    const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
-      color,
-      weight: 4,
-      opacity: 0.95,
-      interactive: false
-    }).addTo(routeLayer);
-    batch.push(seg);
-    if (batch.length >= POLYLINE_BATCH_SIZE) {
-      routeBatchLayers.push(batch);
-      batch = [];
-    }
-  }
-  if (batch.length > 0) routeBatchLayers.push(batch);
+	for (let i = 1; i < pathCoords.length; i++) {
+		const a = pathCoords[i - 1];
+		const b = pathCoords[i];
+		const color = getSpeedColor(b[2] || 0);
+		const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], {
+			color,
+			weight: 4,
+			opacity: 0.95,
+			interactive: false
+		}).addTo(routeLayer);
+			batch.push(seg);
+		if (batch.length >= POLYLINE_BATCH_SIZE) {
+			routeBatchLayers.push(batch);
+			batch = [];
+		}
+	}
+	if (batch.length > 0) routeBatchLayers.push(batch);
 
-  const start = pathCoords[0];
-  const startMarker = L.marker([start[0], start[1]], { icon: startIcon })
-    .bindPopup("🚗 จุดเริ่มต้น")
-    .addTo(routeLayer);
-  startMarker.openPopup();
+	const start = pathCoords[0];
+	const startMarker = L.marker([start[0], start[1]], { icon: startIcon })
+		.bindPopup("🚗 จุดเริ่มต้น")
+		.addTo(routeLayer);
+		startMarker.openPopup();
 
-  const end = pathCoords[pathCoords.length - 1];
-  const endMarker = L.marker([end[0], end[1]], { icon: endIcon })
-    .bindPopup("🏁 จุดสิ้นสุด")
-    .addTo(routeLayer);
-  endMarker.openPopup();
+	const end = pathCoords[pathCoords.length - 1];
+	const endMarker = L.marker([end[0], end[1]], { icon: endIcon })
+		.bindPopup("🏁 จุดสิ้นสุด")
+		.addTo(routeLayer);
+	endMarker.openPopup();
 
-  const latlngsAll = pathCoords.map(p => [p[0], p[1]]);
-  const bounds = L.latLngBounds(latlngsAll);
-  const latDiff = Math.abs(bounds.getNorthEast().lat - bounds.getSouthWest().lat);
-  const lngDiff = Math.abs(bounds.getNorthEast().lng - bounds.getSouthWest().lng);
-  const padX = Math.min(300, Math.max(60, lngDiff * 500));
-  const padY = Math.min(300, Math.max(60, latDiff * 500));
-  const fitBoundsCallback = () => map.fitBounds(latlngsAll, { padding: [padY, padX], maxZoom: BASE_ZOOM });
-  if (isMapRotated && !autoFollow) resetMapRotation(fitBoundsCallback);
-  else fitBoundsCallback();
-  safeInvalidateMap(map, 300);
+	const latlngsAll = pathCoords.map(p => [p[0], p[1]]);
+	const bounds = L.latLngBounds(latlngsAll);
+	const latDiff = Math.abs(bounds.getNorthEast().lat - bounds.getSouthWest().lat);
+	const lngDiff = Math.abs(bounds.getNorthEast().lng - bounds.getSouthWest().lng);
+	const padX = Math.min(300, Math.max(60, lngDiff * 500));
+	const padY = Math.min(300, Math.max(60, latDiff * 500));
+	const fitBoundsCallback = () => map.fitBounds(latlngsAll, { padding: [padY, padX], maxZoom: BASE_ZOOM });
+	if (isMapRotated && !autoFollow) resetMapRotation(fitBoundsCallback);
+	else fitBoundsCallback();
+	safeInvalidateMap(map, 300);
 }
 
 window.addEventListener('resize', () => {
-  if (!map) return;
+	if (!map) return;
 	setMapPaneTransformOriginToCenter(map);
 	safeInvalidateMap(map, 100);
 });
