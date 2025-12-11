@@ -18,710 +18,664 @@
 <script src="https://cdn.jsdelivr.net/gh/bbecquet/Leaflet.RotatedMarker/leaflet.rotatedMarker.js"></script>
 
 <style>
-  body {
-  font-family: Arial, sans-serif;
-  max-width: 600px;
-  margin: auto;
-  padding: 1em;
-  background: #121212; /* พื้นหลังมืด */
-  color: #e0e0e0; /* ข้อความสีอ่อน */
+body {
+	font-family: Arial, sans-serif;
+	max-width: 600px;
+	margin: auto;
+	padding: 1em;
+	background: #121212; /* พื้นหลังมืด */
+	color: #e0e0e0; /* ข้อความสีอ่อน */
 }
-  button {
-  padding: 0.5em 1em; margin: 0.3em;
+button {
+	padding: 0.5em 1em; margin: 0.3em;
 }
-  .trip-entry {
-  border: 1px solid #ccc;
-  padding: 0.5em; margin: 0.5em 0;
+.trip-entry {
+	border: 1px solid #ccc;
+	padding: 0.5em; margin: 0.5em 0;
 }
-  .trip-entry:hover {
-  background-color: #2a2a2a; /*มีพื้นหลังมืด */
+.trip-entry:hover {
+	background-color: #2a2a2a; /*มีพื้นหลังมืด */
 }
-  .trip-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.trip-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
 }
-  .scrollable {
-  max-height: 200px; overflow-y: auto;
-  border: 1px solid #ccc;
-  padding: 0.5em;
+.scrollable {
+	max-height: 200px; overflow-y: auto;
+	border: 1px solid #ccc;
+	padding: 0.5em;
 }
-  #uiContainer {
-  max-width: 700px;
-  min-width: 320px;
-  margin: 0 auto;
-  padding: 20px;
-  border: 2px solid #d0e0f0;
-  border-radius: 25px;
-  background-color: #1c1c1c;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  box-sizing: border-box;
-  position: relative;
-  transform-style: preserve-3d;
-  perspective: 800px;
+#uiContainer {
+	max-width: 700px;
+	min-width: 320px;
+	margin: 0 auto;
+	padding: 20px;
+	border: 2px solid #d0e0f0;
+	border-radius: 25px;
+	background-color: #1c1c1c;
+	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+	box-sizing: border-box;
+	position: relative;
+	transform-style: preserve-3d;
+	perspective: 800px;
 }
-  button {
-  padding: 0.5em 1em;
-  margin: 0.3em;
-  font-size: 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.3s ease, background-color 0.3s ease;
-  background-color: #333; /* ปรับให้ปุ่มเป็นสีมืด */
-  color: #fff; /* ตัวอักษรสีขาว */
-  border: 1px solid #444;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+button {
+	padding: 0.5em 1em;
+	margin: 0.3em;
+	font-size: 16px;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: transform 0.3s ease, background-color 0.3s ease;
+	background-color: #333; /* ปรับให้ปุ่มเป็นสีมืด */
+	color: #fff; /* ตัวอักษรสีขาว */
+	border: 1px solid #444;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
-  button:hover:not(:disabled) {
-  background-color: #555; /* เพิ่มเงาให้ปุ่มเมื่อ hover */
+button:hover:not(:disabled) {
+	background-color: #555; /* เพิ่มเงาให้ปุ่มเมื่อ hover */
 }
-  button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
+button:disabled {
+	background-color: #ccc;
+	cursor: not-allowed;
 }
-  #speedometer-top {
-  display: flex;
-  justify-content: flex-start;
-  gap: 30px;
-  margin-bottom: 30px;
-  flex-wrap: wrap;
+#speedometer-top {
+	display: flex;
+	justify-content: flex-start;
+	gap: 30px;
+	margin-bottom: 30px;
+	flex-wrap: wrap;
 }
-  #speedometer {
-  flex: 1;
-  min-width: 300px;
-  background-color: #2a2a2a;/* ทำให้ Speedometer มีพื้นหลังมืด */
-  padding: 20px 30px;
-  border-radius: 30px;
-  text-align: center;
-  font-family: Arial, sans-serif;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  color: #e0e0e0; /* ข้อความสีอ่อน */
-
+#speedometer {
+	flex: 1;
+	min-width: 300px;
+	background-color: #2a2a2a;/* ทำให้ Speedometer มีพื้นหลังมืด */
+	padding: 20px 30px;
+	border-radius: 30px;
+	text-align: center;
+	font-family: Arial, sans-serif;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 5px;
+	color: #e0e0e0; /* ข้อความสีอ่อน */
 }
-  #speedometer:hover {
-  transform: scale(1.02);
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+#speedometer:hover {
+	transform: scale(1.02);
+	box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
 }
-
-  #digitalSpeed {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: bold;
-  color: #00bcd4; /* ตัวอักษรสีฟ้าอ่อน */
-  font-size: clamp(20px, 3vw, 30px);
-  text-align: center;
-  margin: 0;
+#digitalSpeed {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-weight: bold;
+	color: #00bcd4; /* ตัวอักษรสีฟ้าอ่อน */
+	font-size: clamp(20px, 3vw, 30px);
+	text-align: center;
+	margin: 0;
 }
-  #energyPer100km {
-  background-color: #2a2a2a; /*มีพื้นหลังมืด */
-  padding: 5px 10px;
-  border-radius: 30px;
-  font-family: Arial, sans-serif;
-  font-weight: bold;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: inline-block;
-  width: 100%;
-  max-width: 100%;
-  font-size: clamp(14px, 2.5vw, 30px);
-  color: #00e676; /* ข้อความสีเขียว */
+#energyPer100km {
+	background-color: #2a2a2a; /*มีพื้นหลังมืด */
+	padding: 5px 10px;
+	border-radius: 30px;
+	font-family: Arial, sans-serif;
+	font-weight: bold;
+	text-align: center;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: inline-block;
+	width: 100%;
+	max-width: 100%;
+	font-size: clamp(14px, 2.5vw, 30px);
+	color: #00e676; /* ข้อความสีเขียว */
 }
 #avgEfficiencyPerPercent {
-  background-color: #2a2a2a;
-  padding: 5px 10px;
-  border-radius: 30px;
-  font-family: Arial, sans-serif;
-  font-weight: bold;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: inline-block;
-  width: 100%;
-  max-width: 100%;
-  font-size: clamp(12px, 2vw, 26px); /* เล็กกว่า #energyPer100km */
-  color: #00e676;
+	background-color: #2a2a2a;
+	padding: 5px 10px;
+	border-radius: 30px;
+	font-family: Arial, sans-serif;
+	font-weight: bold;
+	text-align: center;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: inline-block;
+	width: 100%;
+	max-width: 100%;
+	font-size: clamp(12px, 2vw, 26px); /* เล็กกว่า #energyPer100km */
+	color: #00e676;
 }
-
- #energySOCGroup {
-  display: flex;
-  justify-content: space-between;
-  width: 100%; 
-  gap: 0px;
-  margin-top: 5px;
+#energySOCGroup {
+	display: flex;
+	justify-content: space-between;
+	width: 100%; 
+	gap: 0px;
+	margin-top: 5px;
 }
-  .info-box.small-box {
-  background-color: #2a2a2a; /*มีพื้นหลังมืด */
-  padding: 10px 0px;
-  border-radius: 15px;
-  font-size: 14px;
-  flex: 1;
-  text-align: center;
-  color: #fff; /* ข้อความในกล่องเป็นสีขาว */
+.info-box.small-box {
+	background-color: #2a2a2a; /*มีพื้นหลังมืด */
+	padding: 10px 0px;
+	border-radius: 15px;
+	font-size: 14px;
+	flex: 1;
+	text-align: center;
+	color: #fff; /* ข้อความในกล่องเป็นสีขาว */
 }
 #efficiencyContainer {
-  flex: 1 1 auto; /* ขยายเต็มพื้นที่ที่เหลือ */
-  height: 25px;
-  background: #ccc;
-  border-radius: 10px;
-  overflow: hidden;
-  position: relative;
-  margin: 0 0 px; /* เว้นช่องว่างซ้ายขวา */
-}
-
-#efficiencyPerPercentBar {
-  height: 100%;
-  width: 0%;
-  text-align: center;
-  line-height: 25px;
-  font-weight: bold;
-  color: white;
-  border-radius: 10px;
-  font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+	flex: 1 1 auto; /* ขยายเต็มพื้นที่ที่เหลือ */
+	height: 25px;
+	background: #ccc;
+	border-radius: 10px;
+	overflow: hidden;
+	position: relative;
+	margin: 0 0 px; /* เว้นช่องว่างซ้ายขวา */
 }
 #efficiencyPerPercentBar {
-  transition: width 0.3s ease, background-color 0.3s ease;
+	height: 100%;
+	width: 0%;
+	text-align: center;
+	line-height: 25px;
+	font-weight: bold;
+	color: white;
+	border-radius: 10px;
+	font-size: 10px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
-  .info-box .value {
-  font-weight: bold;
-  font-size: 15px;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+#efficiencyPerPercentBar {
+	transition: width 0.3s ease, background-color 0.3s ease;
 }
-  #socDisplay {
-  background: none;
+.info-box .value {
+	font-weight: bold;
+	font-size: 15px;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
-  #socDisplay > .label {
-  display: none;
+#socDisplay {
+	background: none;
 }
-  #batteryContainer {
-  height: 40px;
-  width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: row-reverse;
-  justify-content: center;
-  align-items: center;
-  border: 2px solid #333;
-  border-radius: 8px;
-  padding: 4px;
-  box-sizing: border-box;
-  position: relative;
-  background-color: #333; /* พื้นหลังแบตเตอรี่ */
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+#socDisplay > .label {
+	display: none;
 }
-  .battery-bar {
-  flex: 1;
-  height: 60%;
-  margin: 0 2px;
-  background-color: #555; /* สีของบาร์แบตเตอรี่ */
-  border-radius: 3px;
-  transition: background-color 0.3s, transform 0.3s;
-  transform: perspective(500px) rotateX(20deg);
+#batteryContainer {
+	height: 40px;
+	width: 100%;
+	max-width: 400px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: row-reverse;
+	justify-content: center;
+	align-items: center;
+	border: 2px solid #333;
+	border-radius: 8px;
+	padding: 4px;
+	box-sizing: border-box;
+	position: relative;
+	background-color: #333; /* พื้นหลังแบตเตอรี่ */
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
-  .battery-bar:hover {
-  transform: perspective(500px) rotateX(0deg);
+.battery-bar {
+	flex: 1;
+	height: 60%;
+	margin: 0 2px;
+	background-color: #555; /* สีของบาร์แบตเตอรี่ */
+	border-radius: 3px;
+	transition: background-color 0.3s, transform 0.3s;
+	transform: perspective(500px) rotateX(20deg);
 }
-  #socPercent {
-  font-size: 20px;
-  font-weight: bold;
-  color: red;
-  pointer-events: none;
-  user-select: none;
-  position: static;
-  transform: none;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+.battery-bar:hover {
+	transform: perspective(500px) rotateX(0deg);
 }
-  @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+#socPercent {
+	font-size: 20px;
+	font-weight: bold;
+	color: red;
+	pointer-events: none;
+	user-select: none;
+	position: static;
+	transform: none;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
-  .blinking {
-  animation: blink 1s infinite;
-  background-color: red !important;
+@keyframes blink {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0; }
 }
-  #energyPer100km.energyPer100kmSpan-good {
-  color: green !important;
+.blinking {
+	animation: blink 1s infinite;
+	background-color: red !important;
 }
-  #energyPer100km.energyPer100kmSpan-medium {
-  color: orange !important;
+#energyPer100km.energyPer100kmSpan-good {
+	color: green !important;
 }
-  #energyPer100km.energyPer100kmSpan-poor {
-  color: red !important;
+#energyPer100km.energyPer100kmSpan-medium {
+	color: orange !important;
 }
-  .speed-low {
-  color: green !important;font-size: 36px;
+#energyPer100km.energyPer100kmSpan-poor {
+	color: red !important;
 }
-  .speed-medium {
-  color: orange !important;font-size: 36px;
+.speed-low {
+	color: green !important;font-size: 36px;
 }
-  .speed-high {
-  color: red !important;font-size: 36px;
+.speed-medium {
+	color: orange !important;font-size: 36px;
 }
-  .efficiency-good {
-  color: green !important;font-weight: bold;
+.speed-high {
+	color: red !important;font-size: 36px;
 }
-  .efficiency-medium {
-  color: orange !important;font-weight: bold;
+.efficiency-good {
+	color: green !important;font-weight: bold;
 }
-  .efficiency-poor {color: red !important;font-weight: bold;
+.efficiency-medium {
+	color: orange !important;font-weight: bold;
+}
+.efficiency-poor {color: red !important;font-weight: bold;
 }
 @media (max-width: 480px) {
-  #speedometer-top {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  #speedometer {
-    width: 100%;
-    max-width: 100%;
-    min-width: auto;
-    box-sizing: border-box;
-    padding: 15px 10px;
-  }
-  #socDisplay {
-    margin-top: 20px;
-    width: 80%;
-    min-width: auto;
-	background-color: #212121; /* พื้นหลัง SOC */
-  }
-  #uiContainer {
-    padding: 15px;
-  }
-  #digitalSpeed {
-    font-size: clamp(16px, 4vw, 24px);
-  }
-  .battery-bar {
-    height: 50%;
-  }
-  #socPercent {
-    font-size: 16px;
-  }
-  button {
-    width: 100%;
-    font-size: 14px;
-  }
-  .info-box {
-    padding: 8px 10px;
-  }
+	#speedometer-top {
+		flex-direction: column;
+		align-items: center;
+	}
+	#speedometer {
+		width: 100%;
+		max-width: 100%;
+		min-width: auto;
+		box-sizing: border-box;
+		padding: 15px 10px;
+	}
+	#socDisplay {
+		margin-top: 20px;
+		width: 80%;
+		min-width: auto;
+		background-color: #212121; /* พื้นหลัง SOC */
+	}
+	#uiContainer {
+		padding: 15px;
+	}
+	#digitalSpeed {
+		font-size: clamp(16px, 4vw, 24px);
+	}
+	.battery-bar {
+		height: 50%;
+	}
+	#socPercent {
+		font-size: 16px;
+	}
+	button {
+		width: 100%;
+		font-size: 14px;
+	}
+	.info-box {
+		padding: 8px 10px;
+	}
 }
-  .map-modal {
-  display: none;
-  position: fixed;
-  z-index: 1001;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0, 0, 0, 0.8); /* ฉากหลังมืด */
+.map-modal {
+	display: none;
+	position: fixed;
+	z-index: 1001;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	background-color: rgba(0, 0, 0, 0.8); /* ฉากหลังมืด */
 }
-  .map-modal-content {
-  background-color: #212121; /* สีพื้นหลังของ Modal */
-  margin: 50px auto;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 90%;
-  max-width: 800px;
-  border-radius: 10px;
-  position: relative;
+.map-modal-content {
+	background-color: #212121; /* สีพื้นหลังของ Modal */
+	margin: 50px auto;
+	padding: 20px;
+	border: 1px solid #888;
+	width: 90%;
+	max-width: 800px;
+	border-radius: 10px;
+	position: relative;
 }
-  .close-map-modal {
-  color: #aaa;
-  float: right;
-  font-size: 28px;
-  font-weight: bold;
-  cursor: pointer;
+.close-map-modal {
+	color: #aaa;
+	float: right;
+	font-size: 28px;
+	font-weight: bold;
+	cursor: pointer;
 }
-  .close-map-modal:hover {
-  color: red;
+.close-map-modal:hover {
+	color: red;
 }
-  .leaflet-div-icon {
-  font-size: 24px;
-  text-align: center;
-  line-height: 30px;
+.leaflet-div-icon {
+	font-size: 24px;
+	text-align: center;
+	line-height: 30px;
 }
-  .trip-entry .leaflet-container {
-  width: 100%;
-  height: 300px;
+.trip-entry .leaflet-container {
+	width: 100%;
+	height: 300px;
 }
 .leaflet-marker-icon {
-  z-index: 10000;
+	z-index: 10000;
 }
 #map-container {
-  position: relative;
-  width: 100%;
-  height: 200px;
-  overflow: hidden;
+	position: relative;
+	width: 100%;
+	height: 200px;
+	overflow: hidden;
 }
-
 #map {
-  position: absolute;
-  top: -35%;
-  left: -35%;
-  width: 170%;
-  height: 170%;
-  will-change: transform;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
+	position: absolute;
+	top: -35%;
+	left: -35%;
+	width: 170%;
+	height: 170%;
+	will-change: transform;
+	transform-style: preserve-3d;
+	backface-visibility: hidden;
 }
-
 .leaflet-rotate-pane {
-  transition: transform 0.15s linear;
+	transition: transform 0.15s linear;
 }
-
 .leaflet-map-pane {
-  will-change: transform;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
+	will-change: transform;
+	transform-style: preserve-3d;
+	backface-visibility: hidden;
 }
 .leaflet-control-attribution {
-  display: none !important;
+	display: none !important;
 }
-
-  #wltpKm {
-  font-weight: bold;
+#wltpKm {
+	font-weight: bold;
 }
-  .map-gps-btn {
-  position: absolute;
-  top: 20px;
-  right: 30px;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.8);
-  border: 1px solid #ccc;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  z-index: 9999;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
+.map-gps-btn {
+	position: absolute;
+	top: 20px;
+	right: 30px;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	background-color: rgba(255, 255, 255, 0.8);
+	border: 1px solid #ccc;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+	z-index: 9999;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
 }
-  .map-gps-btn img {
-  width: 18px;
-  height: 18px;
+.map-gps-btn img {
+	width: 18px;
+	height: 18px;
 }
-  .map-gps-btn:hover {
-  background-color: rgba(240, 240, 240, 0.9);
+.map-gps-btn:hover {
+	background-color: rgba(240, 240, 240, 0.9);
 }
-  #inputKm1,
-  #inputKm2,
-  #inputKm3 {
-  width: 50%;
-  max-width: 100px;
-  box-sizing: border-box;
+#inputKm1,
+#inputKm2,
+#inputKm3 {
+	width: 50%;
+	max-width: 100px;
+	box-sizing: border-box;
 }
-  #wltpKmValue {
-  color: black;
-  font-weight: bold;
+#wltpKmValue {
+	color: black;
+	font-weight: bold;
 }
-  .blinking-red {
-   color: red !important;
-   animation: blink-red 1s infinite;
+.blinking-red {
+	color: red !important;
+	animation: blink-red 1s infinite;
 }
-   @keyframes blink-red {
-   0%, 100% { opacity: 1; }
-   50% { opacity: 0.4; }
+@keyframes blink-red {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
 }
 /* ================= Trip Recorder Panel ================= */
 #tripRecorderPanel {
-  position: fixed;
-  top: 0;
-  right: 0;          /* เริ่มจากขวา */
-  width: 380px;
-  max-width: 95%;
-  height: 100%;
-  background-color: #1c1c1c;
-  color: #e0e0e0;
-  padding: 20px;
-  overflow-y: auto;
-  transition: transform 0.3s ease;
-  z-index: 9999;
-  font-family: 'Rubik', sans-serif;
-  box-sizing: border-box;
-
-  transform: translateX(100%); /* ซ่อนนอกหน้าจอ */
-  display: none;               /* ซ่อนจริง ๆ */
+	position: fixed;
+	top: 0;
+	right: 0;
+	width: 380px;
+	max-width: 95%;
+	height: 100%;
+	background-color: #1c1c1c;
+	color: #e0e0e0;
+	padding: 20px;
+	overflow-y: auto;
+	transition: transform 0.3s ease;
+	z-index: 9999;
+	font-family: 'Rubik', sans-serif;
+	box-sizing: border-box;
+	transform: translateX(100%);
+	display: none;
 }
-
 #tripRecorderPanel.open {
-  display: block;
-  transform: translateX(0);    /* เลื่อนเข้ามา */
+	display: block;
+	transform: translateX(0);
 }
-
 .trips-container .trip-card {
-  background-color: #222;
-  border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-  border: 1px solid #444;
+	background-color: #222;
+	border-radius: 12px;
+	padding: 15px;
+	margin-bottom: 15px;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+	border: 1px solid #444;
 }
-
 .trip-card h4 {
-  margin: 0 0 10px 0;
-  font-size: 1.1rem;
-  color: #fff;
+	margin: 0 0 10px 0;
+	font-size: 1.1rem;
+	color: #fff;
 }
-
 /* ================= General Trip Row ================= */
 .trip-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
 }
-
 .trip-row label {
-  flex: 0 0 90px; /* ปรับให้เล็กลงสำหรับมือถือ */
+	flex: 0 0 90px; /* ปรับให้เล็กลงสำหรับมือถือ */
 }
-
 /* ================= Battery Row ================= */
 .trip-row.battery-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap; /* อยู่บรรทัดเดียวกัน */
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: nowrap;
 }
-
 .battery-bar-container {
-  width: 50px;
-  height: 20px;
-  border: 2px solid #666;
-  border-radius: 4px;
-  background: #222;
-  overflow: hidden;
-  flex: 0 0 auto; /* ไม่ยืด */
+	width: 50px;
+	height: 20px;
+	border: 2px solid #666;
+	border-radius: 4px;
+	background: #222;
+	overflow: hidden;
+	flex: 0 0 auto;
 }
-
 .battery-bar-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(to top, #0f0 0%, #0c0 100%);
-  transition: width 0.3s ease, background 0.3s ease;
+	height: 100%;
+	width: 0%;
+	background: linear-gradient(to top, #0f0 0%, #0c0 100%);
+	transition: width 0.3s ease, background 0.3s ease;
 }
-
 .trip-row.battery-wrapper input {
-  width: 40px;        /* พอดีกับ 3 ตัวเลข */
-  flex: 0 0 40px;     /* ไม่ยืด */
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: 1px solid #666;
-  background-color: #333;
-  color: #fff;
-  text-align: right;
-  font-size: 0.9rem;
+	width: 40px;
+	flex: 0 0 40px;
+	padding: 4px 6px;
+	border-radius: 6px;
+	border: 1px solid #666;
+	background-color: #333;
+	color: #fff;
+	text-align: right;
+	font-size: 0.9rem;
 }
-
 .trip-row.battery-wrapper span.percent {
-  width: 45px;
-  flex: 0 0 45px; /* พอดีกับ % */
-  text-align: left;
-  font-weight: bold;
-  color: #0f0;
+	width: 45px;
+	flex: 0 0 45px; /* พอดีกับ % */
+	text-align: left;
+	font-weight: bold;
+	color: #0f0;
 }
-
 /* ================= Info Row (Distance) (SOC) ================= */
 .trip-row.info-Distance {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 20px; /* ช่องว่างระหว่าง SOC และ Distance */
-  flex-wrap: nowrap; /* บังคับให้อยู่บรรทัดเดียว */
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 20px; /* ช่องว่างระหว่าง SOC และ Distance */
+	flex-wrap: nowrap; /* บังคับให้อยู่บรรทัดเดียว */
 }
-
 .trip-row.info-Distance label {
-  flex: 0 0 auto;
-  font-weight: bold;
-  color: #fff;
-  min-width: 110px;
+	flex: 0 0 auto;
+	font-weight: bold;
+	color: #fff;
+	min-width: 110px;
 }
-
 .trip-row.info-Distance span {
-  flex: 0 0 auto;
-  color: #0f0;
-  min-width: 70px;
-  text-align: left;
+	flex: 0 0 auto;
+	color: #0f0;
+	min-width: 70px;
+	text-align: left;
 }
 /* ================= Buttons ================= */
 .trip-card .button-row {
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+	margin-top: 10px;
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
 }
-
 .trip-card button {
-  flex: 1 0 45%;
-  padding: 6px 0;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  background-color: #007bff;
-  color: #fff;
-  font-weight: bold;
-  transition: background 0.2s ease;
+	flex: 1 0 45%;
+	padding: 6px 0;
+	border-radius: 6px;
+	border: none;
+	cursor: pointer;
+	background-color: #007bff;
+	color: #fff;
+	font-weight: bold;
+	transition: background 0.2s ease;
 }
-
 .trip-card button.saved { background-color: #555; }
-
 /* ================= test history record ================= */
 .trip-history-record span.field-name {
-  color: #fff;       /* สีขาวสำหรับชื่อฟิลด์ */
-  font-weight: bold;
+	color: #fff;
+	font-weight: bold;
 }
-
 .trip-history-record span.field-value {
-  color: #0f0;       /* สีเขียวสำหรับค่า */
-  font-weight: bold;
+	color: #0f0;
+	font-weight: bold;
 }
-
 /* ================= Trip History Record ================= */
 .trip-history-record {
-  background-color: #222;
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-  border: 1px solid #444;
-  display: flex;
-  flex-direction: column; /* stack header + details */
-  gap: 4px;
+	background-color: #222;
+	border-radius: 8px;
+	padding: 8px 12px;
+	margin-bottom: 8px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+	border: 1px solid #444;
+	display: flex;
+	flex-direction: column; /* stack header + details */
+	gap: 4px;
 }
-
 /* header: Trip xx + Delete button */
 .trip-history-record .record-header {
-  display: flex;
-  justify-content: space-between; /* ข้อความซ้าย ปุ่มขวา */
-  align-items: center;             /* กลางแนวตั้ง */
-  color: #0f0;                     /* Trip id สีเขียว */
-  font-weight: bold;
-  font-size: 0.9rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	color: #0f0;
+	font-weight: bold;
+	font-size: 0.9rem;
 }
-
 /* Delete button */
 .trip-history-record .deleteBtn {
-  background-color: #c00;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+	background-color: #c00;
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	padding: 2px 6px;
+	font-size: 0.75rem;
+	cursor: pointer;
+	transition: background 0.2s ease, transform 0.2s ease;
 }
-
 .trip-history-record .deleteBtn:hover {
-  background-color: #f33;
-  transform: scale(1.05);
+	background-color: #f33;
+	transform: scale(1.05);
 }
-
 /* Details ของบันทึก */
 .trip-history-record .record-details {
-  display: flex;
-  flex-direction: column; /* stack เป็นบรรทัดเดียวกัน */
-  gap: 2px;
+	display: flex;
+	flex-direction: column; /* stack เป็นบรรทัดเดียวกัน */
+	gap: 2px;
 }
-
 .trip-history-record .field-name {
-  color: #fff;
-  font-weight: bold;
+	color: #fff;
+	font-weight: bold;
 }
-
 .trip-history-record .field-value {
-  color: #0f0;
-  font-weight: bold;
-  margin-left: 4px;
+	color: #0f0;
+	font-weight: bold;
+	margin-left: 4px;
 }
-
 /* Responsive มือถือ */
 @media(max-width: 500px){
-  .trip-history-record .record-header {
-    flex-direction: column; /* stack ข้อความ + ปุ่ม */
-    align-items: flex-start;
-    gap: 4px;
-  }
-  .trip-history-record .deleteBtn {
-    font-size: 0.7rem;
-    padding: 1px 5px;
-  }
+	.trip-history-record .record-header {
+		flex-direction: column; /* stack ข้อความ + ปุ่ม */
+		align-items: flex-start;
+		gap: 4px;
+	}
+	.trip-history-record .deleteBtn {
+		font-size: 0.7rem;
+		padding: 1px 5px;
+	}
 }
-
 /* ================= Progress Bar ================= */
 .progress-bar-container {
-  background: #333;
-  border-radius: 6px;
-  height: 10px;
-  width: 100%;
-  margin-top: 5px;
+	background: #333;
+	border-radius: 6px;
+	height: 10px;
+	width: 100%;
+	margin-top: 5px;
 }
-
 .progress-bar {
-  height: 100%;
-  border-radius: 6px;
-  background: linear-gradient(to right, #0f0, #0c0);
-  width: 0%;
-  transition: width 0.3s ease;
+	height: 100%;
+	border-radius: 6px;
+	background: linear-gradient(to right, #0f0, #0c0);
+	width: 0%;
+	transition: width 0.3s ease;
 }
-
 .trip-row span.used,
 .trip-row span.distance { font-weight: bold; color: #0f0; }
-
 /* ================= Responsive Mobile ================= */
 @media(max-width: 500px){
-  .trip-row.battery-wrapper {
-    gap: 4px;
-  }
-
-  .trip-row.battery-wrapper label {
-    width: 80px;
-    flex: 0 0 80px;
-  }
-
-  .trip-row.battery-wrapper input {
-    width: 40px;
-    flex: 0 0 40px;
-  }
-
-  .trip-row.battery-wrapper span.percent {
-    width: 40px;
-    flex: 0 0 40px;
-  }
-
-  .trip-row.info-wrapper {
-    gap: 10px;
-  }
-
-  .trip-row.info-wrapper label {
-    min-width: 90px;
-    font-size: 0.85rem;
-  }
-
-  .trip-row.info-wrapper span {
-    min-width: 60px;
-    font-size: 0.85rem;
-  }
-
-  .trip-card button {
-    flex: 1 0 100%;
-  }
+	.trip-row.battery-wrapper {
+		gap: 4px;
+	}
+	.trip-row.battery-wrapper label {
+		width: 80px;
+		flex: 0 0 80px;
+	}
+	.trip-row.battery-wrapper input {
+		width: 40px;
+		flex: 0 0 40px;
+	}
+	.trip-row.battery-wrapper span.percent {
+		width: 40px;
+		flex: 0 0 40px;
+	}
+	.trip-row.info-wrapper {
+		gap: 10px;
+	}
+	.trip-row.info-wrapper label {
+		min-width: 90px;
+		font-size: 0.85rem;
+	}
+	.trip-row.info-wrapper span {
+		min-width: 60px;
+		font-size: 0.85rem;
+	}
+	.trip-card button {
+		flex: 1 0 100%;
+	}
 }
 
 </style>
@@ -730,186 +684,175 @@
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 34.55</h2>
+<h2>Trip A-B Version 34.56</h2>
 <div>
-<div>
-  <label for="plateNumber">บันทึกการเดินทาง: </label>
-  <input type="text" id="plateNumber" placeholder="เที่ยวสาว" />
-</div>
-<h3>เริ่มระยะทาง NEDC/km</h3>
-<div>
-  <label>ช่วงที่ 1:</label>
-  <input type="number" id="inputKm1" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment1"> <span id="wltpSegment1"> </span> </label><br>
-</div>
-<div>
-  <label>ช่วงที่ 2:</label>
-  <input type="number" id="inputKm2" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment2"> <span id="wltpSegment2"></span> </label><br>
-</div>
-<div>
-  <label>ช่วงที่ 3:</label>
-  <input type="number" id="inputKm3" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment3"> <span id="wltpSegment3"></span> </label><br>
-</div>
-
-<div style="margin-top:10px;">
-  <button id="startBtn">เริ่ม Trip </button>
-  <button id="stopBtn" disabled>หยุด Trip</button>
- <button id="tripRecorderBtn">Trip Recorder</button>
-</div>
+	<div>
+		<label for="plateNumber">บันทึกการเดินทาง: </label>
+		<input type="text" id="plateNumber" placeholder="เที่ยวสาว" />
+	</div>
+	<h3>เริ่มระยะทาง NEDC/km</h3>
+	<div>
+		<label>ช่วงที่ 1:</label>
+		<input type="number" id="inputKm1" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment1"> <span id="wltpSegment1"> </span> </label><br>
+	</div>
+	<div>
+		<label>ช่วงที่ 2:</label>
+		<input type="number" id="inputKm2" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment2"> <span id="wltpSegment2"></span> </label><br>
+	</div>
+	<div>
+		<label>ช่วงที่ 3:</label>
+		<input type="number" id="inputKm3" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment3"> <span id="wltpSegment3"></span> </label><br>
+	</div>
+	<div style="margin-top:10px;">
+		<button id="startBtn">เริ่ม Trip </button>
+		<button id="stopBtn" disabled>หยุด Trip</button>
+		<button id="tripRecorderBtn">Trip Recorder</button>
+	</div>
 <!-- ================= Trip Recorder Panel ================= -->
- <div id="tripRecorderPanel">
-  <h2>Trip Recorder</h2>
-  <div style="text-align: center; margin-bottom: 10px;">
-    <button id="backToMainBtn">กลับไป Trip A-B</button>
-  </div>
-
-  <div class="trips-container" id="trips"></div>
-
-  <h3>ประวัติการบันทึก</h3>
-  <div style="text-align: center; margin-bottom: 10px;">
-    <button id="tripToggleBtn">ดูทั้งหมด</button>
-    <button id="tripDeleteAllBtn">ลบทั้งหมด</button>
-  </div>
-  <div id="tripHistory"></div>
-</div>
-
-<div id="speedometer-top">
-  <div id="speedometer">
-  <div id="map-container" style="position: relative; width: 100%; height: 200px; overflow: hidden;">
-  <div id="map"></div>
-  <button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
-    <img src="https://img.icons8.com/fluency/48/place-marker.png" alt="ติดตาม GPS">
-  </button>
-</div>
-
-  <div>
-    <div class="label">speed</div>
-    <div id="digitalSpeed">0 km/h</div>
-
-    <div class="label">พลังงานใช้เฉลี่ย</div>
-    <div id="energyPer100km">0.00 kWh/100km</div><div id="avgEfficiencyPerPercent">Avg: 0.000 km / 1%</div>
-
-    <div id="energySOCGroup" style="display: flex; justify-content: space-between; align-items: center;">
-	      <div class="info-box small-box">
-        <div class="label">Energy/Trip</div>
-        <div class="value" id="energyConsumption">0 kWh</div>
-      </div>
-      <div class="info-box small-box">
-        <div class="label"></div>
-        <div id="efficiencyContainer">
-  <div id="efficiencyPerPercentBar"></div>
-</div>
-</div>
-
-      <div class="info-box small-box">
-        <div class="label">SOC/Trip</div>
-        <div class="value" id="batterySOCUsed">0 %</div>
-      </div>
-    </div>
-  </div>
-<div id="socDisplay" style="position: relative; width: 100%; text-align: center;">
-  <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
-    <div id="batteryContainer">
-  <div class="battery-bar"></div>
-  <div class="battery-bar"></div>
-  <div class="battery-bar"></div>
-  <div class="battery-bar"></div>
-  <div class="battery-bar"></div>
-  <div class="battery-bar"></div>
-  <div class="battery-bar"></div>
-  <div class="battery-bar"></div>
-  <div class="battery-bar"></div>
-  <div class="battery-bar" id="lastBatteryBar"></div>
-</div>
-
-    <div style="display: flex; flex-direction: column; align-items: center;">
-  <span id="socPercent" style="font-size: 18px;">0.00%</span>
-  <div style="display: flex; flex-direction: column; align-items: center;">
-  <span id="wltpKmValue" style="font-size: 11px; color: white; font-weight: bold;">0 km</span>
-  <span id="wltpKmLabel" style="font-size: 11px; color: white;">(WLTP)</span>
-</div>
-</div>
-  </div>
-</div>
-</div>
-</div>
-<h3>ข้อมูล Trip ปัจจุบัน</h3>
-<div>
-  <p>ระยะทาง (กม.): <span id="distance">0.000</span> km</p>
-  <p>พลังงานรีเจน: <span id="totalRegenEnergy">0.00</span> kWh</p>
-  <p>เวลาที่รถหยุดนิ่ง: <span id="idleTimeDisplay">00:00:00</span></p>
-  <p>เวลาที่ใช้เดินทาง: <span id="elapsedTime">00:00:00</span></p>
-  <p>ความเร็วสูงสุด (กม./ชม.): <span id="maxSpeed">0.0</span> km/h</p>
-  <p>ความเร็วเฉลี่ย (กม./ชม.): <span id="avgSpeed">0.0</span> km/h</p>
-  <p>เวลาที่เริ่ม และ พิกัดเริ่มต้น: <span id="startTime">-</span> , <span id="startCoord">-</span></p>
-  <p>เวลาที่สิ้นสุด และ พิกัดสิ้นสุด: <span id="endTime">-</span> , <span id="endCoord">-</span></p>
-</div>
-
-<h3 style="display: flex; align-items: center; justify-content: space-between;">
-  <span>ประวัติ</span>
-  <button id="toggleTripHistory" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
-    &#9776; ▼
-  </button>
-</h3>
-<div id="tripHistorySection" style="display: none;">
-  <div>
-    <button id="showLast2Btn">ดูประวัติ Trip น้อยลง</button>
-    <button id="showAllBtn">ดูประวัติ Trip ทั้งหมด</button>
-    <button onclick="clearAllTrips()">ลบประวัติทั้งหมด</button>
-  </div>
-  <div id="historyContainer" class="scrollable" style="margin-top:10px;"></div>
-</div>
-<div id="mapModal" class="map-modal">
-  <div class="map-modal-content">
-    <span class="close-map-modal">&times;</span>
-    <div id="leafletMap" style="height: 500px;"></div>
-    <div id="mapTripInfo" style="margin-top: 10px; font-size: 14px;"></div>
-  </div>
-</div>
+	<div id="tripRecorderPanel">
+		<h2>Trip Recorder</h2>
+		<div style="text-align: center; margin-bottom: 10px;">
+			<button id="backToMainBtn">กลับไป Trip A-B</button>
+		</div>
+		<div class="trips-container" id="trips"></div>
+		<h3>ประวัติการบันทึก</h3>
+		<div style="text-align: center; margin-bottom: 10px;">
+			<button id="tripToggleBtn">ดูทั้งหมด</button>
+			<button id="tripDeleteAllBtn">ลบทั้งหมด</button>
+		</div>
+		<div id="tripHistory"></div>
+	</div>
+	<div id="speedometer-top">
+		<div id="speedometer">
+			<div id="map-container" style="position: relative; width: 100%; height: 200px; overflow: hidden;">
+				<div id="map"></div>
+				<button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
+				<img src="https://img.icons8.com/fluency/48/place-marker.png" alt="ติดตาม GPS">
+				</button>
+			</div>
+			<div>
+				<div class="label">speed</div>
+				<div id="digitalSpeed">0 km/h</div>
+				<div class="label">พลังงานใช้เฉลี่ย</div>
+				<div id="energyPer100km">0.00 kWh/100km</div><div id="avgEfficiencyPerPercent">Avg: 0.000 km / 1%</div>
+				<div id="energySOCGroup" style="display: flex; justify-content: space-between; align-items: center;">
+					<div class="info-box small-box">
+						<div class="label">Energy/Trip</div>
+						<div class="value" id="energyConsumption">0 kWh</div>
+					</div>
+					<div class="info-box small-box">
+						<div class="label"></div>
+						<div id="efficiencyContainer">
+							<div id="efficiencyPerPercentBar"></div>
+						</div>
+					</div>
+					<div class="info-box small-box">
+						<div class="label">SOC/Trip</div>
+						<div class="value" id="batterySOCUsed">0 %</div>
+					</div>
+				</div>
+			</div>
+			<div id="socDisplay" style="position: relative; width: 100%; text-align: center;">
+				<div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+					<div id="batteryContainer">
+						<div class="battery-bar"></div>
+						<div class="battery-bar"></div>
+						<div class="battery-bar"></div>
+						<div class="battery-bar"></div>
+						<div class="battery-bar"></div>
+						<div class="battery-bar"></div>
+						<div class="battery-bar"></div>
+						<div class="battery-bar"></div>
+						<div class="battery-bar"></div>
+						<div class="battery-bar" id="lastBatteryBar"></div>
+					</div>
+					<div style="display: flex; flex-direction: column; align-items: center;">
+						<span id="socPercent" style="font-size: 18px;">0.00%</span>
+						<div style="display: flex; flex-direction: column; align-items: center;">
+							<span id="wltpKmValue" style="font-size: 11px; color: white; font-weight: bold;">0 km</span>
+							<span id="wltpKmLabel" style="font-size: 11px; color: white;">(WLTP)</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<h3>ข้อมูล Trip ปัจจุบัน</h3>
+	<div>
+		<p>ระยะทาง (กม.): <span id="distance">0.000</span> km</p>
+		<p>พลังงานรีเจน: <span id="totalRegenEnergy">0.00</span> kWh</p>
+		<p>เวลาที่รถหยุดนิ่ง: <span id="idleTimeDisplay">00:00:00</span></p>
+		<p>เวลาที่ใช้เดินทาง: <span id="elapsedTime">00:00:00</span></p>
+		<p>ความเร็วสูงสุด (กม./ชม.): <span id="maxSpeed">0.0</span> km/h</p>
+		<p>ความเร็วเฉลี่ย (กม./ชม.): <span id="avgSpeed">0.0</span> km/h</p>
+		<p>เวลาที่เริ่ม และ พิกัดเริ่มต้น: <span id="startTime">-</span> , <span id="startCoord">-</span></p>
+		<p>เวลาที่สิ้นสุด และ พิกัดสิ้นสุด: <span id="endTime">-</span> , <span id="endCoord">-</span></p>
+	</div>
+	<h3 style="display: flex; align-items: center; justify-content: space-between;">
+		<span>ประวัติ</span>
+		<button id="toggleTripHistory" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
+			&#9776; ▼
+		</button>
+	</h3>
+	<div id="tripHistorySection" style="display: none;">
+		<div>
+			<button id="showLast2Btn">ดูประวัติ Trip น้อยลง</button>
+			<button id="showAllBtn">ดูประวัติ Trip ทั้งหมด</button>
+			<button onclick="clearAllTrips()">ลบประวัติทั้งหมด</button>
+		</div>
+		<div id="historyContainer" class="scrollable" style="margin-top:10px;"></div>
+	</div>
+	<div id="mapModal" class="map-modal">
+		<div class="map-modal-content">
+			<span class="close-map-modal">&times;</span>
+			<div id="leafletMap" style="height: 500px;"></div>
+			<div id="mapTripInfo" style="margin-top: 10px; font-size: 14px;"></div>
+		</div>
+	</div>
 </div>
 <!-- =============================== -->
 <!-- 🪧 Popup แจ้งเตือนอัปเดตเวอร์ชันใหม่ -->
 <!-- =============================== -->
 <script>
 function showUpdatePopup() {
-  const popup = document.createElement('div');
-  popup.textContent = '🔄 กำลังอัปเดต Trip A-B เป็นเวอร์ชันใหม่...';
-  Object.assign(popup.style, {
-    position: 'fixed',
-    bottom: '20px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    background: '#323232',
-    color: '#fff',
-    padding: '12px 20px',
-    borderRadius: '8px',
-    boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-    fontFamily: 'Rubik, sans-serif',
-    fontSize: '0.95rem',
-    zIndex: '9999',
-    opacity: '0',
-    transition: 'opacity 0.3s ease'
-  });
-  document.body.appendChild(popup);
-
-  setTimeout(() => popup.style.opacity = '1', 100);
-  setTimeout(() => {
-    popup.style.opacity = '0';
-    setTimeout(() => {
-      popup.remove();
-      if (!window.__reloading) {
-        window.__reloading = true;
-        location.reload();
-      }
-    }, 400);
-  }, 2000);
+	const popup = document.createElement('div');
+	popup.textContent = '🔄 กำลังอัปเดต Trip A-B เป็นเวอร์ชันใหม่...';
+	Object.assign(popup.style, {
+		position: 'fixed',
+		bottom: '20px',
+		left: '50%',
+		transform: 'translateX(-50%)',
+		background: '#323232',
+		color: '#fff',
+		padding: '12px 20px',
+		borderRadius: '8px',
+		boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+		fontFamily: 'Rubik, sans-serif',
+		fontSize: '0.95rem',
+		zIndex: '9999',
+		opacity: '0',
+		transition: 'opacity 0.3s ease'
+	});
+	document.body.appendChild(popup);
+	setTimeout(() => popup.style.opacity = '1', 100);
+	setTimeout(() => {
+		popup.style.opacity = '0';
+		setTimeout(() => {
+			popup.remove();
+			if (!window.__reloading) {
+				window.__reloading = true;
+				location.reload();
+			}
+		}, 400);
+	}, 2000);
 }
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
-      showUpdatePopup();
-    }
-  });
+	navigator.serviceWorker.addEventListener('message', event => {
+		if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
+			showUpdatePopup();
+		}
+	});
 }
 </script>
 <!-- =============================== -->
@@ -927,99 +870,90 @@ const tripToggleBtn = document.getElementById("tripToggleBtn");
 const tripDeleteAllBtn = document.getElementById("tripDeleteAllBtn");
 
 tripRecorderBtn.addEventListener("click", () => {
-  if (!tripRecorderPanel.classList.contains("open")) {
-    tripRecorderPanel.style.display = "block";  // แสดง panel ก่อน transition
-    requestAnimationFrame(() => {
-      tripRecorderPanel.classList.add("open");
-    });
-  } else {
-    tripRecorderPanel.classList.remove("open");
-    tripRecorderPanel.addEventListener("transitionend", function hide() {
-      tripRecorderPanel.style.display = "none";
-      tripRecorderPanel.removeEventListener("transitionend", hide);
-    });
-  }
+	if (!tripRecorderPanel.classList.contains("open")) {
+		tripRecorderPanel.style.display = "block";  // แสดง panel ก่อน transition
+			requestAnimationFrame(() => {
+				tripRecorderPanel.classList.add("open");
+			});
+	} else {
+		tripRecorderPanel.classList.remove("open");
+		tripRecorderPanel.addEventListener("transitionend", function hide() {
+			tripRecorderPanel.style.display = "none";
+			tripRecorderPanel.removeEventListener("transitionend", hide);
+		});
+	}
 });
 document.getElementById("backToMainBtn").addEventListener("click", () => {
-  if (tripRecorderPanel.classList.contains("open")) {
-    tripRecorderPanel.classList.remove("open");  // เริ่ม slide ออก
-    tripRecorderPanel.addEventListener("transitionend", function hide() {
-      tripRecorderPanel.style.display = "none";   // ซ่อนจริง ๆ หลัง slide เสร็จ
-      tripRecorderPanel.removeEventListener("transitionend", hide);
-    });
-  }
+	if (tripRecorderPanel.classList.contains("open")) {
+		tripRecorderPanel.classList.remove("open");  // เริ่ม slide ออก
+		tripRecorderPanel.addEventListener("transitionend", function hide() {
+			tripRecorderPanel.style.display = "none";   // ซ่อนจริง ๆ หลัง slide เสร็จ
+			tripRecorderPanel.removeEventListener("transitionend", hide);
+		});
+	}
 });
-
 let trips = JSON.parse(localStorage.getItem("tripRecorderTrips")) || [
-  {id:1, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
-  {id:2, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
-  {id:3, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0}
+	{id:1, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
+	{id:2, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
+	{id:3, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0}
 ];
-
 let allHistory = JSON.parse(localStorage.getItem("tripRecorderHistory")||"[]");
 let showAll = false;
-
 window.addEventListener("load", () => {
-  const mainDistanceNow = parseFloat(document.getElementById('distance').innerText) || 0;
-
-  trips.forEach(trip => {
-    if (!trip.locked) {
-      // ให้เริ่มเทียบจากระยะปัจจุบันแทน เพื่อป้องกัน delta ผิด
-      trip.distanceStartAt = mainDistanceNow;
-      trip.lastDistance = mainDistanceNow;
-    }
-  });
-
+	const mainDistanceNow = parseFloat(document.getElementById('distance').innerText) || 0;
+		trips.forEach(trip => {
+			if (!trip.locked) {
+				trip.distanceStartAt = mainDistanceNow;
+				trip.lastDistance = mainDistanceNow;
+			}
+		});
   saveTripsToStorage();
 });
 // ===================== Render Trips =====================
 function renderTrips(){
-  const tripsDiv = document.getElementById("trips");
-  tripsDiv.innerHTML='';
-  const fragment = document.createDocumentFragment();
-
-  trips.forEach(trip=>{
-    const div = document.createElement("div");
-    div.className="trip-card";
-    div.innerHTML=`
-      <div class="trip-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
-  <label for="tripName${trip.id}" style="flex: 0 0 auto;">Trip:</label>
-  <input type="text" id="tripName${trip.id}" value="${trip.name || ''}" placeholder="กรอกชื่อทริป" style="flex: 1 1 auto; min-width: 0;">
-</div>
-
-      <div class="trip-row battery-wrapper">
-        <label>Start/km:</label>
-        <div class="battery-bar-container"><div class="battery-bar-fill" id="startBar${trip.id}"></div></div>
-        <input type="number" id="start${trip.id}" value="${trip.startSOC}" min="0" max="602" maxlength="3">
-        <span id="startPct${trip.id}" class="percent">0%</span>
-      </div>
-      <div class="trip-row battery-wrapper">
-        <label>End/km:</label>
-        <div class="battery-bar-container"><div class="battery-bar-fill" id="endBar${trip.id}"></div></div>
-        <input type="number" id="end${trip.id}" value="${trip.endSOC}" min="0" max="602" maxlength="3">
-        <span id="endPct${trip.id}" class="percent">0%</span>
-      </div>
-      <div class="trip-row info-distance">
-        <label>SOC/Used:</label>
-        <span id="used${trip.id}" class="used">${trip.usedSOC.toFixed(2)}%</span>
-      </div>
-      <div class="trip-row info-distance">
-        <label>Distance(km):</label>
-        <span id="tripDistance${trip.id}" class="distance">${trip.distanceAccum.toFixed(3)}km </span>
-      </div>
-      <div class="progress-bar-container"><div class="progress-bar" id="progress${trip.id}"></div></div>
-      <div class="button-row">
-        <button id="save${trip.id}" ${trip.saved?'class="saved"':''}>บันทึก</button>
-        <button id="reset${trip.id}">Reset</button>
-      </div>
-    `;
-    fragment.appendChild(div);
-	
-    const tripNameInput = div.querySelector(`#tripName${trip.id}`);
-tripNameInput.addEventListener('input', () => {
-  trip.name = tripNameInput.value;
-  saveTripsToStorage();
-});
+	const tripsDiv = document.getElementById("trips");
+	tripsDiv.innerHTML='';
+	const fragment = document.createDocumentFragment();
+	trips.forEach(trip=>{
+		const div = document.createElement("div");
+		div.className="trip-card";
+		div.innerHTML=`
+		<div class="trip-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+			<label for="tripName${trip.id}" style="flex: 0 0 auto;">Trip:</label>
+			<input type="text" id="tripName${trip.id}" value="${trip.name || ''}" placeholder="กรอกชื่อทริป" style="flex: 1 1 auto; min-width: 0;">
+		</div>
+		<div class="trip-row battery-wrapper">
+			<label>Start/km:</label>
+			<div class="battery-bar-container"><div class="battery-bar-fill" id="startBar${trip.id}"></div></div>
+			<input type="number" id="start${trip.id}" value="${trip.startSOC}" min="0" max="602" maxlength="3">
+			<span id="startPct${trip.id}" class="percent">0%</span>
+		</div>
+		<div class="trip-row battery-wrapper">
+			<label>End/km:</label>
+			<div class="battery-bar-container"><div class="battery-bar-fill" id="endBar${trip.id}"></div></div>
+			<input type="number" id="end${trip.id}" value="${trip.endSOC}" min="0" max="602" maxlength="3">
+			<span id="endPct${trip.id}" class="percent">0%</span>
+		</div>
+		<div class="trip-row info-distance">
+			<label>SOC/Used:</label>
+			<span id="used${trip.id}" class="used">${trip.usedSOC.toFixed(2)}%</span>
+		</div>
+		<div class="trip-row info-distance">
+			<label>Distance(km):</label>
+			<span id="tripDistance${trip.id}" class="distance">${trip.distanceAccum.toFixed(3)}km </span>
+		</div>
+		<div class="progress-bar-container"><div class="progress-bar" id="progress${trip.id}"></div></div>
+		<div class="button-row">
+			<button id="save${trip.id}" ${trip.saved?'class="saved"':''}>บันทึก</button>
+			<button id="reset${trip.id}">Reset</button>
+		</div>
+		`;
+		fragment.appendChild(div);
+		const tripNameInput = div.querySelector(`#tripName${trip.id}`);
+		tripNameInput.addEventListener('input', () => {
+			trip.name = tripNameInput.value;
+		saveTripsToStorage();
+	});
 
     const startInput = div.querySelector(`#start${trip.id}`);
     const endInput = div.querySelector(`#end${trip.id}`);
@@ -1033,32 +967,31 @@ tripNameInput.addEventListener('input', () => {
     const startBar = div.querySelector(`#startBar${trip.id}`);
     const endBar = div.querySelector(`#endBar${trip.id}`);
 
-
     function updateBatteryBar(bar,pct){
-      pct=Math.min(Math.max(pct,0),100);
-      bar.style.width=pct+'%';
-      if(pct<10) bar.style.background='linear-gradient(to top, red 0%, darkred 100%)';
-      else if(pct<30) bar.style.background='linear-gradient(to top, yellow 0%, orange 100%)';
-      else if(pct<70) bar.style.background='linear-gradient(to top, gold 0%, darkgoldenrod 100%)';
-      else bar.style.background='linear-gradient(to top, #0f0 0%, #0c0 100%)';
+		pct=Math.min(Math.max(pct,0),100);
+		bar.style.width=pct+'%';
+		if(pct<10) bar.style.background='linear-gradient(to top, red 0%, darkred 100%)';
+		else if(pct<30) bar.style.background='linear-gradient(to top, yellow 0%, orange 100%)';
+		else if(pct<70) bar.style.background='linear-gradient(to top, gold 0%, darkgoldenrod 100%)';
+		else bar.style.background='linear-gradient(to top, #0f0 0%, #0c0 100%)';
     }
 
     function updatePercentAndUsed(){
-      let startVal=parseFloat(startInput.value)||0;
-      let endVal=parseFloat(endInput.value)||0;
-      if(startVal>602) startVal=602,startInput.value=602;
-      if(endVal>602) endVal=602,endInput.value=602;
-      if(endVal>startVal) endVal=startVal,endInput.value=startVal;
-      const startPct=Math.min(Math.max(startVal/602*100,0),100);
-      const endPct=Math.min(Math.max(endVal/602*100,0),100);
-      startPctElem.innerText=startPct.toFixed(2)+'%';
-      endPctElem.innerText=endPct.toFixed(2)+'%';
-      trip.usedSOC=startPct-endPct;
-      usedElem.innerText=trip.usedSOC.toFixed(2)+'%';
-      updateBatteryBar(startBar,startPct);
-      updateBatteryBar(endBar,endPct);
-      const percent=Math.min(trip.distanceAccum/100*100,100);
-      progressBar.style.width=percent+'%';
+		let startVal=parseFloat(startInput.value)||0;
+		let endVal=parseFloat(endInput.value)||0;
+		if(startVal>602) startVal=602,startInput.value=602;
+		if(endVal>602) endVal=602,endInput.value=602;
+		if(endVal>startVal) endVal=startVal,endInput.value=startVal;
+		const startPct=Math.min(Math.max(startVal/602*100,0),100);
+		const endPct=Math.min(Math.max(endVal/602*100,0),100);
+		startPctElem.innerText=startPct.toFixed(2)+'%';
+		endPctElem.innerText=endPct.toFixed(2)+'%';
+		trip.usedSOC=startPct-endPct;
+		usedElem.innerText=trip.usedSOC.toFixed(2)+'%';
+		updateBatteryBar(startBar,startPct);
+		updateBatteryBar(endBar,endPct);
+		const percent=Math.min(trip.distanceAccum/100*100,100);
+		progressBar.style.width=percent+'%';
     }
 
     startInput.addEventListener('input',()=>{
@@ -1074,82 +1007,77 @@ tripNameInput.addEventListener('input', () => {
 	
     // ================= Save =================
     saveBtn.addEventListener('click', () => {
-  if (trip.saved) {
-    alert('ทริปนี้บันทึกแล้ว');
-    return;
-  }
+		if (trip.saved) {
+			alert('ทริปนี้บันทึกแล้ว');
+			return;
+		}
 
-  updateDistanceAccum(trip, distElem);
-  trip.startSOC = startInput.value;
-  trip.endSOC = endInput.value;
-  updatePercentAndUsed();
+		updateDistanceAccum(trip, distElem);
+		trip.startSOC = startInput.value;
+		trip.endSOC = endInput.value;
+		updatePercentAndUsed();
 
-  const currentDistance = parseFloat(distElem.innerText) || 0;
-  trip.distanceAccum = currentDistance;
+		const currentDistance = parseFloat(distElem.innerText) || 0;
+		trip.distanceAccum = currentDistance;
 
   // lock trip → หยุดสะสม distance
-  trip.saved = true;
-  trip.locked = true;
-  startInput.disabled = true;
-  endInput.disabled = true;
-  saveBtn.classList.add('saved');
-  saveBtn.innerText = '✔ บันทึกแล้ว';
-  saveBtn.disabled = true;
-  saveTripsToStorage();
+		trip.saved = true;
+		trip.locked = true;
+		startInput.disabled = true;
+		endInput.disabled = true;
+		saveBtn.classList.add('saved');
+		saveBtn.innerText = '✔ บันทึกแล้ว';
+		saveBtn.disabled = true;
+		saveTripsToStorage();
 
-  const newRecord = {
-    tripId: trip.id,
-    tripName: trip.name || `Trip ${trip.id}`,
-    startSOC: parseFloat(startPctElem.innerText),
-    endSOC: parseFloat(endPctElem.innerText),
-    usedSOC: trip.usedSOC,
-    newDistance: currentDistance,
-    timestamp: Date.now()
-  };
+		const newRecord = {
+			tripId: trip.id,
+			tripName: trip.name || `Trip ${trip.id}`,
+			startSOC: parseFloat(startPctElem.innerText),
+			endSOC: parseFloat(endPctElem.innerText),
+			usedSOC: trip.usedSOC,
+			newDistance: currentDistance,
+			timestamp: Date.now()
+		};
 
-  allHistory.push(newRecord);
-  localStorage.setItem("tripRecorderHistory", JSON.stringify(allHistory));
-  updateHistory();
-});
-
-
+		allHistory.push(newRecord);
+		localStorage.setItem("tripRecorderHistory", JSON.stringify(allHistory));
+		updateHistory();
+	});
     // ================= Reset =================
-resetBtn.addEventListener('click', () => {
-  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
+	resetBtn.addEventListener('click', () => {
+		const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
+		trip.startSOC = '';
+		trip.endSOC = '';
+		trip.usedSOC = 0;
+		trip.distanceAccum = 0;
+		trip.lastDistance = 0;
+		trip.distanceStartAt = mainDistance;
+		trip.saved = false;
+		trip.locked = false;
+		trip.name = '';
 
-  trip.startSOC = '';
-  trip.endSOC = '';
-  trip.usedSOC = 0;
-  trip.distanceAccum = 0;
-  trip.lastDistance = 0;
-  trip.distanceStartAt = mainDistance;
-  trip.saved = false;
-  trip.locked = false;
-  trip.name = '';
+		startInput.value = '';
+		endInput.value = '';
+		tripNameInput.value = '';
+		startInput.disabled = false;
+		endInput.disabled = false;
+		saveBtn.disabled = false;
+		startPctElem.innerText = '0%';
+		endPctElem.innerText = '0%';
+		usedElem.innerText = '0.00%';
+		distElem.innerText = '0.000 km';
+		progressBar.style.width = '0%';
 
-  startInput.value = '';
-  endInput.value = '';
-  tripNameInput.value = '';
-  startInput.disabled = false;
-  endInput.disabled = false;
-  saveBtn.disabled = false;
-  startPctElem.innerText = '0%';
-  endPctElem.innerText = '0%';
-  usedElem.innerText = '0.00%';
-  distElem.innerText = '0.000 km';
-  progressBar.style.width = '0%';
+		updateBatteryBar(startBar, 0);
+		updateBatteryBar(endBar, 0);
 
-  updateBatteryBar(startBar, 0);
-  updateBatteryBar(endBar, 0);
-
-  saveBtn.classList.remove('saved');
-  saveBtn.innerText = 'บันทึก';
-
-  saveTripsToStorage();
-});
-
+		saveBtn.classList.remove('saved');
+		saveBtn.innerText = 'บันทึก';
+		saveTripsToStorage();
+	});
     updatePercentAndUsed();
-  });
+	});
 
   tripsDiv.appendChild(fragment);
 }
@@ -1166,95 +1094,89 @@ function updateDistanceAccum(trip, distElem){
   distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
   saveTripsToStorage();
 }
-
 function saveTripsToStorage(){ localStorage.setItem("tripRecorderTrips",JSON.stringify(trips)); }
-
 // ===================== History (batch, smooth) =====================
 function updateHistory() {
-  if (!tripHistoryDiv) return;
-  const sorted = [...allHistory].sort((a,b)=>b.timestamp - a.timestamp);
-  const display = showAll ? sorted : [sorted[0]].filter(Boolean);
+	if (!tripHistoryDiv) return;
+	const sorted = [...allHistory].sort((a,b)=>b.timestamp - a.timestamp);
+	const display = showAll ? sorted : [sorted[0]].filter(Boolean);
 
-  tripHistoryDiv.innerHTML='';
+	tripHistoryDiv.innerHTML='';
 
-  const batchSize = 100;
-  let index = 0;
+	const batchSize = 100;
+	let index = 0;
 
-  function renderBatch() {
-    const fragment = document.createDocumentFragment();
-    for(let i=0;i<batchSize && index<display.length;i++,index++){
-      const record = display[index];
-	  const dateStr = new Date(record.timestamp).toLocaleDateString();
-      const div = document.createElement('div');
-	  div.className = 'trip-history-record';
-      div.innerHTML = `
-	  <div class="record-header">
-  ${record.tripName || `Trip ${record.tripId}`} | ${new Date(record.timestamp).toLocaleDateString()}
-</div>
-        <div class="record-details">
-          <div><span class="field-name">Start/SOC:</span> <span class="field-value">${(Number(record.startSOC)||0).toFixed(2)}%</span></div>
-          <div><span class="field-name">End/SOC:</span> <span class="field-value">${(Number(record.endSOC)||0).toFixed(2)}%</span></div>
-          <div><span class="field-name">SOC/Used:</span> <span class="field-value">${(Number(record.usedSOC)||0).toFixed(2)}%</span></div>
-          <div><span class="field-name">Distance:</span> <span class="field-value">${(Number(record.newDistance)||0).toFixed(3)} km</span></div>
-        </div>
-		<button class="deleteBtn" data-ts="${record.timestamp}">ลบ</button>
-      `;
-      tripHistoryDiv.appendChild(div);
-    }
-    if(index < display.length) requestAnimationFrame(renderBatch);
-  }
+	function renderBatch() {
+		const fragment = document.createDocumentFragment();
+		for(let i=0;i<batchSize && index<display.length;i++,index++){
+			const record = display[index];
+			const dateStr = new Date(record.timestamp).toLocaleDateString();
+			const div = document.createElement('div');
+			div.className = 'trip-history-record';
+			div.innerHTML = `
+			<div class="record-header">
+				${record.tripName || `Trip ${record.tripId}`} | ${new Date(record.timestamp).toLocaleDateString()}
+			</div>
+			<div class="record-details">
+				<div><span class="field-name">Start/SOC:</span> <span class="field-value">${(Number(record.startSOC)||0).toFixed(2)}%</span></div>
+				<div><span class="field-name">End/SOC:</span> <span class="field-value">${(Number(record.endSOC)||0).toFixed(2)}%</span></div>
+				<div><span class="field-name">SOC/Used:</span> <span class="field-value">${(Number(record.usedSOC)||0).toFixed(2)}%</span></div>
+				<div><span class="field-name">Distance:</span> <span class="field-value">${(Number(record.newDistance)||0).toFixed(3)} km</span></div>
+			</div>
+			<button class="deleteBtn" data-ts="${record.timestamp}">ลบ</button>
+			`;
+			tripHistoryDiv.appendChild(div);
+		}
+		if(index < display.length) requestAnimationFrame(renderBatch);
+	}
 
   requestAnimationFrame(renderBatch);
 }
-
 // Delete single
 tripHistoryDiv.addEventListener('click', e=>{
-  const target=e.target;
-  if(target.classList.contains('deleteBtn')){
-    const ts=parseInt(target.dataset.ts);
-    if(!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
-    allHistory=allHistory.filter(r=>r.timestamp!==ts);
-    localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
-    updateHistory();
-  }
+	const target=e.target;
+	if(target.classList.contains('deleteBtn')){
+		const ts=parseInt(target.dataset.ts);
+		if(!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
+		allHistory=allHistory.filter(r=>r.timestamp!==ts);
+		localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
+		updateHistory();
+	}
 });
-
 // Toggle show all
 tripToggleBtn.addEventListener('click',()=>{
-  showAll=!showAll;
-  tripToggleBtn.innerText = showAll?'ดูน้อยลง':'ดูทั้งหมด';
-  updateHistory();
+	showAll=!showAll;
+	tripToggleBtn.innerText = showAll?'ดูน้อยลง':'ดูทั้งหมด';
+	updateHistory();
 });
 
 // Delete all
 tripDeleteAllBtn.addEventListener('click',()=>{
-  if(!confirm('ต้องการลบประวัติทั้งหมดหรือไม่?')) return;
-  allHistory=[];
-  localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
-  updateHistory();
+	if(!confirm('ต้องการลบประวัติทั้งหมดหรือไม่?')) return;
+	allHistory=[];
+	localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
+	updateHistory();
 });
 
 // Real-time cumulative distance
 setInterval(()=>{
-  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
-
-  trips.forEach(trip=>{
-    if(trip.locked) return;
-
-    let delta = mainDistance - (trip.lastDistance !== 0 ? trip.lastDistance : trip.distanceStartAt);
+	const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
+	trips.forEach(trip=>{
+		if(trip.locked) return;
+		let delta = mainDistance - (trip.lastDistance !== 0 ? trip.lastDistance : trip.distanceStartAt);
 
     // ป้องกัน jump หรือติดลบ
-    if (delta > 0 && delta < 100) {
-      trip.distanceAccum += delta;
-    }
+		if (delta > 0 && delta < 100) {
+			trip.distanceAccum += delta;
+		}
 
-    trip.lastDistance = mainDistance;
+		trip.lastDistance = mainDistance;
 
-    const distElem = document.getElementById(`tripDistance${trip.id}`);
-    const progressBar = document.getElementById(`progress${trip.id}`);
-    if(distElem) distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
-    if(progressBar) progressBar.style.width = Math.min(trip.distanceAccum/100*100,100)+'%';
-  });
+		const distElem = document.getElementById(`tripDistance${trip.id}`);
+		const progressBar = document.getElementById(`progress${trip.id}`);
+		if(distElem) distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
+		if(progressBar) progressBar.style.width = Math.min(trip.distanceAccum/100*100,100)+'%';
+	});
 
   saveTripsToStorage();
 }, 500);
@@ -2375,35 +2297,35 @@ const BASE_ZOOM = 17;
 let currentTargetZoom = BASE_ZOOM;
 const POLYLINE_BATCH_SIZE = 200;
 const vehicleIcon = L.icon({
-  iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16]
+	iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
+	iconSize: [32, 32],
+	iconAnchor: [16, 16]
 });
 
 // rotated marker fallback
 if (L.Marker && !L.Marker.prototype.setRotationAngle) {
-  L.Marker.include({
-    setRotationAngle: function(angle) {
-      if (!this._icon) return;
-      try {
-        this._icon.style.transformOrigin = '50% 50%';
-        this._icon.style.transform = `rotate(${angle}deg) translateZ(0)`;
-        this._rotationAngle = angle;
-      } catch (e) {
-        console.warn('setRotationAngle fallback failed', e);
-      }
-    }
-  });
+	L.Marker.include({
+		setRotationAngle: function(angle) {
+			if (!this._icon) return;
+			try {
+				this._icon.style.transformOrigin = '50% 50%';
+				this._icon.style.transform = `rotate(${angle}deg) translateZ(0)`;
+				this._rotationAngle = angle;
+			} catch (e) {
+				console.warn('setRotationAngle fallback failed', e);
+			}
+		}
+	});
   console.warn("⚠️ leaflet.rotatedMarker fallback applied (improved).");
 }
 
 // safeInvalidateMap: preserve behavior but operate on container, not pane
 function safeInvalidateMap(targetMap, delay = 300) {
-  if (!targetMap || !targetMap.invalidateSize) return;
-  clearTimeout(targetMap._invalidateTimeout);
-  targetMap._invalidateTimeout = setTimeout(() => {
-    try { targetMap.invalidateSize(); setMapPaneTransformOriginToCenter(targetMap); } catch (e) { console.warn('safeInvalidateMap error', e); }
-  }, delay);
+	if (!targetMap || !targetMap.invalidateSize) return;
+	clearTimeout(targetMap._invalidateTimeout);
+	targetMap._invalidateTimeout = setTimeout(() => {
+		try { targetMap.invalidateSize(); setMapPaneTransformOriginToCenter(targetMap); } catch (e) { console.warn('safeInvalidateMap error', e); }
+	}, delay);
 }
 // -----------------------------
 // Helpers
@@ -2414,41 +2336,41 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 function lerpAngle(a, b, t) { let diff = ((b - a + 540) % 360) - 180; return (a + diff * t + 360) % 360; }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function clampLatLng(lat, lng) { return [Math.max(Math.min(lat, 85), -85), ((lng + 180) % 360 + 360) % 360 - 180]; }
-function normalizeAngleDifference(a, b) { // minimal signed difference a - b
-  let diff = (a - b) % 360;
-  if (diff > 180) diff -= 360;
-  if (diff < -180) diff += 360;
-  return diff;
+function normalizeAngleDifference(a, b) {
+	let diff = (a - b) % 360;
+	if (diff > 180) diff -= 360;
+	if (diff < -180) diff += 360;
+	return diff;
 }
 function calculateTargetZoom(speedKmh) {
-  if (speedKmh < 30) return 17;
-  if (speedKmh < 60) return 16;
-  if (speedKmh < 100) return 15;
-  return 14;
+	if (speedKmh < 30) return 17;
+	if (speedKmh < 60) return 16;
+	if (speedKmh < 100) return 15;
+	return 14;
 }
 function calculateIconSize(speedKmh) {
-  if (speedKmh < 30) return 32;
-  if (speedKmh < 60) return 26;
-  if (speedKmh < 100) return 20;
-  return 16;
+	if (speedKmh < 30) return 32;
+	if (speedKmh < 60) return 26;
+	if (speedKmh < 100) return 20;
+	return 16;
 }
 function getRotationElement(targetMap = map) {
-  if (!targetMap) return null;
-  try { return targetMap.getPane('mapPane'); }
-  catch (e) { return targetMap.getContainer()?.querySelector('.leaflet-map-pane') ?? null; }
+	if (!targetMap) return null;
+	try { return targetMap.getPane('mapPane'); }
+	catch (e) { return targetMap.getContainer()?.querySelector('.leaflet-map-pane') ?? null; }
 }
 function setMapPaneTransformOriginToCenter(targetMap = map) {
-  if (!targetMap) return;
-  const pane = getRotationElement(targetMap);
-  if (!pane) return;
-  const size = targetMap.getSize();
-  pane.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
+	if (!targetMap) return;
+	const pane = getRotationElement(targetMap);
+	if (!pane) return;
+	const size = targetMap.getSize();
+	pane.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
 }
 function getSpeedColor(s) {
-  if (s < 20) return '#FF0000';
-  if (s < 40) return '#FFA500';
-  if (s < 60) return '#FFFF00';
-  return '#00FF00';
+	if (s < 20) return '#FF0000';
+	if (s < 40) return '#FFA500';
+	if (s < 60) return '#FFFF00';
+	return '#00FF00';
 }
 
 // ==============================
@@ -2478,18 +2400,18 @@ function autoFollowLoop() {
 let autoFollowLoopInterval = null;
 
 function startAutoFollowLoop() {
-  if (!autoFollowLoopInterval) autoFollowLoopInterval = setInterval(autoFollowLoop, 50);
+	if (!autoFollowLoopInterval) autoFollowLoopInterval = setInterval(autoFollowLoop, 50);
 }
 
 function stopAutoFollowLoop() {
-  if (autoFollowLoopInterval) {
-    clearInterval(autoFollowLoopInterval);
-    autoFollowLoopInterval = null;
-  }
+	if (autoFollowLoopInterval) {
+		clearInterval(autoFollowLoopInterval);
+		autoFollowLoopInterval = null;
+	}
 }
 
 // ==============================
-// 🔹 APPLY SMOOTH TRANSFORM
+// 🔹 AUTO FOLLOW + SMOOTH TRANSFORM (ปรับปรุง)
 // ==============================
 let smoothTransformAnimFrame = null;
 let smoothTransformTarget = {
@@ -2503,6 +2425,9 @@ let smoothTransformTarget = {
     lastFrameTime: 0
 };
 
+// -----------------------------
+// APPLY SMOOTH TRANSFORM
+// -----------------------------
 function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callback = null) {
     if (isFinite(lat) && isFinite(lon)) { lastGpsLat = lat; lastGpsLng = lon; }
     if (isFinite(headingDeg)) lastGpsHeading = headingDeg;
@@ -2524,9 +2449,9 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     }
 }
 
-// ==============================
-// 🔹 SMOOTH TRANSFORM STEP
-// ==============================
+// -----------------------------
+// SMOOTH TRANSFORM STEP
+// -----------------------------
 function smoothTransformStep(now) {
     if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
         if (smoothTransformAnimFrame) cancelAnimationFrame(smoothTransformAnimFrame);
@@ -2544,49 +2469,58 @@ function smoothTransformStep(now) {
 
     const { lat: targetLat, lon: targetLon, heading: targetHeading, zoom: targetZoom, iconSize: targetIconSize, speedKmh, callback } = smoothTransformTarget;
 
-    // --- PAN map ---
-    if (!lastMapCenter) lastMapCenter = map.getCenter();
-    const interpLat = lerp(lastMapCenter.lat, targetLat, 0.25);
-    const interpLng = lerp(lastMapCenter.lng, targetLon, 0.25);
+    // --- 1) PAN MAP ---
+    const centerNow = map.getCenter();
+    const interpLat = lerp(centerNow.lat, targetLat, 0.25);
+    const interpLng = lerp(centerNow.lng, targetLon, 0.25);
     const [clampedLat, clampedLng] = clampLatLng(interpLat, interpLng);
     map.panTo([clampedLat, clampedLng], { animate: false });
-    lastMapCenter = { lat: clampedLat, lng: clampedLng };
-    //console.log(`[PAN] centerLat=${clampedLat.toFixed(6)}, centerLng=${clampedLng.toFixed(6)}, targetLat=${targetLat.toFixed(6)}, targetLon=${targetLon.toFixed(6)}`);
 
-    // --- MAP rotation ---
+    // --- 2) MAP ROTATION ---
     if (autoRotate && targetHeading !== null && isFinite(targetHeading)) {
         const pane = getRotationElement(map);
         const desiredMapRotation = ((-targetHeading + 360) % 360);
         lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, 0.3);
-
         if (pane) {
-            const curTransform = pane.style.transform || '';
-            const translateMatch = curTransform.match(/translate\(([-0-9.]+)px,\s*([-0-9.]+)px\)/);
-            const dx = translateMatch ? parseFloat(translateMatch[1]) : 0;
-            const dy = translateMatch ? parseFloat(translateMatch[2]) : 0;
+            const tf = pane.style.transform || "";
+            const m = tf.match(/translate\(([-0-9.]+)px,\s*([-0-9.]+)px\)/);
+            const dx = m ? parseFloat(m[1]) : 0;
+            const dy = m ? parseFloat(m[2]) : 0;
             pane.style.transform = `translate(${dx}px, ${dy}px) rotate(${lastMapRotation}deg)`;
         }
-       // console.log(`[MAP ROTATE] targetHeading=${targetHeading.toFixed(1)}, mapRotation=${lastMapRotation.toFixed(2)}`);
+    } else {
+        lastMapRotation = 0;
     }
 
-    // --- Marker rotation (always forward) ---
-    if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function' && targetHeading !== null && isFinite(targetHeading)) {
-        let screenAngle = (targetHeading - lastMapRotation + 360) % 360;
-        lastMarkerAngle = lerpAngle(lastMarkerAngle, screenAngle, 0.35);
-        vehicleMarker.setRotationAngle(lastMarkerAngle);
-        //console.log(`[MARKER ROT] targetHeading=${targetHeading.toFixed(1)}, markerAngle=${lastMarkerAngle.toFixed(2)}`);
+    // --- 3) MARKER ROTATION ---
+    if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
+        let movementHeading = targetHeading;
+        if (lastPosition) {
+            const headingFromMovement = calcMovementHeading(lastPosition.lat, lastPosition.lon, targetLat, targetLon);
+            if (headingFromMovement !== null) movementHeading = headingFromMovement;
+        }
+        lastPosition = { lat: targetLat, lon: targetLon };
+
+        if (movementHeading !== null) {
+            if (autoRotate) {
+                lastMarkerAngle = lerpAngle(lastMarkerAngle, 0, 0.35); // Map หมุนแทน marker
+            } else {
+                lastMarkerAngle = lerpAngle(lastMarkerAngle, movementHeading, 0.35); // Map ไม่หมุน => marker ตาม movement
+            }
+            vehicleMarker.setRotationAngle(lastMarkerAngle);
+        }
     }
 
-    // --- Marker always center ---
-    vehicleMarker.setLatLng([lastMapCenter.lat, lastMapCenter.lng]);
+    // --- 4) MARKER POSITION ---
+    vehicleMarker.setLatLng([targetLat, targetLon]);
 
-    // --- Smooth zoom ---
+    // --- 5) ZOOM ---
     const currentZoom = map.getZoom();
     if (Math.abs(currentZoom - targetZoom) > ZOOM_THRESHOLD) {
         map.setZoom(lerp(currentZoom, targetZoom, 0.1), { animate: false });
     }
 
-    // --- Icon size ---
+    // --- 6) ICON SIZE ---
     if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
         lastIconSize = targetIconSize;
         const icon = L.icon({
@@ -2597,9 +2531,11 @@ function smoothTransformStep(now) {
         vehicleMarker.setIcon(icon);
     }
 
-    // --- Continue animation ---
-    const panDone = Math.abs(lastMapCenter.lat - targetLat) < PAN_THRESHOLD && Math.abs(lastMapCenter.lng - targetLon) < PAN_THRESHOLD;
-    const rotDone = (targetHeading === null) || (Math.abs(normalizeAngleDifference(lastMapRotation, (-targetHeading + 360) % 360)) < MAP_ROT_THRESHOLD);
+    // --- 7) CONTINUE ANIMATION ---
+    const panDone = Math.abs(centerNow.lat - targetLat) < PAN_THRESHOLD &&
+                    Math.abs(centerNow.lng - targetLon) < PAN_THRESHOLD;
+    const rotDone = (targetHeading === null) ||
+                    (Math.abs(normalizeAngleDifference(lastMapRotation, ((-targetHeading + 360) % 360))) < MAP_ROT_THRESHOLD);
     const zoomDone = Math.abs(map.getZoom() - targetZoom) < ZOOM_THRESHOLD;
     const iconDone = Math.abs(lastIconSize - targetIconSize) < ICON_SIZE_THRESHOLD;
 
@@ -2610,23 +2546,39 @@ function smoothTransformStep(now) {
         if (typeof callback === 'function') callback();
     }
 }
+
+
 function resetMapRotation(callback = null) {
-  if (!map) {
-    if (callback) callback();
-    return;
-  }
+    if (!map || !vehicleMarker) {
+        if (callback) callback();
+        return;
+    }
 
-  // choose a sensible lat/lon fallback (autoFollowTarget -> lastMapCenter -> map.getCenter())
-  const lat = (autoFollowTarget && isFinite(autoFollowTarget.lat)) ? autoFollowTarget.lat : (lastMapCenter ? lastMapCenter.lat : (map ? map.getCenter().lat : null));
-  const lon = (autoFollowTarget && isFinite(autoFollowTarget.lon)) ? autoFollowTarget.lon : (lastMapCenter ? lastMapCenter.lng : (map ? map.getCenter().lng : null));
-  const speed = (autoFollowTarget && isFinite(autoFollowTarget.speedKmh)) ? autoFollowTarget.speedKmh : (lastGpsSpeedKmh || 0);
+    const lat = (autoFollowTarget && isFinite(autoFollowTarget.lat))
+        ? autoFollowTarget.lat
+        : (lastMapCenter ? lastMapCenter.lat : map.getCenter().lat);
+    const lon = (autoFollowTarget && isFinite(autoFollowTarget.lon))
+        ? autoFollowTarget.lon
+        : (lastMapCenter ? lastMapCenter.lng : map.getCenter().lng);
+    const speed = (autoFollowTarget && isFinite(autoFollowTarget.speedKmh))
+        ? autoFollowTarget.speedKmh
+        : (lastGpsSpeedKmh || 0);
+    const targetHeading = lastGpsHeading ?? 0;
 
-  // Request map rotation back to 0 via master animator
-  applySmoothTransform(lat, lon, 0, speed, () => {
-    lastMapRotation = 0;
-    isMapRotated = false;
-    if (callback) callback();
-  });
+    const prevAutoRotate = autoRotate;
+    autoRotate = false;
+
+    applySmoothTransform(lat, lon, targetHeading, speed, () => {
+        lastMapRotation = 0;
+        isMapRotated = false;
+
+        if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
+            vehicleMarker.setRotationAngle(targetHeading);
+        }
+
+        autoRotate = prevAutoRotate;
+        if (callback) callback();
+    });
 }
 // -----------------------------
 // RELIABLE HEADING
@@ -2650,75 +2602,73 @@ function calcMovementHeading(prevLat, prevLon, lat, lon) {
 }
 
 function clearWatchId() {
-  if (watchId !== null) {
-    try { navigator.geolocation.clearWatch(watchId); } catch(e) {}
-    watchId = null;
-  }
+	if (watchId !== null) {
+		try { navigator.geolocation.clearWatch(watchId); } catch(e) {}
+		watchId = null;
+	}
 }
 
 // initMap 
 function initMap(lat, lon) {
-  destroyMap();
+	destroyMap();
+	map = L.map("map", {
+		center: [lat, lon],
+		zoom: BASE_ZOOM,
+		zoomControl: false,
+		attributionControl: false,
+		worldCopyJump: true
+	});
+	L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
+	routeLayer = L.layerGroup().addTo(map);
+	vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon, interactive: false }).addTo(map);
 
-  map = L.map("map", {
-    center: [lat, lon],
-    zoom: BASE_ZOOM,
-    zoomControl: false,
-    attributionControl: false,
-    worldCopyJump: true
-  });
-
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
-
-  routeLayer = L.layerGroup().addTo(map);
-  vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon, interactive: false }).addTo(map);
-
-  map.whenReady(() => {
-    setMapPaneTransformOriginToCenter(map);
-    lastMapCenter = map.getCenter();
-  });
+	map.whenReady(() => {
+		setMapPaneTransformOriginToCenter(map);
+		lastMapCenter = map.getCenter();
+	});
 }
 
 function destroyMap() {
-  if (!map) return;
+	if (!map) return;
+	stopAutoFollowLoop();
   // stop animator
-  if (smoothTransformAnimFrame) {
-    cancelAnimationFrame(smoothTransformAnimFrame);
-    smoothTransformAnimFrame = null;
-  }
-  try { map.off(); map.eachLayer(l => l.off()); map.remove(); } catch (e) {}
-  map = null; routeLayer = null; vehicleMarker = null;
-  pathCoordinates = []; routeBatchLayers = [];
-  lastMapRotation = 0; lastMarkerAngle = 0; lastIconSize = 32;
-  lastMapCenter = null;
-  autoFollowTarget = null;
-  autoFollowRunning = false;
+	if (smoothTransformAnimFrame) {
+		cancelAnimationFrame(smoothTransformAnimFrame);
+		smoothTransformAnimFrame = null;
+	}
+	try { map.off(); map.eachLayer(l => l.off()); map.remove(); } catch (e) {}
+	map = null; routeLayer = null; vehicleMarker = null;
+	pathCoordinates = []; routeBatchLayers = [];
+	lastMapRotation = 0; lastMarkerAngle = 0; lastIconSize = 32;
+	lastMapCenter = null;
+	autoFollowTarget = null;
+	autoFollowRunning = false;
 }
 function updateAutoZoom(speedKmh){
-  if (!map || !isMapReady) return;
-  const targetZoom = calculateTargetZoom(speedKmh);
-  const currentZoom = map.getZoom();
-  if (Math.abs(currentZoom - targetZoom) < 0.05) return; // skip small changes
-  lastZoom = targetZoom;
-  const deltaZoom = Math.abs(currentZoom - targetZoom);
-  if (deltaZoom > 1) {
-    map.setZoom(targetZoom, { animate: true, duration: 0.25 });
-  } else {
-    const nextZoom = lerp(currentZoom, targetZoom, 0.05);
-    map.setZoom(nextZoom, { animate: false });
-  }
+	if (!map || !isMapReady) return;
+	const targetZoom = calculateTargetZoom(speedKmh);
+	const currentZoom = map.getZoom();
+	if (Math.abs(currentZoom - targetZoom) < 0.05) return; // skip small changes
+	lastZoom = targetZoom;
+	const deltaZoom = Math.abs(currentZoom - targetZoom);
+	if (deltaZoom > 1) {
+		map.setZoom(targetZoom, { animate: true, duration: 0.25 });
+	} else {
+		const nextZoom = lerp(currentZoom, targetZoom, 0.05);
+		map.setZoom(nextZoom, { animate: false });
+	}
 }
 
 function updateVehicleIconBySpeed(speedKmh){
-  if (!map || !vehicleMarker) return;
-  const targetSize = calculateIconSize(speedKmh);
-  if (Math.abs(targetSize - lastIconSize) < 1) return; // skip tiny changes
-  lastIconSize = targetSize;
-  const icon = L.icon({
-    iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
-    iconSize: [targetSize, targetSize],
-    iconAnchor: [targetSize / 2, targetSize / 2]
-  });
+	if (!map || !vehicleMarker) return;
+	const targetSize = calculateIconSize(speedKmh);
+	if (Math.abs(targetSize - lastIconSize) < 1) return; // skip tiny changes
+	lastIconSize = targetSize;
+	const icon = L.icon({
+		iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
+		iconSize: [targetSize, targetSize],
+		iconAnchor: [targetSize / 2, targetSize / 2]
+	});
   vehicleMarker.setIcon(icon);
 }
 
@@ -2753,62 +2703,55 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput ?? lastGpsHeading);
     autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
 
-    // บันทึก path
     const now = Date.now();
     const lastCoord = pathCoordinates[pathCoordinates.length - 1];
     if (!lastCoord || getDistanceFromLatLonInKm(lastCoord[0], lastCoord[1], lat, lon) > 0.01) {
         pathCoordinates.push([lat, lon, speedKmh || 0, now]);
         if (pathCoordinates.length > 20000) pathCoordinates.shift();
-		addRealtimePolylineSegment(lat, lon, speedKmh);
+        addRealtimePolylineSegment(lat, lon, speedKmh);
     }
 
     if (autoFollow) {
         applySmoothTransform(lat, lon, reliableHeading, speedKmh, null);
     } else {
         vehicleMarker.setLatLng([lat, lon]);
+        vehicleMarker.setRotationAngle(reliableHeading);
     }
-
-    //console.log(`[UPDATE ROUTE] lat=${lat.toFixed(6)}, lon=${lon.toFixed(6)}, speed=${speedKmh.toFixed(1)}, heading=${reliableHeading.toFixed(1)}`);
 }
 // =============================
 // DRAW HISTORY ROUTE (UNCHANGED)
 // =============================
 function drawHistoryRoute(pathCoords) {
-  if (!map || pathCoords.length < 2) return;
-  if (!routeLayer) routeLayer = L.layerGroup().addTo(map);
-  else routeLayer.clearLayers();
-
-  routeBatchLayers = [];
-  let batch = [];
-
-  for (let i = 1; i < pathCoords.length; i++) {
-    const a = pathCoords[i - 1];
-    const b = pathCoords[i];
-    const color = getSpeedColor(b[2] || 0);
-    const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], { color, weight: 4, opacity: 0.95, interactive: false }).addTo(routeLayer);
-    batch.push(seg);
-    if (batch.length >= POLYLINE_BATCH_SIZE) { routeBatchLayers.push(batch); batch = []; }
-  }
-  if (batch.length > 0) routeBatchLayers.push(batch);
-
-  const start = pathCoords[0];
-  const startMarker = L.marker([start[0], start[1]], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(routeLayer);
-  startMarker.openPopup();
-
-  const end = pathCoords[pathCoords.length - 1];
-  const endMarker = L.marker([end[0], end[1]], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(routeLayer);
-  endMarker.openPopup();
-
-  const latlngsAll = pathCoords.map(p => [p[0], p[1]]);
-  const bounds = L.latLngBounds(latlngsAll);
-  const latDiff = Math.abs(bounds.getNorthEast().lat - bounds.getSouthWest().lat);
-  const lngDiff = Math.abs(bounds.getNorthEast().lng - bounds.getSouthWest().lng);
-  const padX = Math.min(300, Math.max(60, lngDiff * 500));
-  const padY = Math.min(300, Math.max(60, latDiff * 500));
-  const fitBoundsCallback = () => map.fitBounds(latlngsAll, { padding: [padY, padX], maxZoom: BASE_ZOOM });
-  if (isMapRotated && !autoFollow) resetMapRotation(fitBoundsCallback);
-  else fitBoundsCallback();
-  safeInvalidateMap(map, 300);
+	if (!map || pathCoords.length < 2) return;
+	if (!routeLayer) routeLayer = L.layerGroup().addTo(map);
+	else routeLayer.clearLayers();
+	routeBatchLayers = [];
+	let batch = [];
+	for (let i = 1; i < pathCoords.length; i++) {
+		const a = pathCoords[i - 1];
+		const b = pathCoords[i];
+		const color = getSpeedColor(b[2] || 0);
+		const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], { color, weight: 4, opacity: 0.95, interactive: false }).addTo(routeLayer);
+		batch.push(seg);
+		if (batch.length >= POLYLINE_BATCH_SIZE) { routeBatchLayers.push(batch); batch = []; }
+	}
+	if (batch.length > 0) routeBatchLayers.push(batch);
+	const start = pathCoords[0];
+	const startMarker = L.marker([start[0], start[1]], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(routeLayer);
+	startMarker.openPopup();
+	const end = pathCoords[pathCoords.length - 1];
+	const endMarker = L.marker([end[0], end[1]], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(routeLayer);
+	endMarker.openPopup();
+	const latlngsAll = pathCoords.map(p => [p[0], p[1]]);
+	const bounds = L.latLngBounds(latlngsAll);
+	const latDiff = Math.abs(bounds.getNorthEast().lat - bounds.getSouthWest().lat);
+	const lngDiff = Math.abs(bounds.getNorthEast().lng - bounds.getSouthWest().lng);
+	const padX = Math.min(300, Math.max(60, lngDiff * 500));
+	const padY = Math.min(300, Math.max(60, latDiff * 500));
+	const fitBoundsCallback = () => map.fitBounds(latlngsAll, { padding: [padY, padX], maxZoom: BASE_ZOOM });
+	if (isMapRotated && !autoFollow) resetMapRotation(fitBoundsCallback);
+	else fitBoundsCallback();
+	safeInvalidateMap(map, 300);
 }
 
 window.addEventListener('resize', () => {
@@ -2820,34 +2763,36 @@ window.addEventListener('resize', () => {
 // 🔹 GPS FOLLOW BUTTON (FIXED)
 // ============================
 document.getElementById('gpsFollowBtn').addEventListener('click', () => {
-  if (!map || !vehicleMarker) return;
-  const btn = document.getElementById('gpsFollowBtn');
-  autoFollow = !autoFollow;
-  if (autoFollow) {
-    btn.classList.add('active');
-    btn.innerHTML = '🚗';
+	if (!map || !vehicleMarker) return;
+	const btn = document.getElementById('gpsFollowBtn');
+	autoFollow = !autoFollow;
+	if (autoFollow) {
+		btn.classList.add('active');
+		btn.innerHTML = '🚗';
+		//stopAutoFollowLoop();
     // resume animator toward current GPS
-    if (lastGpsLat && lastGpsLng) applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading ?? 0, lastGpsSpeedKmh || 0);
-  } else {
-    btn.classList.remove('active');
-    btn.innerHTML = '👆';
+		if (lastGpsLat && lastGpsLng) applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading ?? 0, lastGpsSpeedKmh || 0);
+	} else {
+		btn.classList.remove('active');
+		btn.innerHTML = '👆';
+		//startAutoFollowLoop();
     // stop animator gracefully
-    if (smoothTransformAnimFrame) {
-      cancelAnimationFrame(smoothTransformAnimFrame);
-      smoothTransformAnimFrame = null;
-    }
-    autoFollowTarget = null;
-    autoFollowRunning = false;
-    autoRotate = false;
+		if (smoothTransformAnimFrame) {
+			cancelAnimationFrame(smoothTransformAnimFrame);
+			smoothTransformAnimFrame = null;
+		}
+		autoFollowTarget = null;
+		autoFollowRunning = false;
+		autoRotate = false;
     // re-enable map interactions
-    try { map.dragging.enable(); map.scrollWheelZoom.enable(); map.doubleClickZoom.enable(); map.keyboard.enable(); map.touchZoom.enable(); } catch (e) {}
-    resetMapRotation(() => {
+		try { map.dragging.enable(); map.scrollWheelZoom.enable(); map.doubleClickZoom.enable(); map.keyboard.enable(); map.touchZoom.enable(); } catch (e) {}
+		resetMapRotation(() => {
       // after reset set marker to world heading (so it points to heading in map coords)
-      if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
-        vehicleMarker.setRotationAngle(lastGpsHeading || 0);
-      }
-    });
-  }
+			if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
+				vehicleMarker.setRotationAngle(lastGpsHeading || 0);
+			}
+		});
+	}
 });
 
 function startTracking() {
@@ -3195,56 +3140,53 @@ function stopTracking() {
 
 // ✅ เวอร์ชันใหม่ (ป้องกัน NotFoundError และ rebuild อัตโนมัติ)
 function saveTripToIndexedDB(tripData) {
-  return new Promise((resolve, reject) => {
-    if (!tripData) {
-      reject('Invalid trip data');
-      return;
-    }
-
+	return new Promise((resolve, reject) => {
+		if (!tripData) {
+			reject('Invalid trip data');
+			return;
+		}
     const request = indexedDB.open('tripDataDB', 2);
     request.onupgradeneeded = (e) => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains('trips')) {
-        db.createObjectStore('trips', { keyPath: 'id', autoIncrement: true });
-      }
+			db.createObjectStore('trips', { keyPath: 'id', autoIncrement: true });
+		}
     };
 
     request.onsuccess = (e) => {
       const db = e.target.result;
 
       if (!db.objectStoreNames.contains('trips')) {
-        console.warn('[IndexedDB] Missing store: trips. Rebuilding database...');
-        db.close();
-        indexedDB.deleteDatabase('tripDataDB');
-        reject('Database schema invalid. It will rebuild on next save.');
-        return;
-      }
+			console.warn('[IndexedDB] Missing store: trips. Rebuilding database...');
+			db.close();
+			indexedDB.deleteDatabase('tripDataDB');
+			reject('Database schema invalid. It will rebuild on next save.');
+			return;
+		}
 
       try {
-        const tx = db.transaction(['trips'], 'readwrite');
-        const store = tx.objectStore('trips');
-        const req = tripData.id ? store.put(tripData) : store.add(tripData);
-
-        req.onsuccess = (event) => {
-          if (!tripData.id) tripData.id = event.target.result;
-          resolve(tripData);
-        };
-
-        req.onerror = (err) => {
-          console.error('[IndexedDB] ❌ Error saving trip:', err);
-          reject(err);
-        };
-      } catch (txErr) {
-        console.error('[IndexedDB] Transaction error:', txErr);
-        reject(txErr);
-      }
+			const tx = db.transaction(['trips'], 'readwrite');
+			const store = tx.objectStore('trips');
+			const req = tripData.id ? store.put(tripData) : store.add(tripData);
+			req.onsuccess = (event) => {
+				if (!tripData.id) tripData.id = event.target.result;
+				resolve(tripData);
+			};
+			req.onerror = (err) => {
+				console.error('[IndexedDB] ❌ Error saving trip:', err);
+				reject(err);
+			};
+		} catch (txErr) {
+			console.error('[IndexedDB] Transaction error:', txErr);
+			reject(txErr);
+		}
     };
 
-    request.onerror = (err) => {
-      console.error('[IndexedDB] ❌ Error opening database:', err);
-      reject(err);
-    };
-  });
+		request.onerror = (err) => {
+			console.error('[IndexedDB] ❌ Error opening database:', err);
+			reject(err);
+		};
+	});
 }
 
 // ✅ เวอร์ชันใหม่ของ getTripDataFromIndexedDB()
