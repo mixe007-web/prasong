@@ -684,7 +684,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 36.12</h2>
+<h2>Trip A-B Version 36.22</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2758,16 +2758,23 @@ function updateVehicleIconSize() {
 	updateVehicleIconBySpeed(speedKmh);
 }
 
-function addRealtimePolylineSegment(lat, lon, speedKmh) {
+function addRealtimePolylineSegment(lat1, lon1, lat2, lon2, speedKmh) {
     if (!map || !routeLayer) return;
-    const lastCoord = pathCoordinates[pathCoordinates.length - 1];
-    if (!lastCoord) return;
 
     const color = getSpeedColor(speedKmh || 0);
-    const seg = L.polyline([[lastCoord[0], lastCoord[1]], [lat, lon]], {
-        color, weight: 4, opacity: 0.95, interactive: false
-    }).addTo(routeLayer);
+
+    L.polyline(
+        [[lat1, lon1], [lat2, lon2]],
+        {
+            color,
+            weight: 4,
+            opacity: 0.95,
+            dashArray: null,     // บังคับเส้นทึบ
+            interactive: false
+        }
+    ).addTo(routeLayer);
 }
+
 // -----------------------------
 // Update route and autoFollow target
 // -----------------------------
@@ -2784,11 +2791,23 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
 
     const now = Date.now();
-    const lastCoord = pathCoordinates[pathCoordinates.length - 1];
-    if (!lastCoord || getDistanceFromLatLonInKm(lastCoord[0], lastCoord[1], lat, lon) > 0.01) {
+    const prevCoord = pathCoordinates[pathCoordinates.length - 1];
+
+    if (!prevCoord || getDistanceFromLatLonInKm(prevCoord[0], prevCoord[1], lat, lon) > 0.01) {
+
+        // 🚗 วาดเส้นก่อน push (ใช้จุดก่อนหน้า)
+        if (prevCoord && speedKmh > STOP_SPEED_KMH) {
+            addRealtimePolylineSegment(
+                prevCoord[0],
+                prevCoord[1],
+                lat,
+                lon,
+                speedKmh
+            );
+        }
+
         pathCoordinates.push([lat, lon, speedKmh || 0, now]);
         if (pathCoordinates.length > 20000) pathCoordinates.shift();
-        addRealtimePolylineSegment(lat, lon, speedKmh);
     }
 
     if (autoFollow) {
@@ -2798,6 +2817,7 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
         vehicleMarker.setRotationAngle(reliableHeading);
     }
 }
+
 // =============================
 // DRAW HISTORY ROUTE (UNCHANGED)
 // =============================
