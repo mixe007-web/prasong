@@ -684,7 +684,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 37.14</h2>
+<h2>Trip A-B Version 37.19</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1481,44 +1481,59 @@ updateEfficiency = function() {
 	try { updateAvgEfficiencyPerPercent(); } catch(e) {}
 };
 
-let displayedSpeed = 0; 
+let displayedSpeed = 0;
 let lastUIUpdate = 0;
 let lastSpeed = 0;
 const digitalSpeed = document.getElementById("digitalSpeed");
-// --- Animation loop แบบ adaptive smoothing + snap + throttle ---
+
+// ===== Animation loop : Realistic Speedometer =====
 function animateDigitalSpeed(timestamp) {
     const diff = speed - displayedSpeed;
     const accel = speed - lastSpeed;
-    let smoothingFactor = 0.25;
-    if (Math.abs(diff) > 30) {
+
+    // ---------- Adaptive smoothing ----------
+    let smoothingFactor = 0.4; // base
+
+    // Snap เมื่อคลาดเคลื่อนมาก
+    if (Math.abs(diff) > 15) {
         displayedSpeed = speed;
     } else {
-        if (accel > 5) {
+        // Adjust smoothing ตาม accel
+        if (accel > 5) {           // เร่งแรง
             smoothingFactor = 0.9;
-        } else if (accel > 2) {
+        } else if (accel > 2) {    // เร่งปานกลาง
             smoothingFactor = 0.6;
+        } else if (accel < -5) {   // เบรกแรง
+            smoothingFactor = 1.0;
+        } else if (accel < -2) {   // เบรกปานกลาง
+            smoothingFactor = 0.8;
         }
-        if (diff < 0) {
-            smoothingFactor = Math.max(smoothingFactor, 0.7);
-        }
+
         displayedSpeed += diff * smoothingFactor;
     }
+
+    // ---------- Zero Lock ----------
     if (speed === 0 && displayedSpeed < 1) {
         displayedSpeed = 0;
     }
-    if (!lastUIUpdate || timestamp - lastUIUpdate >= 50) {
+
+    // ---------- UI Update (High FPS) ----------
+    if (!lastUIUpdate || timestamp - lastUIUpdate >= 16) { // ~60 FPS
         if (digitalSpeed) {
             digitalSpeed.textContent = `${displayedSpeed.toFixed(1)} km/h`;
             digitalSpeed.classList.remove('speed-low', 'speed-medium', 'speed-high');
+
             if (displayedSpeed < 80) digitalSpeed.classList.add('speed-low');
             else if (displayedSpeed < 110) digitalSpeed.classList.add('speed-medium');
             else digitalSpeed.classList.add('speed-high');
         }
         lastUIUpdate = timestamp;
     }
+
     lastSpeed = speed;
     requestAnimationFrame(animateDigitalSpeed);
 }
+
 requestAnimationFrame(animateDigitalSpeed);
 
 // --- updateSpeed() ใช้งานได้เหมือนเดิม ---
@@ -2365,7 +2380,7 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     if (isFinite(lon)) lastGpsLng = lon;
     if (isFinite(headingDeg)) lastGpsHeading = headingDeg;
     if (isFinite(speedKmh)) lastGpsSpeedKmh = speedKmh;
-	const prevHeading = smoothTransformTarget.heading;
+
     smoothTransformTarget.lat = lat;
     smoothTransformTarget.lon = lon;
     smoothTransformTarget.heading = headingDeg;
@@ -2373,10 +2388,9 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     smoothTransformTarget.zoom = clamp(calculateTargetZoom(speedKmh), 0, 22);
     smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
     smoothTransformTarget.callback = callback || null;
-	if (smoothTransformAnimFrame && isFinite(prevHeading) && Math.abs(normalizeAngleDifference(prevHeading, headingDeg ?? 0)) < 1) {
-		return;
-	}
-    if (!smoothTransformAnimFrame) {smoothTransformTarget.lastFrameTime = performance.now();
+
+    if (!smoothTransformAnimFrame) {
+        smoothTransformTarget.lastFrameTime = performance.now();
         smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
     }
 }
@@ -2391,75 +2405,70 @@ function smoothTransformStep(now) {
     const elapsed = now - (smoothTransformTarget.lastFrameTime || now);
     const minInterval = 1000 / AUTO_FOLLOW_FPS;
     if (elapsed < minInterval) {
-		if (elapsed < minInterval) {
-			smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
-			return;
-		}
-
+        smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+        return;
     }
     smoothTransformTarget.lastFrameTime = now;
 
-    const {
-        lat: targetLat,
-        lon: targetLon,
-        heading: targetHeading,
-        speedKmh: targetSpeed,
-        zoom: targetZoom,
-        iconSize: targetIconSize,
-        callback
-    } = smoothTransformTarget;
+    const { lat: targetLat, lon: targetLon, heading: targetHeading, speedKmh: targetSpeed,
+            zoom: targetZoom, iconSize: targetIconSize, callback } = smoothTransformTarget;
 
     // 1. Update marker position
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
     // 2. Smooth pan / zoom
-    if (autoFollow) {
-        if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
-            lastMapCenter = map.getCenter();
-        }
-        const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
-        const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
-        if ( targetSpeed >= ROTATE_SPEED_THRESHOLD &&( deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD || Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD)) {
-            map.flyTo([targetLat, targetLon], targetZoom, { animate: true, duration: 0.15, easeLinearity: 0.35 });
-            lastMapCenter = { lat: targetLat, lng: targetLon };
-            lastZoom = targetZoom;
-        }
+if (autoFollow) {
+    if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
+        lastMapCenter = map.getCenter();
     }
+    const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
+    const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
+    if (
+        targetSpeed >= ROTATE_SPEED_THRESHOLD && // ✅ LOCK PAN WHEN STOPPED
+        (
+            deltaLat > PAN_THRESHOLD ||
+            deltaLng > PAN_THRESHOLD ||
+            Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD
+        )
+    ) {
+        map.flyTo(
+            [targetLat, targetLon],
+            targetZoom,
+            { animate: true, duration: 0.15, easeLinearity: 0.35 }
+        );
+        lastMapCenter = { lat: targetLat, lng: targetLon };
+        lastZoom = targetZoom;
+    }
+}
 
     // 3. Smoothed heading (single source of truth)
-	const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? lastReliableHeading ?? 0, targetSpeed);
-	lastReliableHeading = smoothedHeading;
-    const speedFactor = clamp(targetSpeed / 60, 0, 1);
-    const mapSmooth = lerp(0.18, 0.08, speedFactor);
-    const markerSmooth = lerp(0.28, 0.55, speedFactor);
+	const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0, targetSpeed);
+    // --- Dynamic smooth factor based on speed ---
+    // รถเร็ว -> marker หมุนไวกว่า map
+    const speedFactor = clamp(targetSpeed / 60, 0, 1); // 0 = slow, 1 = fast
+	const mapSmooth = lerp(0.18, 0.08, speedFactor);
+	const markerSmooth = lerp(0.28, 0.55, speedFactor);
 
     // 4. Smooth map rotation
-    const pane = getRotationElement(map);
-    if (pane) {
-        if (autoRotate && targetSpeed >= ROTATE_SPEED_THRESHOLD) {
-            const desiredMapRotation = (-smoothedHeading + 360) % 360;
-            lastMapRotation = lerpAngle(
-                lastMapRotation,
-                desiredMapRotation,
-                mapSmooth
-            );
-            isMapRotated = true;
-        }
-        if (autoRotate || isMapRotated) {
-			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+	const pane = getRotationElement(map);
+	if (pane) {
+		if (autoRotate && targetSpeed >= ROTATE_SPEED_THRESHOLD) {
+			const desiredMapRotation = (-smoothedHeading + 360) % 360;
+			lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
+			isMapRotated = Math.abs(lastMapRotation) > 0.3;
 		}
-    }
+		pane.style.transform = `rotate(${lastMapRotation}deg)`;
+	}
 	
     // 5. Smooth marker rotation (RELATIVE TO MAP)
-    if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
+	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
 		if (targetSpeed >= ROTATE_SPEED_THRESHOLD) {
-			const relativeMarkerAngle = (smoothedHeading + lastMapRotation + 360) % 360;
-			lastMarkerAngle = lerpAngle(lastMarkerAngle, relativeMarkerAngle, markerSmooth);
+			lastMarkerAngle = lerpAngle(lastMarkerAngle, smoothedHeading, markerSmooth);
 		} else {
-			lastMarkerAngle = smoothedHeading;
+			lastMarkerAngle = targetHeading ?? lastMarkerAngle;
 		}
-		vehicleMarker.setRotationAngle(lastMarkerAngle);
-    }
+			vehicleMarker.setRotationAngle(lastMarkerAngle);
+	}
 
     // 6. Icon size smoothing
     if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
@@ -2485,13 +2494,12 @@ function resetMapRotation(callback = null) {
     autoRotate = false;
 
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
-		const resetHeading = lastReliableHeading ?? lastGpsHeading ?? 0;
-		lastMarkerAngle = resetHeading;
-		vehicleMarker.setRotationAngle(resetHeading);
+        vehicleMarker.setRotationAngle(lastGpsHeading || 0);
     }
 
     if (callback) callback();
 }
+
 
 // RELIABLE HEADING
 function getReliableHeading(lat, lon, speedKmh, gpsHeading) {
@@ -2581,7 +2589,6 @@ function initMap(lat, lon) {
 function destroyMap() {
 	if (!map) return;
 	stopAutoFollowLoop();
-    stopDeviceOrientationTracking()
 	if (smoothTransformAnimFrame) {
 		cancelAnimationFrame(smoothTransformAnimFrame);
 		smoothTransformAnimFrame = null;
