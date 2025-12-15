@@ -684,7 +684,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 37.12</h2>
+<h2>Trip A-B Version 37.14</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2880,8 +2880,8 @@ function startTracking() {
 					
       // --- Update display + map ---
 				updateSpeed(speedKmh);
-				//const reliableHeading = getReliableHeading(latitude, longitude, speedKmh, heading);
-				updateRoute(latitude, longitude, speedKmh, heading);
+				const reliableHeading = getReliableHeading(latitude, longitude, speedKmh, heading);
+				updateRoute(latitude, longitude, speedKmh, reliableHeading);
 	  
     // --- Idle / Energy ---
 				if (speedKmh < 2) {
