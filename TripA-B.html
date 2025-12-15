@@ -684,7 +684,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 37.19</h2>
+<h2>Trip A-B Version 37.20</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2297,8 +2297,9 @@ const ZOOM_THRESHOLD = 0.05;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
 
 // 🔹 AUTO FOLLOW LOOP
-function autoFollowLoop() {
-    if (!autoFollow || lastGpsLat === null || lastGpsLng === null  || smoothTransformAnimFrame) return;
+function autoFollowLoop() { 
+    if (!autoFollow || lastGpsLat === null || lastGpsLng === null) return;
+	if (smoothTransformAnimFrame) return;
     applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
 }
 
@@ -2335,7 +2336,7 @@ function stopDeviceOrientationTracking() {
 }
 
 function handleDeviceOrientation(event) {
-    const alpha = event.webkitCompassHeading ?? event.alpha;
+    const alpha = event.alpha;
     if (!isFinite(alpha)) return;
     window.deviceOrientationHeading = alpha;
 }
@@ -2363,14 +2364,16 @@ function getSmoothedDeviceHeading(targetHeading, speedKmh = 0) {
         return targetHeading;
     }
     if (window.deviceOrientationHeading == null) return targetHeading;
+
     let rawHeading = (window.deviceOrientationHeading + 360) % 360;
     if (lastDeviceHeading === null) lastDeviceHeading = rawHeading;
-    const SMOOTH_FACTOR = clamp(speedKmh / 80, 0.08, 0.25);
+
+    const SMOOTH_FACTOR = 0.12;
     lastDeviceHeading = lerpAngle(lastDeviceHeading, rawHeading, SMOOTH_FACTOR);
+
     const diff = normalizeAngleDifference(lastDeviceHeading, targetHeading);
-	const MAX_SENSOR_INFLUENCE = 25;
-	if (Math.abs(diff) > MAX_SENSOR_INFLUENCE) return targetHeading;
-    const weight = clamp(1 - Math.abs(diff) / 70, 0, 1);
+    const weight = Math.max(0, 1 - Math.min(Math.abs(diff)/90, 1));
+
     return lerpAngle(targetHeading, lastDeviceHeading, weight);
 }
 
@@ -2413,36 +2416,24 @@ function smoothTransformStep(now) {
     const { lat: targetLat, lon: targetLon, heading: targetHeading, speedKmh: targetSpeed,
             zoom: targetZoom, iconSize: targetIconSize, callback } = smoothTransformTarget;
 
-    // 1. Update marker position
+    // --- Update marker position ---
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
     // 2. Smooth pan / zoom
-if (autoFollow) {
-    if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
-        lastMapCenter = map.getCenter();
+    if (autoFollow) {
+        if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
+            lastMapCenter = map.getCenter();
+        }
+        const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
+        const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
+        if (deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD || Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD) {
+            map.flyTo([targetLat, targetLon], targetZoom, { animate: true, duration: 0.15, easeLinearity: 0.35 });
+            lastMapCenter = { lat: targetLat, lng: targetLon };
+            lastZoom = targetZoom;
+        }
     }
-    const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
-    const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
-    if (
-        targetSpeed >= ROTATE_SPEED_THRESHOLD && // ✅ LOCK PAN WHEN STOPPED
-        (
-            deltaLat > PAN_THRESHOLD ||
-            deltaLng > PAN_THRESHOLD ||
-            Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD
-        )
-    ) {
-        map.flyTo(
-            [targetLat, targetLon],
-            targetZoom,
-            { animate: true, duration: 0.15, easeLinearity: 0.35 }
-        );
-        lastMapCenter = { lat: targetLat, lng: targetLon };
-        lastZoom = targetZoom;
-    }
-}
-
     // 3. Smoothed heading (single source of truth)
-	const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0, targetSpeed);
+	const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
     // --- Dynamic smooth factor based on speed ---
     // รถเร็ว -> marker หมุนไวกว่า map
     const speedFactor = clamp(targetSpeed / 60, 0, 1); // 0 = slow, 1 = fast
@@ -2452,12 +2443,13 @@ if (autoFollow) {
     // 4. Smooth map rotation
 	const pane = getRotationElement(map);
 	if (pane) {
-		if (autoRotate && targetSpeed >= ROTATE_SPEED_THRESHOLD) {
-			const desiredMapRotation = (-smoothedHeading + 360) % 360;
-			lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
-			isMapRotated = Math.abs(lastMapRotation) > 0.3;
+		let desiredMapRotation = lastMapRotation;
+		if (autoRotate && targetSpeed > 1) {
+			desiredMapRotation = (-smoothedHeading + 360) % 360;
 		}
+		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
 		pane.style.transform = `rotate(${lastMapRotation}deg)`;
+		isMapRotated = Math.abs(lastMapRotation) > 0.5;
 	}
 	
     // 5. Smooth marker rotation (RELATIVE TO MAP)
@@ -2632,6 +2624,8 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     lastGpsHeading = isFinite(headingDegInput) ? headingDegInput : lastGpsHeading;
 
     const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput ?? lastGpsHeading);
+    autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
+
     const now = Date.now();
     const lastCoord = pathCoordinates[pathCoordinates.length - 1];
 	if (
@@ -2961,7 +2955,6 @@ function stopTracking() {
 
     autoFollow = false;
     autoRotate = false;
-
 	try {
 		if (map._invalidateTimeout) {
 			clearTimeout(map._invalidateTimeout);
