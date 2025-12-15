@@ -684,7 +684,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 36.11</h2>
+<h2>Trip A-B Version 37.12</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1084,15 +1084,15 @@ function renderTrips(){
 
 // ===================== Update Distance =====================
 function updateDistanceAccum(trip, distElem){
-  const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
-  let delta = mainDistance - (trip.lastDistance || trip.distanceStartAt);
-  if (delta > 0 && delta < 100) {
-    trip.distanceAccum += delta;
-  }
+	const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
+	let delta = mainDistance - (trip.lastDistance || trip.distanceStartAt);
+	if (delta > 0 && delta < 100) {
+		trip.distanceAccum += delta;
+	}
 
-  trip.lastDistance = mainDistance;
-  distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
-  saveTripsToStorage();
+	trip.lastDistance = mainDistance;
+	distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
+	saveTripsToStorage();
 }
 function saveTripsToStorage(){ localStorage.setItem("tripRecorderTrips",JSON.stringify(trips)); }
 // ===================== History (batch, smooth) =====================
@@ -1223,36 +1223,36 @@ updateHistory();
   const endTimeSpan = document.getElementById("endTime");
   const energyScalingFactorspeed = 1;
 function getEnergyPerKmFromSpeed(speedKmh) {
-  const table = [
-	{ speed: 0, energy: 0.13 },
-	{ speed: 5, energy: 0.135 },
-	{ speed: 10, energy: 0.14 },
-	{ speed: 15, energy: 0.145 },
-	{ speed: 20, energy: 0.15 }, 
-    { speed: 40, energy: 0.1139 },
-    { speed: 50, energy: 0.1177 },
-    { speed: 60, energy: 0.1242 },
-    { speed: 70, energy: 0.1285 },
-    { speed: 80, energy: 0.1366 },
-    { speed: 90, energy: 0.1450 },
-    { speed: 100, energy: 0.1520 },
-    { speed: 110, energy: 0.1597 },
-    { speed: 120, energy: 0.1681 },
-    { speed: 130, energy: 0.1672 },
-    { speed: 140, energy: 0.1736 },
-    { speed: 150, energy: 0.1791 },
-    { speed: 160, energy: 0.1895 }
-  ];
+	const table = [
+		{ speed: 0, energy: 0.13 },
+		{ speed: 5, energy: 0.135 },
+		{ speed: 10, energy: 0.14 },
+		{ speed: 15, energy: 0.145 },
+		{ speed: 20, energy: 0.15 }, 
+		{ speed: 40, energy: 0.1139 },
+		{ speed: 50, energy: 0.1177 },
+		{ speed: 60, energy: 0.1242 },
+		{ speed: 70, energy: 0.1285 },
+		{ speed: 80, energy: 0.1366 },
+		{ speed: 90, energy: 0.1450 },
+		{ speed: 100, energy: 0.1520 },
+		{ speed: 110, energy: 0.1597 },
+		{ speed: 120, energy: 0.1681 },
+		{ speed: 130, energy: 0.1672 },
+		{ speed: 140, energy: 0.1736 },
+		{ speed: 150, energy: 0.1791 },
+		{ speed: 160, energy: 0.1895 }
+	];
 
-  for (let i = 1; i < table.length; i++) {
-    if (speedKmh <= table[i].speed) {
-      const s1 = table[i - 1].speed, e1 = table[i - 1].energy;
-      const s2 = table[i].speed, e2 = table[i].energy;
-      const ratio = (speedKmh - s1) / (s2 - s1);
-      const interpolatedEnergy = e1 + ratio * (e2 - e1);
-      return interpolatedEnergy * energyScalingFactorspeed;
-    }
-  }
+	for (let i = 1; i < table.length; i++) {
+		if (speedKmh <= table[i].speed) {
+			const s1 = table[i - 1].speed, e1 = table[i - 1].energy;
+			const s2 = table[i].speed, e2 = table[i].energy;
+			const ratio = (speedKmh - s1) / (s2 - s1);
+			const interpolatedEnergy = e1 + ratio * (e2 - e1);
+			return interpolatedEnergy * energyScalingFactorspeed;
+		}
+	}
 
   return table[table.length - 1].energy * energyScalingFactorspeed;
 }
@@ -1260,30 +1260,30 @@ function getEnergyPerKmFromSpeed(speedKmh) {
 const energyScalingFactor = 1;
 
 function updateEnergyConsumptionRealTime(distanceKm, speedKmh) {
-  if (speedKmh < 0) speedKmh = 0;
-  if (speedKmh > 160) speedKmh = 160;
-  if (distanceKm < 0) distanceKm = 0;
-  let SocOver = 1;
-  const socPercent = parseFloat(document.getElementById("socPercent").textContent.replace('%', ''));
-  if (socPercent >= 17 && socPercent <= 32) {
-    SocOver = 1.40;  // เพิ่มค่า energyPerKm
-  }
+	if (speedKmh < 0) speedKmh = 0;
+	if (speedKmh > 160) speedKmh = 160;
+	if (distanceKm < 0) distanceKm = 0;
+	let SocOver = 1;
+	const socPercent = parseFloat(document.getElementById("socPercent").textContent.replace('%', ''));
+	if (socPercent >= 17 && socPercent <= 32) {
+		SocOver = 1.40;  // เพิ่มค่า energyPerKm
+	}
   
-  const energyPerKm = getEnergyPerKmFromSpeed(speedKmh);
-  const energyWh = distanceKm * energyPerKm * 1000 * energyScalingFactor * SocOver; 
-  totalEnergyWh += energyWh;
-  cumulativeEnergyWh += energyWh;
-  if (speedKmh > 0 && distanceKm > 0) {
-    driveEnergyWh += energyWh;
-    driveDistanceKm += distanceKm;
-  }
-  const energySpan = document.getElementById('energyConsumption');
-  energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
-  const batterySOCUsed = (totalEnergyWh / 1000) / 75.3 * 100;  
-  const batterySOCUsedSpan = document.getElementById('batterySOCUsed');
-  batterySOCUsedSpan.textContent = `${batterySOCUsed.toFixed(2)} %`;
-  updateEfficiency();
-  updateSOCLogic();
+	const energyPerKm = getEnergyPerKmFromSpeed(speedKmh);
+	const energyWh = distanceKm * energyPerKm * 1000 * energyScalingFactor * SocOver; 
+	totalEnergyWh += energyWh;
+	cumulativeEnergyWh += energyWh;
+	if (speedKmh > 0 && distanceKm > 0) {
+		driveEnergyWh += energyWh;
+		driveDistanceKm += distanceKm;
+	}
+	const energySpan = document.getElementById('energyConsumption');
+	energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
+	const batterySOCUsed = (totalEnergyWh / 1000) / 75.3 * 100;  
+	const batterySOCUsedSpan = document.getElementById('batterySOCUsed');
+	batterySOCUsedSpan.textContent = `${batterySOCUsed.toFixed(2)} %`;
+	updateEfficiency();
+	updateSOCLogic();
 }
 
 let idleTime = 0;
@@ -1293,42 +1293,41 @@ let currentEfficiency = 7.5;
 let lastUpdateTime = Date.now();
 
 function getEfficiencyPerPercent(speedKmh) {
-  const points = [
-    { speed: 0, efficiency: 5.98 },
-    { speed: 10, efficiency: 5.93 },
-    { speed: 20, efficiency: 5.88 },
-    { speed: 30, efficiency: 5.83 },
-    { speed: 40, efficiency: 5.77 },
-    { speed: 50, efficiency: 5.58 },
-    { speed: 60, efficiency: 5.30 },
-    { speed: 70, efficiency: 5.13 },
-    { speed: 80, efficiency: 4.81 },
-    { speed: 90, efficiency: 4.53 },
-    { speed: 100, efficiency: 4.37 },
-    { speed: 110, efficiency: 4.23 },
-    { speed: 120, efficiency: 3.79 },
-    { speed: 130, efficiency: 3.50 },
-    { speed: 140, efficiency: 2.93 },
-    { speed: 150, efficiency: 2.73 },
-    { speed: 160, efficiency: 2.40 }
-  ];
+	const points = [
+		{ speed: 0, efficiency: 5.98 },
+		{ speed: 10, efficiency: 5.93 },
+		{ speed: 20, efficiency: 5.88 },
+		{ speed: 30, efficiency: 5.83 },
+		{ speed: 40, efficiency: 5.77 },
+		{ speed: 50, efficiency: 5.58 },
+		{ speed: 60, efficiency: 5.30 },
+		{ speed: 70, efficiency: 5.13 },
+		{ speed: 80, efficiency: 4.81 },
+		{ speed: 90, efficiency: 4.53 },
+		{ speed: 100, efficiency: 4.37 },
+		{ speed: 110, efficiency: 4.23 },
+		{ speed: 120, efficiency: 3.79 },
+		{ speed: 130, efficiency: 3.50 },
+		{ speed: 140, efficiency: 2.93 },
+		{ speed: 150, efficiency: 2.73 },
+		{ speed: 160, efficiency: 2.40 }
+	];
 
-  const MIN_EFF = 2.4;
-  const MAX_EFF = 6.02; // สูงสุดที่ต้องการ
+	const MIN_EFF = 2.4;
+	const MAX_EFF = 6.02; // สูงสุดที่ต้องการ
 
-  if (speedKmh <= points[0].speed) return Math.min(points[0].efficiency, MAX_EFF);
-  if (speedKmh >= points[points.length - 1].speed) return Math.min(points[points.length - 1].efficiency, MAX_EFF);
+	if (speedKmh <= points[0].speed) return Math.min(points[0].efficiency, MAX_EFF);
+	if (speedKmh >= points[points.length - 1].speed) return Math.min(points[points.length - 1].efficiency, MAX_EFF);
 
-  for (let i = 1; i < points.length; i++) {
-    const p1 = points[i - 1];
-    const p2 = points[i];
-    if (speedKmh <= p2.speed) {
-      const ratio = (speedKmh - p1.speed) / (p2.speed - p1.speed);
-      const eff = p1.efficiency + ratio * (p2.efficiency - p1.efficiency);
-      return Math.min(Math.max(eff, MIN_EFF), MAX_EFF);
-    }
-  }
-
+	for (let i = 1; i < points.length; i++) {
+		const p1 = points[i - 1];
+		const p2 = points[i];
+		if (speedKmh <= p2.speed) {
+			const ratio = (speedKmh - p1.speed) / (p2.speed - p1.speed);
+			const eff = p1.efficiency + ratio * (p2.efficiency - p1.efficiency);
+			return Math.min(Math.max(eff, MIN_EFF), MAX_EFF);
+		}
+	}
   return Math.min(Math.max(points[points.length - 1].efficiency, MIN_EFF), MAX_EFF);
 }
 
@@ -1336,77 +1335,74 @@ function getEfficiencyPerPercent(speedKmh) {
 let lastEfficiencySpeed = 0;
 let lastEfficiencyUpdate = 0;
 function updateEfficiency() {
-  const efficiency = totalEnergyWh > 0 ? cumulativeDistance / (totalEnergyWh / 1000) : 0;
-  let energyPer100km = 0;
+	const efficiency = totalEnergyWh > 0 ? cumulativeDistance / (totalEnergyWh / 1000) : 0;
+	let energyPer100km = 0;
     if (cumulativeDistance > 0) {
-  energyPer100km = (totalEnergyWh / 1000) / cumulativeDistance * 100;
-}
-  if (energyPer100km > 45) energyPer100km = 45;
-  const energyPer100kmSpan = document.getElementById("energyPer100km");
-  energyPer100kmSpan.textContent = `${energyPer100km.toFixed(2)} kWh/100km`;
+		energyPer100km = (totalEnergyWh / 1000) / cumulativeDistance * 100;
+	}
+	if (energyPer100km > 45) energyPer100km = 45;
+	const energyPer100kmSpan = document.getElementById("energyPer100km");
+	energyPer100kmSpan.textContent = `${energyPer100km.toFixed(2)} kWh/100km`;
 
-  energyPer100kmSpan.className = '';
-  if (energyPer100km <= 14) {
-    energyPer100kmSpan.classList.add('energyPer100kmSpan-good');
-  } else if (energyPer100km > 14 && energyPer100km <= 16) {
-    energyPer100kmSpan.classList.add('energyPer100kmSpan-medium');
-  } else {
-    energyPer100kmSpan.classList.add('energyPer100kmSpan-poor');
-  }
+	energyPer100kmSpan.className = '';
+	if (energyPer100km <= 14) {
+		energyPer100kmSpan.classList.add('energyPer100kmSpan-good');
+	} else if (energyPer100km > 14 && energyPer100km <= 16) {
+		energyPer100kmSpan.classList.add('energyPer100kmSpan-medium');
+	} else {
+		energyPer100kmSpan.classList.add('energyPer100kmSpan-poor');
+	}
 
 //efficiencyPerPercentBar
-const now = Date.now();
-const speedDiff = Math.abs(speed - lastEfficiencySpeed);
-if (speedDiff < 1 && now - lastEfficiencyUpdate < 300) {
-  return; // ข้ามการอัปเดต bar ถ้าเปลี่ยนเล็กน้อยและเร็วเกินไป
-}
-lastEfficiencySpeed = speed;
-lastEfficiencyUpdate = now;
+	const now = Date.now();
+	const speedDiff = Math.abs(speed - lastEfficiencySpeed);
+	if (speedDiff < 1 && now - lastEfficiencyUpdate < 300) {
+		return; // ข้ามการอัปเดต bar ถ้าเปลี่ยนเล็กน้อยและเร็วเกินไป
+	}
+	lastEfficiencySpeed = speed;
+	lastEfficiencyUpdate = now;
 
-let efficiencyPerPercent = getEfficiencyPerPercent(speed || 0);
+	let efficiencyPerPercent = getEfficiencyPerPercent(speed || 0);
 
 // ป้องกันค่าต่ำสุด และจำกัดสูงสุด
-const MIN_EFF = 2.4;
-const MAX_EFF = 6.02;
-efficiencyPerPercent = Math.min(Math.max(efficiencyPerPercent, MIN_EFF), MAX_EFF);
+	const MIN_EFF = 2.4;
+	const MAX_EFF = 6.02;
+	efficiencyPerPercent = Math.min(Math.max(efficiencyPerPercent, MIN_EFF), MAX_EFF);
 
-const bar = document.getElementById('efficiencyPerPercentBar');
-const colorStops = [
-  { value: MIN_EFF, color: { r: 255, g: 0, b: 0 } },
-  { value: 3.79, color: { r: 255, g: 64, b: 0 } },
-  { value: 4.23, color: { r: 255, g: 128, b: 0 } },
-  { value: 4.37, color: { r: 255, g: 192, b: 0 } },
-  { value: 4.81, color: { r: 255, g: 215, b: 0 } },
-  { value: 5.10, color: { r: 128, g: 192, b: 0 } },
-  { value: MAX_EFF, color: { r: 0, g: 128, b: 0 } } // MAX_EFF
-];
+	const bar = document.getElementById('efficiencyPerPercentBar');
+	const colorStops = [
+		{ value: MIN_EFF, color: { r: 255, g: 0, b: 0 } },
+		{ value: 3.79, color: { r: 255, g: 64, b: 0 } },
+		{ value: 4.23, color: { r: 255, g: 128, b: 0 } },
+		{ value: 4.37, color: { r: 255, g: 192, b: 0 } },
+		{ value: 4.81, color: { r: 255, g: 215, b: 0 } },
+		{ value: 5.10, color: { r: 128, g: 192, b: 0 } },
+		{ value: MAX_EFF, color: { r: 0, g: 128, b: 0 } } // MAX_EFF
+	];
 
-let lower = colorStops[0];
-let upper = colorStops[colorStops.length - 1];
-for (let i = 1; i < colorStops.length; i++) {
-  if (efficiencyPerPercent <= colorStops[i].value) {
-    lower = colorStops[i - 1];
-    upper = colorStops[i];
-    break;
-  }
-}
+	let lower = colorStops[0];
+	let upper = colorStops[colorStops.length - 1];
+	for (let i = 1; i < colorStops.length; i++) {
+		if (efficiencyPerPercent <= colorStops[i].value) {
+			lower = colorStops[i - 1];
+			upper = colorStops[i];
+			break;
+		}
+	}
 
-let t = (efficiencyPerPercent - lower.value) / (upper.value - lower.value || 1);
-t = Math.min(Math.max(t, 0), 1);
-const r = Math.round(lower.color.r + (upper.color.r - lower.color.r) * t);
-const g = Math.round(lower.color.g + (upper.color.g - lower.color.g) * t);
-const b = Math.round(lower.color.b + (upper.color.b - lower.color.b) * t);
+	let t = (efficiencyPerPercent - lower.value) / (upper.value - lower.value || 1);
+	t = Math.min(Math.max(t, 0), 1);
+	const r = Math.round(lower.color.r + (upper.color.r - lower.color.r) * t);
+	const g = Math.round(lower.color.g + (upper.color.g - lower.color.g) * t);
+	const b = Math.round(lower.color.b + (upper.color.b - lower.color.b) * t);
 
-bar.style.backgroundColor = `rgb(${r},${g},${b})`;
+	bar.style.backgroundColor = `rgb(${r},${g},${b})`;
 
-// ความกว้าง bar ใช้ MAX_EFF = 6.02
-const widthPercent = Math.min((efficiencyPerPercent / MAX_EFF) * 100, 100);
-bar.style.width = widthPercent + "%";
-
-bar.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
-
-// อัปเดต timestamp
-lastUpdateTime = Date.now();
+	// ความกว้าง bar ใช้ MAX_EFF = 6.02
+	const widthPercent = Math.min((efficiencyPerPercent / MAX_EFF) * 100, 100);
+	bar.style.width = widthPercent + "%";
+	bar.textContent = `${efficiencyPerPercent.toFixed(3)} km / 1%`;
+	lastUpdateTime = Date.now();
 }
 // --- AVG EFFICIENCY (2 MIN VERSION) ---
 let efficiencySamples = [];      // เก็บ {eff, time}
@@ -1423,45 +1419,29 @@ let lastAvgUpdateTime = Date.now() / 1000;
 
 function updateAvgEfficiencyPerPercent() {
     if (!isTracking) return;
-
     const effElem = document.getElementById("efficiencyPerPercentBar");
     if (!effElem) return;
 
-    // อ่าน efficiency ปัจจุบันจาก bar
     const match = effElem.textContent.match(/([\d.]+)/);
     const currentEff = match ? parseFloat(match[1]) : 0;
     if (isNaN(currentEff) || currentEff <= 0) return;
-
     const now = Date.now() / 1000;
 
-    // -----------------------------
-    // เก็บ sample เฉพาะตอนรถเคลื่อนที่
-    // -----------------------------
     if (speed > 3) {
         efficiencySamples.push({ eff: currentEff, time: now });
-        // เก็บย้อนหลัง 2 นาที
         efficiencySamples = efficiencySamples.filter(s => now - s.time <= AVG_WINDOW_SECONDS);
     }
 
-    // -----------------------------
-    // อัปเดตค่าเฉลี่ยทุก 2 นาที
-    // -----------------------------
     if (now - lastAvgUpdateTime >= AVG_UPDATE_INTERVAL) {
-
         if (speed > 3 && efficiencySamples.length > 0) {
-            // รถเคลื่อนที่: คำนวณค่าเฉลี่ยจาก sample
+            
             const sum = efficiencySamples.reduce((a, b) => a + b.eff, 0);
             lastAvgEfficiency = sum / efficiencySamples.length;
         } else if (speed <= 3) {
-            // รถหยุด: ลดค่า 0.02 ทุก 2 นาที
             lastAvgEfficiency = Math.max(lastAvgEfficiency - DECREASE_AMOUNT_WHEN_IDLE, MIN_EFF);
         }
-
-        // จำกัดค่า min/max
         lastAvgEfficiency = Math.min(Math.max(lastAvgEfficiency, MIN_EFF), MAX_EFF);
         lastAvgUpdateTime = now;
-
-        // อัปเดต UI
         const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
         if (avgEffSpan) {
             avgEffSpan.textContent = `Avg: ${lastAvgEfficiency.toFixed(3)} km / 1%`;
@@ -1480,13 +1460,9 @@ function startAvgEfficiencyTracking() {
     efficiencySamples = [];
     lastAvgEfficiency = 0;
     lastAvgUpdateTime = Date.now() / 1000;
-
     const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
     if (avgEffSpan) avgEffSpan.textContent = `Avg: 0.000 km / 1%`;
-
     if (avgEffInterval) clearInterval(avgEffInterval);
-
-    // เรียกฟังก์ชันทุก 1 วินาทีเพื่อเก็บ sample / ลดค่า idle
     avgEffInterval = setInterval(() => {
         try { updateAvgEfficiencyPerPercent(); } catch (e) {}
     }, 1000);
@@ -1501,31 +1477,36 @@ function stopAvgEfficiencyTracking() {
 // Hook กับ updateEfficiency เดิม
 const originalUpdateEfficiency = updateEfficiency;
 updateEfficiency = function() {
-  originalUpdateEfficiency();
-  try { updateAvgEfficiencyPerPercent(); } catch(e) {}
+	originalUpdateEfficiency();
+	try { updateAvgEfficiencyPerPercent(); } catch(e) {}
 };
 
 let displayedSpeed = 0; 
-const digitalSpeed = document.getElementById("digitalSpeed");
 let lastUIUpdate = 0;
+let lastSpeed = 0;
+const digitalSpeed = document.getElementById("digitalSpeed");
 // --- Animation loop แบบ adaptive smoothing + snap + throttle ---
 function animateDigitalSpeed(timestamp) {
     const diff = speed - displayedSpeed;
-    let smoothingFactor = 0.2;
-    if (diff > 20) smoothingFactor = 0.8;
-    else if (diff > 10) smoothingFactor = 0.5;
-    if (diff < 0) {
-        smoothingFactor = 0.35; // ลงไวกว่าเดิม
+    const accel = speed - lastSpeed;
+    let smoothingFactor = 0.25;
+    if (Math.abs(diff) > 30) {
+        displayedSpeed = speed;
+    } else {
+        if (accel > 5) {
+            smoothingFactor = 0.9;
+        } else if (accel > 2) {
+            smoothingFactor = 0.6;
+        }
+        if (diff < 0) {
+            smoothingFactor = Math.max(smoothingFactor, 0.7);
+        }
+        displayedSpeed += diff * smoothingFactor;
     }
-    // --- หยุดจริง → ดูดลง 0 เร็ว ---
-    if (speed === 0 && displayedSpeed < 5) {
-        smoothingFactor = 0.6;
-    }
-    displayedSpeed += diff * smoothingFactor;
-    if (speed === 0 && Math.abs(displayedSpeed) < 0.5) {
+    if (speed === 0 && displayedSpeed < 1) {
         displayedSpeed = 0;
     }
-    if (!lastUIUpdate || timestamp - lastUIUpdate >= 100) {
+    if (!lastUIUpdate || timestamp - lastUIUpdate >= 50) {
         if (digitalSpeed) {
             digitalSpeed.textContent = `${displayedSpeed.toFixed(1)} km/h`;
             digitalSpeed.classList.remove('speed-low', 'speed-medium', 'speed-high');
@@ -1535,12 +1516,13 @@ function animateDigitalSpeed(timestamp) {
         }
         lastUIUpdate = timestamp;
     }
+    lastSpeed = speed;
     requestAnimationFrame(animateDigitalSpeed);
 }
 requestAnimationFrame(animateDigitalSpeed);
 
 // --- updateSpeed() ใช้งานได้เหมือนเดิม ---
-function updateSpeed(newSpeed) { 
+function updateSpeed(newSpeed) {
     if (isNaN(newSpeed) || newSpeed < 0) newSpeed = 0;
     speed = newSpeed;
 
@@ -1556,360 +1538,316 @@ function updateSpeed(newSpeed) {
     }
 
     updateEfficiency();
-    try { updateAvgEfficiencyPerPercent(); } catch(e) {}
-    try { detectBraking(speed); } catch(e) {}
+    try { updateAvgEfficiencyPerPercent(); } catch (e) {}
+    try { detectBraking(speed); } catch (e) {}
 }
 
 function checkIdleStatus() {
-  const now = Date.now();
-
-  if (speed === 0) {
-    if (!idleStartTime) {
-      idleStartTime = now;
-    } else {
-      const timeIdleSeconds = (now - idleStartTime) / 1000;
-      idleTimeTotal += timeIdleSeconds;
-      calculateIdlePower(timeIdleSeconds);
-      updateEnergyConsumptionRealTime(0, 0);	  
-      idleStartTime = now;
-    }
-  } else {
-    idleStartTime = null;
-  }
-
+	const now = Date.now();
+	if (speed === 0) {
+		if (!idleStartTime) {
+			idleStartTime = now;
+		} else {
+			const timeIdleSeconds = (now - idleStartTime) / 1000;
+			idleTimeTotal += timeIdleSeconds;
+			calculateIdlePower(timeIdleSeconds);
+			updateEnergyConsumptionRealTime(0, 0);	  
+			idleStartTime = now;
+		}
+		} else {
+			idleStartTime = null;
+		}
   lastTime = now;
 }
 
 function calculateIdlePower(timeIdleSeconds) {
-  const idleEnergyWh = idlePowerWatts * (timeIdleSeconds / 3600); 
-  totalEnergyWh += idleEnergyWh;
-  idleEnergyWhTotal += idleEnergyWh;
+	const idleEnergyWh = idlePowerWatts * (timeIdleSeconds / 3600); 
+	totalEnergyWh += idleEnergyWh;
+	idleEnergyWhTotal += idleEnergyWh;
   
-  const energySpan = document.getElementById('energyConsumption');
-  energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
+	const energySpan = document.getElementById('energyConsumption');
+	energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
 
-  updateEfficiency();
+	updateEfficiency();
 }
 function updateIdleDisplay() {
-  const idleTimeSpan = document.getElementById("idleTimeDisplay");
-  idleTimeSpan.textContent = formatTime(Math.floor(idleTimeTotal));
+	const idleTimeSpan = document.getElementById("idleTimeDisplay");
+	idleTimeSpan.textContent = formatTime(Math.floor(idleTimeTotal));
 }
 
 let isAvgSpeedCalculated = false;  
 
 function updateTripTime() {
-  if (!tripStartTime) return; 
-  const now = Date.now();
-  elapsedTime = Math.floor((now - tripStartTime) / 1000);  
+	if (!tripStartTime) return; 
+	const now = Date.now();
+	elapsedTime = Math.floor((now - tripStartTime) / 1000);  
 
-  const elapsedTimeHours = Math.floor(elapsedTime / 3600).toString().padStart(2, '0');
-  const elapsedTimeMinutes = Math.floor((elapsedTime % 3600) / 60).toString().padStart(2, '0');
-  const elapsedTimeSeconds = (elapsedTime % 60).toString().padStart(2, '0');
-  const elapsedTimeSpan = document.getElementById("elapsedTime");
-  elapsedTimeSpan.textContent = `${elapsedTimeHours}:${elapsedTimeMinutes}:${elapsedTimeSeconds}`;
+	const elapsedTimeHours = Math.floor(elapsedTime / 3600).toString().padStart(2, '0');
+	const elapsedTimeMinutes = Math.floor((elapsedTime % 3600) / 60).toString().padStart(2, '0');
+	const elapsedTimeSeconds = (elapsedTime % 60).toString().padStart(2, '0');
+	const elapsedTimeSpan = document.getElementById("elapsedTime");
+	elapsedTimeSpan.textContent = `${elapsedTimeHours}:${elapsedTimeMinutes}:${elapsedTimeSeconds}`;
  
-  if (elapsedTime > 0 && !isAvgSpeedCalculated) {
-    const avgSpeed = cumulativeDistance / (elapsedTime / 3600); 
-   
-    const avgSpeedSpan = document.getElementById("avgSpeed");
-    avgSpeedSpan.textContent = `${avgSpeed.toFixed(1)}`;  
-    isAvgSpeedCalculated = true;
-  }
+	if (elapsedTime > 0 && !isAvgSpeedCalculated) {
+		const avgSpeed = cumulativeDistance / (elapsedTime / 3600); 
+		const avgSpeedSpan = document.getElementById("avgSpeed");
+		avgSpeedSpan.textContent = `${avgSpeed.toFixed(1)}`;  
+		isAvgSpeedCalculated = true;
+	}
 }
-  const TARGET_DISTANCE_KM = 10;
-  const historyContainer = document.getElementById("historyContainer");
-const dynamicMinDistLookup = (() => {
-    const table = {
-        0: 0.0,       // snap near zero
-        1: 0.0005,    // 0.5 m
-        2: 0.001,     // 1 m
-        10: 0.025,
-        20: 0.035,
-        30: 0.04,
-        40: 0.045,
-        50: 0.05,
-        60: 0.055,
-        70: 0.058,
-        80: 0.06,
-        90: 0.063,
-        100: 0.068,
-        110: 0.072,
-        120: 0.075,
-        130: 0.08,
-        140: 0.085,
-        150: 0.09,
-        160: 0.095
-    };
+  
+const historyContainer = document.getElementById("historyContainer");
+const TARGET_DISTANCE_KM = 10;
+function getDynamicMinDist(speedKmh) {
+    const EXPECTED_INTERVAL_SEC = 1.5;   // คาดว่า watchPosition ~1–2s
+    const NOISE_FACTOR = 0.8;             // GPS noise compensation
+    const MIN_DIST_KM = 0.0003;           // 0.3 m  (กัน jitter ตอนช้า)
+    const MAX_DIST_KM = 0.020;            // 20 m   (กัน jump ตอนเร็ว)
 
-    const speeds = Object.keys(table).map(Number).sort((a,b) => a-b);
-    const lookup = [];
-
-    for (let i = 0; i <= 1600; i++) { // 0.0–160.0 km/h ทุก 0.1
-        const s = i * 0.1;
-        if (s <= speeds[0]) {
-            lookup[i] = table[speeds[0]];
-            continue;
-        }
-        if (s >= speeds[speeds.length-1]) {
-            lookup[i] = table[speeds[speeds.length-1]];
-            continue;
-        }
-        let lower = speeds[0], upper = speeds[speeds.length-1];
-        for (let j = 1; j < speeds.length; j++) {
-            if (s <= speeds[j]) {
-                lower = speeds[j-1];
-                upper = speeds[j];
-                break;
-            }
-        }
-        // Linear interpolation
-        const t = (s - lower) / (upper - lower);
-        lookup[i] = table[lower] + (table[upper] - table[lower]) * t;
+    if (!isFinite(speedKmh) || speedKmh <= 0) {
+        return MIN_DIST_KM;
     }
 
-    return lookup;
-})();
-
-// --- ฟังก์ชันเรียกใช้ --- 
-function getDynamicMinDist(speedKmh) {
-    if (speedKmh <= 0) return dynamicMinDistLookup[0];
-    if (speedKmh >= 160) return dynamicMinDistLookup[1600];
-    const index = Math.round(speedKmh * 10); // ทุก 0.1 km/h
-    return dynamicMinDistLookup[index];
+    const speedMs = speedKmh / 3.6;
+    let minDistKm = (speedMs * EXPECTED_INTERVAL_SEC * NOISE_FACTOR) / 1000;
+    if (minDistKm < MIN_DIST_KM) minDistKm = MIN_DIST_KM;
+    if (minDistKm > MAX_DIST_KM) minDistKm = MAX_DIST_KM;
+    return minDistKm;
 }
-
-
 let positions = [];
-function checkIfStopped(lat, lon, speedKmh = 0) {
-  positions.push({ lat, lon });
-  if (positions.length > 10) positions.shift();
 
-  if (positions.length >= 5) {
+function checkIfStopped(lat, lon, speedKmh = 0) {
+    positions.push({ lat, lon });
+    if (positions.length > 10) positions.shift();
+
+    if (positions.length < 5) return false;
+
     let avgLat = 0, avgLon = 0;
     positions.slice(0, -1).forEach(pos => {
-      avgLat += pos.lat;
-      avgLon += pos.lon;
+        avgLat += pos.lat;
+        avgLon += pos.lon;
     });
+
     avgLat /= (positions.length - 1);
     avgLon /= (positions.length - 1);
+
     const currentPos = positions[positions.length - 1];
-    const distance = getDistanceFromLatLonInKm(avgLat, avgLon, currentPos.lat, currentPos.lon);
-    const dynamicMinDist = getDynamicMinDist(speedKmh);
-    if (distance < dynamicMinDist) {
-      return true;
+    const distanceKm = getDistanceFromLatLonInKm(
+        avgLat, avgLon,
+        currentPos.lat, currentPos.lon
+    );
+
+    // --- stopped threshold (ไม่กระทบของเดิม) ---
+    const baseMinDist = getDynamicMinDist(speedKmh);
+
+    const STOP_FACTOR = 2.0;          // tolerant กว่า minDist
+    const MIN_STOP_DIST_KM = 0.0015;  // 1.5 m กัน GPS jitter
+    const MAX_STOP_DIST_KM = 0.030;   // 30 m กัน speed สูงผิดพลาด
+
+    let stopThresholdKm = baseMinDist * STOP_FACTOR;
+
+    if (stopThresholdKm < MIN_STOP_DIST_KM) {
+        stopThresholdKm = MIN_STOP_DIST_KM;
     }
-  }
-  return false;
+    if (stopThresholdKm > MAX_STOP_DIST_KM) {
+        stopThresholdKm = MAX_STOP_DIST_KM;
+    }
+
+    return distanceKm < stopThresholdKm;
 }
+
 function formatTime(seconds) {
-  const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-  const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `${h}:${m}:${s}`;
+	const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+	const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+	const s = (seconds % 60).toString().padStart(2, '0');
+	return `${h}:${m}:${s}`;
 }
- function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
+function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+	const R = 6371;
+	const dLat = (lat2 - lat1) * Math.PI / 180;
+	const dLon = (lon2 - lon1) * Math.PI / 180;
+	const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+	return R * c;
 }
 
 let socUsedInSegment = [0, 0, 0];
 let startSOCOfSegment = [0, 0, 0];
 
 function kmToSOC(km) {
-  return parseFloat(((km / 602) * 100).toFixed(2));
+	return parseFloat(((km / 602) * 100).toFixed(2));
 }
 
 function updateSOCLogic() {
-  const inputKm = [
-    parseFloat(document.getElementById("inputKm1").value) || 0,
-    parseFloat(document.getElementById("inputKm2").value) || 0,
-    parseFloat(document.getElementById("inputKm3").value) || 0
-  ];
-  const useSeg1 = document.getElementById("chkSegment1").checked;
-  const useSeg2 = document.getElementById("chkSegment2").checked;
-  const useSeg3 = document.getElementById("chkSegment3").checked;
- 
-  const batterySOCUsedSpan = document.getElementById("batterySOCUsed").textContent;
-  const batterySOCUsed = parseFloat(batterySOCUsedSpan.replace("%", "")) || 0;
+	const inputKm = [
+		parseFloat(document.getElementById("inputKm1").value) || 0,
+		parseFloat(document.getElementById("inputKm2").value) || 0,
+		parseFloat(document.getElementById("inputKm3").value) || 0
+	];
+	const useSeg1 = document.getElementById("chkSegment1").checked;
+	const useSeg2 = document.getElementById("chkSegment2").checked;
+	const useSeg3 = document.getElementById("chkSegment3").checked;
+	const batterySOCUsedSpan = document.getElementById("batterySOCUsed").textContent;
+	const batterySOCUsed = parseFloat(batterySOCUsedSpan.replace("%", "")) || 0;
+	startSOCOfSegment = inputKm.map(km => kmToSOC(km));
+	const totalSOCUsedBeforeSegment = [
+		0,
+		socUsedInSegment[0],
+		socUsedInSegment[0] + socUsedInSegment[1]
+	];
 
-  startSOCOfSegment = inputKm.map(km => kmToSOC(km));
+	let socRemaining = 0;
 
-  const totalSOCUsedBeforeSegment = [
-    0,
-    socUsedInSegment[0],
-    socUsedInSegment[0] + socUsedInSegment[1]
-  ];
+	if (useSeg1) {
+		const socUsed = Math.max(batterySOCUsed - totalSOCUsedBeforeSegment[0], 0);
+		socUsedInSegment[0] = Math.min(startSOCOfSegment[0], socUsed);
+		socRemaining = Math.max(startSOCOfSegment[0] - socUsedInSegment[0], 0);
+	}
 
-  let socRemaining = 0;
+	if (useSeg2) {
+		const socUsed = Math.max(batterySOCUsed - totalSOCUsedBeforeSegment[1], 0);
+		socUsedInSegment[1] = Math.min(startSOCOfSegment[1], socUsed);
+		socRemaining = Math.max(startSOCOfSegment[1] - socUsedInSegment[1], 0);
+	}
 
-  if (useSeg1) {
-    const socUsed = Math.max(batterySOCUsed - totalSOCUsedBeforeSegment[0], 0);
-    socUsedInSegment[0] = Math.min(startSOCOfSegment[0], socUsed);
-    socRemaining = Math.max(startSOCOfSegment[0] - socUsedInSegment[0], 0);
-  }
-
-  if (useSeg2) {
-    const socUsed = Math.max(batterySOCUsed - totalSOCUsedBeforeSegment[1], 0);
-    socUsedInSegment[1] = Math.min(startSOCOfSegment[1], socUsed);
-    socRemaining = Math.max(startSOCOfSegment[1] - socUsedInSegment[1], 0);
-  }
-
-  if (useSeg3) {
-    const socUsed = Math.max(batterySOCUsed - totalSOCUsedBeforeSegment[2], 0);
-    socUsedInSegment[2] = Math.min(startSOCOfSegment[2], socUsed);
-    socRemaining = Math.max(startSOCOfSegment[2] - socUsedInSegment[2], 0);
-  }
-
+	if (useSeg3) {
+		const socUsed = Math.max(batterySOCUsed - totalSOCUsedBeforeSegment[2], 0);
+		socUsedInSegment[2] = Math.min(startSOCOfSegment[2], socUsed);
+		socRemaining = Math.max(startSOCOfSegment[2] - socUsedInSegment[2], 0);
+	}
   updateBatteryBars(socRemaining);
- 
 }
-document.addEventListener("DOMContentLoaded", function () {
-  document.getElementById("inputKm1").addEventListener("input", () => {
-    updateSOCLogic();
-    updateWLTPDisplay();
-  });
-  document.getElementById("inputKm2").addEventListener("input", () => {
-    updateSOCLogic();
-    updateWLTPDisplay();
-  });
-  document.getElementById("inputKm3").addEventListener("input", () => {
-    updateSOCLogic();
-    updateWLTPDisplay();
-  });
 
-  document.getElementById("chkSegment1").addEventListener("change", () => {
-    updateSOCLogic();
-    updateWLTPDisplay();
-  });
-  document.getElementById("chkSegment2").addEventListener("change", () => {
-    updateSOCLogic();
-    updateWLTPDisplay();
-  });
-  document.getElementById("chkSegment3").addEventListener("change", () => {
-    updateSOCLogic();
-    updateWLTPDisplay();
-  });
+document.addEventListener("DOMContentLoaded", function () {
+	document.getElementById("inputKm1").addEventListener("input", () => {
+		updateSOCLogic();
+		updateWLTPDisplay();
+	});
+	document.getElementById("inputKm2").addEventListener("input", () => {
+		updateSOCLogic();
+		updateWLTPDisplay();
+	});
+	document.getElementById("inputKm3").addEventListener("input", () => {
+		updateSOCLogic();
+		updateWLTPDisplay();
+	});
+	document.getElementById("chkSegment1").addEventListener("change", () => {
+		updateSOCLogic();
+		updateWLTPDisplay();
+	});
+	document.getElementById("chkSegment2").addEventListener("change", () => {
+		updateSOCLogic();
+		updateWLTPDisplay();
+	});
+	document.getElementById("chkSegment3").addEventListener("change", () => {
+		updateSOCLogic();
+		updateWLTPDisplay();
+	});
 });
 
 function updateWLTPDisplay() {
-  const segments = [1, 2, 3];
-  segments.forEach(i => {
-    const chk = document.getElementById(`chkSegment${i}`);
-    const input = document.getElementById(`inputKm${i}`);
-    const output = document.getElementById(`wltpSegment${i}`);
-    if (chk.checked) {
-      const km = parseFloat(input.value);
-      if (!isNaN(km) && km > 0) {
-        const wltp = km / 1.275;
-        output.textContent = ` WLTP : ${wltp.toFixed(3)} km`;
-      } else {
-        output.textContent = `= กรุณากรอกระยะทาง`;
-      }
-    } else {
-      output.textContent = '';
-    }
-  });
+	const segments = [1, 2, 3];
+	segments.forEach(i => {
+		const chk = document.getElementById(`chkSegment${i}`);
+		const input = document.getElementById(`inputKm${i}`);
+		const output = document.getElementById(`wltpSegment${i}`);
+		if (chk.checked) {
+			const km = parseFloat(input.value);
+			if (!isNaN(km) && km > 0) {
+				const wltp = km / 1.275;
+				output.textContent = ` WLTP : ${wltp.toFixed(3)} km`;
+			} else {
+				output.textContent = `= กรุณากรอกระยะทาง`;
+			}
+		} else {
+			output.textContent = '';
+		}
+	});
 }
 
 function interpolateColor(t) {
-  const colors = [
-    { r: 255, g: 0, b: 0 },
-    { r: 255, g: 165, b: 0 },
-    { r: 255, g: 215, b: 0 },
-    { r: 0, g: 128, b: 0 }
-  ];
+	const colors = [
+		{ r: 255, g: 0, b: 0 },
+		{ r: 255, g: 165, b: 0 },
+		{ r: 255, g: 215, b: 0 },
+		{ r: 0, g: 128, b: 0 }
+	];
 
-  if (t <= 0) return `rgb(${colors[0].r},${colors[0].g},${colors[0].b})`;
-  if (t >= 1) return `rgb(${colors[3].r},${colors[3].g},${colors[3].b})`;
+	if (t <= 0) return `rgb(${colors[0].r},${colors[0].g},${colors[0].b})`;
+	if (t >= 1) return `rgb(${colors[3].r},${colors[3].g},${colors[3].b})`;
 
-  const segment = t * (colors.length - 1);
-  const index = Math.floor(segment);
-  const frac = segment - index;
-
-  const c1 = colors[index];
-  const c2 = colors[index + 1];
-
-  const r = Math.round(c1.r + (c2.r - c1.r) * frac);
-  const g = Math.round(c1.g + (c2.g - c1.g) * frac);
-  const b = Math.round(c1.b + (c2.b - c1.b) * frac);
-
-  return `rgb(${r},${g},${b})`;
+	const segment = t * (colors.length - 1);
+	const index = Math.floor(segment);
+	const frac = segment - index;
+	const c1 = colors[index];
+	const c2 = colors[index + 1];
+	const r = Math.round(c1.r + (c2.r - c1.r) * frac);
+	const g = Math.round(c1.g + (c2.g - c1.g) * frac);
+	const b = Math.round(c1.b + (c2.b - c1.b) * frac);
+	return `rgb(${r},${g},${b})`;
 }
 function updateBatteryBars(socValue) {
-  const bars = document.querySelectorAll("#batteryContainer .battery-bar");
-  const totalBars = bars.length;
-  const clampedSOC = Math.max(0, Math.min(100, socValue));
-  const barsToFill = Math.round((clampedSOC / 100) * totalBars);
+	const bars = document.querySelectorAll("#batteryContainer .battery-bar");
+	const totalBars = bars.length;
+	const clampedSOC = Math.max(0, Math.min(100, socValue));
+	const barsToFill = Math.round((clampedSOC / 100) * totalBars);
+	const barColor = interpolateColor(clampedSOC / 100);
 
-  const barColor = interpolateColor(clampedSOC / 100);
+	bars.forEach((bar, index) => {
+		bar.classList.remove("blinking");
+			if (index < barsToFill) {
+				bar.style.backgroundColor = barColor;
+				bar.style.opacity = 1;
+			} else {
+				bar.style.backgroundColor = '#ccc';
+				bar.style.opacity = 0.3;
+			}
+	});
+	if (clampedSOC <= 16.94) {
+		const targetBar1 = barsToFill > 0 ? barsToFill - 1 : 0;
+		const targetBar2 = barsToFill > 1 ? barsToFill - 2 : 0;
+		bars.forEach(bar => bar.classList.remove("blinking"));
+		bars[targetBar1].classList.add("blinking");
+		bars[targetBar2].classList.add("blinking");
+	}
 
-  bars.forEach((bar, index) => {
-    bar.classList.remove("blinking");
+	const socPercent = document.getElementById("socPercent");
+	socPercent.textContent = `${clampedSOC.toFixed(2)}%`;
+	socPercent.style.color = barColor; 
+	const wltpKm = (((clampedSOC * 602) / 100) / 1.275);
+	const wltpKmValueElem = document.getElementById("wltpKmValue");
+	const wltpKmLabelElem = document.getElementById("wltpKmLabel");
+	wltpKmValueElem.classList.remove("blinking-red");
 
-    if (index < barsToFill) {
-      bar.style.backgroundColor = barColor;
-      bar.style.opacity = 1;
-    } else {
-      bar.style.backgroundColor = '#ccc';
-      bar.style.opacity = 0.3;
-    }
-  });
-  if (clampedSOC <= 16.94) {
-  const targetBar1 = barsToFill > 0 ? barsToFill - 1 : 0;
-  const targetBar2 = barsToFill > 1 ? barsToFill - 2 : 0;
-  bars.forEach(bar => bar.classList.remove("blinking"));
-  bars[targetBar1].classList.add("blinking");
-  bars[targetBar2].classList.add("blinking");
+	if (clampedSOC > 0) {
+		wltpKmValueElem.textContent = `${wltpKm.toFixed(3)} km`;
+		wltpKmLabelElem.textContent = `(WLTP)`;
+			if (wltpKm <= 80) {
+				wltpKmValueElem.classList.add("blinking-red");
+			} 
+		wltpKmValueElem.style.color = barColor;
+	} else {
+		wltpKmValueElem.textContent = `0 km`;
+		wltpKmLabelElem.textContent = `(WLTP)`;
+		wltpKmValueElem.classList.add("blinking-red");
+		wltpKmValueElem.style.color = barColor;
+	}
 }
 
-  const socPercent = document.getElementById("socPercent");
-  socPercent.textContent = `${clampedSOC.toFixed(2)}%`;
-  socPercent.style.color = barColor;
-  
-const wltpKm = (((clampedSOC * 602) / 100) / 1.275);
-
-const wltpKmValueElem = document.getElementById("wltpKmValue");
-const wltpKmLabelElem = document.getElementById("wltpKmLabel");
-
-wltpKmValueElem.classList.remove("blinking-red");
-
-if (clampedSOC > 0) {
-  wltpKmValueElem.textContent = `${wltpKm.toFixed(3)} km`;
-  wltpKmLabelElem.textContent = `(WLTP)`;
-
-  if (wltpKm <= 80) {
-    wltpKmValueElem.classList.add("blinking-red");
-  } 
-wltpKmValueElem.style.color = barColor;
-  } else {
-    wltpKmValueElem.textContent = `0 km`;
-    wltpKmLabelElem.textContent = `(WLTP)`;
-    wltpKmValueElem.classList.add("blinking-red");
-    wltpKmValueElem.style.color = barColor;
-  }
-}
-
-
-document.addEventListener("DOMContentLoaded", function() {
-  loadHistory(2);
-});
-  const toggleBtn = document.getElementById("toggleTripHistory");
-  const historySection = document.getElementById("tripHistorySection");
+document.addEventListener("DOMContentLoaded", function() {loadHistory(2);});
+	const toggleBtn = document.getElementById("toggleTripHistory");
+	const historySection = document.getElementById("tripHistorySection");
 
   let isHistoryVisible = false;
 
-  toggleBtn.addEventListener("click", () => {
+toggleBtn.addEventListener("click", () => {
     isHistoryVisible = !isHistoryVisible;
     historySection.style.display = isHistoryVisible ? "block" : "none";
     toggleBtn.innerHTML = isHistoryVisible ? "&#9776; ▼" : "&#9776; ▲";
-  });
+});
   
 let prevSpeed = 0;
 let prevSpeedTime = Date.now();
@@ -1918,193 +1856,190 @@ let lastRegenTime = 0;
 let prevAlt = null;
 
 function getDynamicRegenEfficiency(speedKmh, deltaAlt) {
-  const baseEff = 0.7;
-  const minEff = 0.1;
-  const maxEff = 0.8;
-  let speedFactor = 1.0;
-  if (speedKmh < 20) {
-    speedFactor = 0.6;
-  } else if (speedKmh > 90) {
-    speedFactor = 0.85;
-  } else {
-    speedFactor = 1.0;
-  }
+	const baseEff = 0.7;
+	const minEff = 0.1;
+	const maxEff = 0.8;
+	let speedFactor = 1.0;
+	if (speedKmh < 20) {
+		speedFactor = 0.6;
+	} else if (speedKmh > 90) {
+		speedFactor = 0.85;
+	} else {
+		speedFactor = 1.0;
+	}
 
-  let slopeFactor = 1.0;
-  if (deltaAlt < -1) {
-    slopeFactor = 1.1 + Math.min(Math.abs(deltaAlt) / 20, 0.2);
-  } else if (deltaAlt > 1) {
-    slopeFactor = 0.9;
-  }
+	let slopeFactor = 1.0;
+	if (deltaAlt < -1) {
+		slopeFactor = 1.1 + Math.min(Math.abs(deltaAlt) / 20, 0.2);
+	} else if (deltaAlt > 1) {
+		slopeFactor = 0.9;
+	}
 
-  let eff = baseEff * speedFactor * slopeFactor;
-  eff = Math.min(Math.max(eff, minEff), maxEff);
-  return eff;
+	let eff = baseEff * speedFactor * slopeFactor;
+	eff = Math.min(Math.max(eff, minEff), maxEff);
+	return eff;
 }
 
 function updatePosition(lat, lon, alt, speedKmh) {
-  if (alt == null || isNaN(speedKmh)) return;
-  if (prevAlt !== null) {
-    let deltaAlt = alt - prevAlt;
-    if (deltaAlt < -1 && speedKmh > 20) {
-  const now = Date.now();
-  if (now - lastRegenTime > 500) {
-    const socPercentElem = document.getElementById("socPercent");
-    if (socPercentElem) {
-      const socPercent = parseFloat(socPercentElem.textContent.replace('%', ''));
-      if (socPercent <= 96) {
-        applyRegenBySlope(deltaAlt, speedKmh);
-        lastRegenTime = now;
-      }
-    }
-  }
-} else if (deltaAlt > 1 && speedKmh > 10) {
-  applyExtraEnergyByUphill(deltaAlt, speedKmh);
-}
-  }
+	if (alt == null || isNaN(speedKmh)) return;
+	if (prevAlt !== null) {
+		let deltaAlt = alt - prevAlt;
+			if (deltaAlt < -1 && speedKmh > 20) {
+				const now = Date.now();
+					if (now - lastRegenTime > 500) {
+						const socPercentElem = document.getElementById("socPercent");
+							if (socPercentElem) {
+								const socPercent = parseFloat(socPercentElem.textContent.replace('%', ''));
+									if (socPercent <= 96) {
+										applyRegenBySlope(deltaAlt, speedKmh);
+										lastRegenTime = now;
+									}
+							}
+					}
+			} else if (deltaAlt > 1 && speedKmh > 10) {
+				applyExtraEnergyByUphill(deltaAlt, speedKmh);
+			}
+	}
   prevAlt = alt;
 }
 function applyExtraEnergyByUphill(deltaAlt, speedKmh) {
-  const vehicleMassKg = 2100;
-  const gravity = 9.81;
-  const uphillEfficiencyFactor = 1.05;
-  const uphillEnergyJ = vehicleMassKg * gravity * Math.abs(deltaAlt);
-  const uphillEnergyJAdjusted = uphillEnergyJ * uphillEfficiencyFactor;
-  const uphillEnergyWh = uphillEnergyJAdjusted / 3600;
-  const uphillEnergyLimitedWh = Math.min(uphillEnergyWh, 1);
-  totalEnergyWh += uphillEnergyLimitedWh;
-  cumulativeEnergyWh += uphillEnergyLimitedWh;
-  const energySpan = document.getElementById('energyConsumption');
-  if (energySpan) energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
-  if (typeof updateEfficiency === 'function') updateEfficiency();
-  if (typeof updateSOCLogic === 'function') updateSOCLogic();
+	const vehicleMassKg = 2100;
+	const gravity = 9.81;
+	const uphillEfficiencyFactor = 1.05;
+	const uphillEnergyJ = vehicleMassKg * gravity * Math.abs(deltaAlt);
+	const uphillEnergyJAdjusted = uphillEnergyJ * uphillEfficiencyFactor;
+	const uphillEnergyWh = uphillEnergyJAdjusted / 3600;
+	const uphillEnergyLimitedWh = Math.min(uphillEnergyWh, 1);
+	totalEnergyWh += uphillEnergyLimitedWh;
+	cumulativeEnergyWh += uphillEnergyLimitedWh;
+	const energySpan = document.getElementById('energyConsumption');
+	if (energySpan) energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
+	if (typeof updateEfficiency === 'function') updateEfficiency();
+	if (typeof updateSOCLogic === 'function') updateSOCLogic();
 }
 
 function applyRegenBySlope(deltaAlt, speedKmh) {
-  const vehicleMassKg = 2100;
-  const gravity = 9.81;
-  const regenEfficiency = getDynamicRegenEfficiency(speedKmh, deltaAlt);
-  const regenEnergyJ = vehicleMassKg * gravity * Math.abs(deltaAlt);
-  const regenEnergyJAdjusted = regenEnergyJ * regenEfficiency;
-  const regenEnergyWh = regenEnergyJAdjusted / 3600;
-  const regenEnergyLimitedWh = Math.min(regenEnergyWh, 1);
-  totalRegenEnergyWh += regenEnergyLimitedWh;
-  const totalRegenElem = document.getElementById("totalRegenEnergy");
-  if (totalRegenElem) {
-    totalRegenElem.textContent = (totalRegenEnergyWh / 1000).toFixed(2);
-  }
-  if (typeof totalEnergyWh !== 'undefined') {
-    totalEnergyWh = Math.max(totalEnergyWh - regenEnergyLimitedWh, 0);
-    const energySpan = document.getElementById('energyConsumption');
-    if (energySpan) energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
-  }
-  if (typeof updateEfficiency === 'function') updateEfficiency();
-  if (typeof updateSOCLogic === 'function') updateSOCLogic();
+	const vehicleMassKg = 2100;
+	const gravity = 9.81;
+	const regenEfficiency = getDynamicRegenEfficiency(speedKmh, deltaAlt);
+	const regenEnergyJ = vehicleMassKg * gravity * Math.abs(deltaAlt);
+	const regenEnergyJAdjusted = regenEnergyJ * regenEfficiency;
+	const regenEnergyWh = regenEnergyJAdjusted / 3600;
+	const regenEnergyLimitedWh = Math.min(regenEnergyWh, 1);
+	totalRegenEnergyWh += regenEnergyLimitedWh;
+	const totalRegenElem = document.getElementById("totalRegenEnergy");
+	if (totalRegenElem) {
+		totalRegenElem.textContent = (totalRegenEnergyWh / 1000).toFixed(2);
+	}
+	if (typeof totalEnergyWh !== 'undefined') {
+		totalEnergyWh = Math.max(totalEnergyWh - regenEnergyLimitedWh, 0);
+		const energySpan = document.getElementById('energyConsumption');
+		if (energySpan) energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
+	}
+	if (typeof updateEfficiency === 'function') updateEfficiency();
+	if (typeof updateSOCLogic === 'function') updateSOCLogic();
 }
 
 function detectBraking(newSpeed) {
-if (isNaN(newSpeed) || newSpeed < 0) return;
-  const now = Date.now();
-  const dt = (now - prevSpeedTime) / 1000;
-  if (dt === 0) return;
-  const socPercentElem = document.getElementById("socPercent");
-  if (!socPercentElem) return;
-  const socPercent = parseFloat(socPercentElem.textContent.replace('%', ''));
-  if (socPercent > 96) return;
-  if (newSpeed < prevSpeed) {
-    applyRegenBraking(prevSpeed, newSpeed, dt);
-  }
-  prevSpeed = newSpeed;
-  prevSpeedTime = now;
+	if (isNaN(newSpeed) || newSpeed < 0) return;
+	const now = Date.now();
+	const dt = (now - prevSpeedTime) / 1000;
+	if (dt === 0) return;
+	const socPercentElem = document.getElementById("socPercent");
+	if (!socPercentElem) return;
+	const socPercent = parseFloat(socPercentElem.textContent.replace('%', ''));
+	if (socPercent > 96) return;
+	if (newSpeed < prevSpeed) {
+		applyRegenBraking(prevSpeed, newSpeed, dt);
+	}
+	prevSpeed = newSpeed;
+	prevSpeedTime = now;
 }
 
 function applyRegenBraking(prevSpeedKmh, currentSpeedKmh, dt) {
-  const now = Date.now();
-  if (now - lastRegenTime < 200) return;
-  lastRegenTime = now;
-  const vehicleMassKg = 2100;
-  if (currentSpeedKmh < 20) return;
-  const vOld = prevSpeedKmh / 3.6;
-  const vNew = currentSpeedKmh / 3.6;
-  const deltaEnergyJ = 0.5 * vehicleMassKg * (vOld ** 2 - vNew ** 2);
-  if (deltaEnergyJ <= 0) return;
-  const minSpeed = 20;
-  const maxSpeed = 100;
-  const minThreshold = 8000;
-  const maxThreshold = 36000;
-  let thresholdJ;
-  if (currentSpeedKmh <= minSpeed) {
-    thresholdJ = minThreshold;
-  } else if (currentSpeedKmh >= maxSpeed) {
-    thresholdJ = maxThreshold;
-  } else {
-    const ratio = (currentSpeedKmh - minSpeed) / (maxSpeed - minSpeed);
-    thresholdJ = minThreshold + ratio * (maxThreshold - minThreshold);
-  }
-  if (deltaEnergyJ < thresholdJ) return;
-  const regenEfficiency = getDynamicRegenEfficiency(currentSpeedKmh, 0);
-  const deltaEnergyJAdjusted = deltaEnergyJ * regenEfficiency;
-  let regenEnergyWh = deltaEnergyJAdjusted / 3600;
-  const regenEnergyLimitedWh = Math.min(regenEnergyWh, 1);
-  totalRegenEnergyWh += regenEnergyLimitedWh;
-  const totalRegenElem = document.getElementById("totalRegenEnergy");
-  if (totalRegenElem) {
-    totalRegenElem.textContent = (totalRegenEnergyWh / 1000).toFixed(2);
-  }
-  if (typeof totalEnergyWh !== 'undefined') {
-    totalEnergyWh = Math.max(totalEnergyWh - regenEnergyLimitedWh, 0);
-    const energySpan = document.getElementById('energyConsumption');
-    if (energySpan) energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
-  }
-  if (typeof updateEfficiency === 'function') updateEfficiency();
-  if (typeof updateSOCLogic === 'function') updateSOCLogic();
+	const now = Date.now();
+	if (now - lastRegenTime < 200) return;
+	lastRegenTime = now;
+	const vehicleMassKg = 2100;
+	if (currentSpeedKmh < 20) return;
+	const vOld = prevSpeedKmh / 3.6;
+	const vNew = currentSpeedKmh / 3.6;
+	const deltaEnergyJ = 0.5 * vehicleMassKg * (vOld ** 2 - vNew ** 2);
+	if (deltaEnergyJ <= 0) return;
+	const minSpeed = 20;
+	const maxSpeed = 100;
+	const minThreshold = 8000;
+	const maxThreshold = 36000;
+	let thresholdJ;
+	if (currentSpeedKmh <= minSpeed) {
+		thresholdJ = minThreshold;
+	} else if (currentSpeedKmh >= maxSpeed) {
+		thresholdJ = maxThreshold;
+	} else {
+		const ratio = (currentSpeedKmh - minSpeed) / (maxSpeed - minSpeed);
+		thresholdJ = minThreshold + ratio * (maxThreshold - minThreshold);
+	}
+	if (deltaEnergyJ < thresholdJ) return;
+	const regenEfficiency = getDynamicRegenEfficiency(currentSpeedKmh, 0);
+	const deltaEnergyJAdjusted = deltaEnergyJ * regenEfficiency;
+	let regenEnergyWh = deltaEnergyJAdjusted / 3600;
+	const regenEnergyLimitedWh = Math.min(regenEnergyWh, 1);
+	totalRegenEnergyWh += regenEnergyLimitedWh;
+	const totalRegenElem = document.getElementById("totalRegenEnergy");
+	if (totalRegenElem) {
+		totalRegenElem.textContent = (totalRegenEnergyWh / 1000).toFixed(2);
+	}
+	if (typeof totalEnergyWh !== 'undefined') {
+		totalEnergyWh = Math.max(totalEnergyWh - regenEnergyLimitedWh, 0);
+		const energySpan = document.getElementById('energyConsumption');
+		if (energySpan) energySpan.textContent = `${(totalEnergyWh / 1000).toFixed(2)} kWh`;
+	}
+	if (typeof updateEfficiency === 'function') updateEfficiency();
+	if (typeof updateSOCLogic === 'function') updateSOCLogic();
 }
 
- function saveTripToStorage(trip) {
+function saveTripToStorage(trip) {
     let trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
     trips.push(trip);
     if (trips.length > 100) trips.shift();
     localStorage.setItem("tripHistory", JSON.stringify(trips));
-  }
+}
 function updateLastTripInStorage(newData) {
-  let trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
-  if (trips.length === 0) return;
-  let last = trips[trips.length - 1];
-  trips[trips.length - 1] = Object.assign({}, last, newData);
-  localStorage.setItem("tripHistory", JSON.stringify(trips));
+	let trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+	if (trips.length === 0) return;
+	let last = trips[trips.length - 1];
+	trips[trips.length - 1] = Object.assign({}, last, newData);
+	localStorage.setItem("tripHistory", JSON.stringify(trips));
 }
 
 function clearTrip(index) {
-  let trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
-  if (index >= 0 && index < trips.length) {
-    if (confirm("ลบ Trip นี้ใช่หรือไม่?")) {
-      trips.splice(index, 1);
-      localStorage.setItem("tripHistory", JSON.stringify(trips));
-      loadHistory(); 
-    }
-  }
+	let trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+	if (index >= 0 && index < trips.length) {
+		if (confirm("ลบ Trip นี้ใช่หรือไม่?")) {
+			trips.splice(index, 1);
+			localStorage.setItem("tripHistory", JSON.stringify(trips));
+			loadHistory(); 
+		}
+	}
 }
-  function loadHistory(limit = null) {
-  const allTrips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+function loadHistory(limit = null) {
+	const allTrips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+	if (allTrips.length === 0) {
+		historyContainer.innerHTML = "<p>ไม่มีประวัติ Trip</p>";
+		return;
+	}
+	const limitedTrips = limit != null
+		? allTrips.slice(-limit)
+		: allTrips.slice(-100);
+	const shownTrips = limitedTrips.map((trip, i) => ({
+		...trip,
+		originalIndex: allTrips.length - limitedTrips.length + i
+	})).reverse();
 
-  if (allTrips.length === 0) {
-    historyContainer.innerHTML = "<p>ไม่มีประวัติ Trip</p>";
-    return;
-  }
-
-  const limitedTrips = limit != null
-    ? allTrips.slice(-limit)
-    : allTrips.slice(-100);
-
-  const shownTrips = limitedTrips.map((trip, i) => ({
-    ...trip,
-    originalIndex: allTrips.length - limitedTrips.length + i
-  })).reverse();
-
-  let html = "";
-  shownTrips.forEach((trip) => {
-    html += `
-      <div class="trip-entry" data-index="${trip.originalIndex}">
+	let html = "";
+	shownTrips.forEach((trip) => {
+		html += `
+		<div class="trip-entry" data-index="${trip.originalIndex}">
         <div class="trip-header">
           <strong>เดินทาง: ${trip.plateNumber || "-"}</strong>
           <button class="clear-trip-btn" data-index="${trip.originalIndex}">ล้างข้อมูล</button>
@@ -2123,74 +2058,67 @@ function clearTrip(index) {
         <p>เวลาที่เริ่ม และ พิกัดเริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"} , ${trip.startCoord || "-"}</p>
         <p>เวลาที่สิ้นสุด และ พิกัดสิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"} , ${trip.endCoord || "-"}</p>	
       </div>`;
-  });
+	});
 
-  historyContainer.innerHTML = html;
+	historyContainer.innerHTML = html;
 
-  document.querySelectorAll(".clear-trip-btn").forEach(btn => {
-    btn.onclick = (e) => {
-      const index = parseInt(e.target.dataset.index);
-      clearTrip(index);
-    };
-  });
+	document.querySelectorAll(".clear-trip-btn").forEach(btn => {
+		btn.onclick = (e) => {
+			const index = parseInt(e.target.dataset.index);
+			clearTrip(index);
+		};
+	});
 
- document.querySelectorAll(".show-map-btn").forEach((btn, i) => {
-  const trip = shownTrips[i];
-  btn.onclick = () => {
-    showLeafletMapFromTrip(trip);
-  };
-});
+	document.querySelectorAll(".show-map-btn").forEach((btn, i) => {
+		const trip = shownTrips[i];
+			btn.onclick = () => {
+				showLeafletMapFromTrip(trip);
+			};
+	});
 }
 
 // =============================
 // 🚗 SHOW HISTORY MAP (MODAL) — FINAL FIXED VERSION
 // =============================
 const startIcon = L.divIcon({
-  html: '🚗',
-  className: '',
-  iconSize: [30, 30],
-  iconAnchor: [15, 15]
+	html: '🚗',
+	className: '',
+	iconSize: [30, 30],
+	iconAnchor: [15, 15]
 });
 
 const endIcon = L.divIcon({
-  html: '🏁',
-  className: '',
-  iconSize: [30, 30],
-  iconAnchor: [15, 15]
+	html: '🏁',
+	className: '',
+	iconSize: [30, 30],
+	iconAnchor: [15, 15]
 });
 
-// =============================
 // ✅ showLeafletMapFromTrip
-// =============================
+
 function showLeafletMapFromTrip(trip) {
 	if (!trip?.path?.length) return alert("Trip นี้ไม่มีข้อมูลตำแหน่ง");
 	const mapModal = document.getElementById('mapModal');
 	const tripInfo = document.getElementById("mapTripInfo");
 	const mapContainer = document.getElementById("leafletMap");
 	if (!mapModal || !tripInfo || !mapContainer) return;
-
-  // ปิด interaction ของ map หลัก
 	if (window.map) {
 		["dragging","scrollWheelZoom","doubleClickZoom","boxZoom","keyboard","touchZoom"].forEach(f => {
 			window.map[f]?.disable?.();
 		});
-		mapContainer.style.pointerEvents = "none";
+		mapContainer.style.pointerEvents = "auto";
 	}
 
 	mapModal.style.display = "block";
 	document.body.classList.add('modal-open');
 	window.isHistoryModalOpen = true;
-
 	if (window.replayMap) window.replayMap.remove();
 	if (mapContainer._leaflet_id) mapContainer._leaflet_id = null;
-
 	const m = L.map('leafletMap', { center: [13.7563, 100.5018], zoom: BASE_ZOOM });
 	window.replayMap = m;
-
 	L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
 		attribution: '&copy; OpenStreetMap contributors, &copy; CARTO', noWrap: true
 	}).addTo(m);
-
 	const entries = trip.path
     .map(p => {
 		if (!p.coord) return null;
@@ -2199,7 +2127,6 @@ function showLeafletMapFromTrip(trip) {
     })
     .filter(Boolean);
 
-  // วาดเส้น polyline ทุก segment
 	for (let i = 0; i < entries.length - 1; i++) {
 		const a = entries[i];
 		const b = entries[i + 1];
@@ -2210,15 +2137,13 @@ function showLeafletMapFromTrip(trip) {
 		}).addTo(m).bindTooltip(`${b.speed.toFixed(1)} km/h`, { permanent: false, offset: [0, -5] });
 	}
 
-  // Start / End markers
 	const start = entries[0];
 	const end = entries[entries.length - 1];
 	L.marker([start.lat, start.lng], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(m);
 	L.marker([end.lat, end.lng], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(m);
 
-  // Zoom & fitBounds ครอบคลุมทั้ง trip
 	const latlngs = entries.map(e => [e.lat, e.lng]);
-	if (latlngs.length >= 2) m.fitBounds(latlngs, { padding: [60, 60], maxZoom: BASE_ZOOM });
+	if (latlngs.length >= 2) m.fitBounds(latlngs, { padding: [80, 80], maxZoom: BASE_ZOOM });
 	else m.setView(latlngs[0], BASE_ZOOM);
 
 	setTimeout(() => m.invalidateSize(), 300);
@@ -2251,59 +2176,30 @@ function showLeafletMapFromTrip(trip) {
 	window.addEventListener('click', window._mapModalClickHandler);
 }
 
-// =============================
 // 🚗 MAP TRACKING CORE (CLEAN)
-// =============================
 let map = null;
 let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
-let lastLat = null; 
-let lastLon = null;
-let lastRotation = 0;
-let lastValidHeading = null;
-let routePolylines = [];
 let pathCoordinates = [];
 let routeBatchLayers = [];
 let isTracking = false;
 let isTrackingStarted = false;
-let isMapReady = false;
-let isRotationAnimating = false;
-let rotationAnimationFrame = null;
-let targetRotation = null;
-let isResettingRotation = false;
 let isMapRotated = false;
-let headingDeg = 0;
-let mapListenersAttached = false;
-let isPanAnimating = false;
-let isRotateAnimating = false;
-let rotationAnimFrame = null;
 let lastMarkerAngle = 0;
 let lastMapRotation = 0;
-let lastHeading = 0;
-let lastTranslateX = 0;
-let lastTranslateY = 0;
 let lastZoom = 0;
 let lastMapCenter = null;
-let lastAutoFollowTime = 0;
 let lastGpsLat = null;
 let lastGpsLng = null;
 let lastGpsHeading = 0;
 let lastGpsSpeedKmh = 0;
-let autoFollowAnimFrame = null;
-let autoFollowTimeout = null;
 let autoFollow = true;
 let autoRotate = true;
-let autoFollowTarget = null;
-let lastTransformHeading = null;
-let autoFollowRunning = false;
-let currentIconSize = 32;
 let lastIconSize = 32;
 let lastPosition = null;
 let lastReliableHeading = null;
-let lastIconUpdateTime = 0;
 const BASE_ZOOM = 17;
-let currentTargetZoom = BASE_ZOOM;
 const POLYLINE_BATCH_SIZE = 200;
 const vehicleIcon = L.icon({
 	iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
@@ -2335,15 +2231,13 @@ function safeInvalidateMap(targetMap, delay = 300) {
 		try { targetMap.invalidateSize(); setMapPaneTransformOriginToCenter(targetMap); } catch (e) { console.warn('safeInvalidateMap error', e); }
 	}, delay);
 }
-// -----------------------------
+
 // Helpers
-// -----------------------------
 function deg2rad(d) { return d * Math.PI / 180; }
 function rad2deg(r) { return r * 180 / Math.PI; }
 function lerp(a, b, t) { return a + (b - a) * t; }
 function lerpAngle(a, b, t) { let diff = ((b - a + 540) % 360) - 180; return (a + diff * t + 360) % 360; }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-function clampLatLng(lat, lng) { return [Math.max(Math.min(lat, 85), -85), ((lng + 180) % 360 + 360) % 360 - 180]; }
 function normalizeAngleDifference(a, b) {
 	let diff = (a - b) % 360;
 	if (diff > 180) diff -= 360;
@@ -2381,22 +2275,15 @@ function getSpeedColor(s) {
 	return '#00FF00';
 }
 
-// ==============================
 // 🚗 AUTO FOLLOW 
-// ==============================
 const AUTO_FOLLOW_FPS = 18;       // target FPS
 const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
-const MAP_ROT_THRESHOLD = 2;      // min deg delta to rotate map
-const MARKER_ROT_THRESHOLD = 1;   // min deg delta to rotate marker
 const ZOOM_THRESHOLD = 0.05;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
 
-// ==============================
 // 🔹 AUTO FOLLOW LOOP
-// ==============================
-function autoFollowLoop() { 
-    if (!autoFollow || lastGpsLat === null || lastGpsLng === null) return;
-	if (smoothTransformAnimFrame) return;
+function autoFollowLoop() {
+    if (!autoFollow || lastGpsLat === null || lastGpsLng === null  || smoothTransformAnimFrame) return;
     applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
 }
 
@@ -2411,9 +2298,7 @@ function stopAutoFollowLoop() {
     }
 }
 
-// ==============================
 // 🔹 DEVICE ORIENTATION
-// ==============================
 window.deviceOrientationHeading = null;
 function startDeviceOrientationTracking() {
     if (typeof DeviceOrientationEvent !== 'undefined' &&
@@ -2428,16 +2313,19 @@ function startDeviceOrientationTracking() {
         window.addEventListener('deviceorientation', handleDeviceOrientation, true);
     }
 }
+function stopDeviceOrientationTracking() {
+    window.removeEventListener('deviceorientation', handleDeviceOrientation, true);
+    window.deviceOrientationHeading = null;
+    lastDeviceHeading = null;
+}
 
 function handleDeviceOrientation(event) {
-    const alpha = event.alpha;
+    const alpha = event.webkitCompassHeading ?? event.alpha;
     if (!isFinite(alpha)) return;
     window.deviceOrientationHeading = alpha;
 }
 
-// ==============================
 // 🔹 GOOGLE MAPS STYLE SMOOTH TRANSFORM
-// ==============================
 let smoothTransformAnimFrame = null;
 let smoothTransformTarget = {
     lat: null,
@@ -2451,20 +2339,23 @@ let smoothTransformTarget = {
 };
 
 let lastDeviceHeading = null;
+const ROTATE_SPEED_THRESHOLD = 2; // km/h
 
 // Low-pass filter + adaptive weighting
-function getSmoothedDeviceHeading(targetHeading) {
+function getSmoothedDeviceHeading(targetHeading, speedKmh = 0) {
+    if (speedKmh < ROTATE_SPEED_THRESHOLD) {
+        lastDeviceHeading = null;
+        return targetHeading;
+    }
     if (window.deviceOrientationHeading == null) return targetHeading;
-
     let rawHeading = (window.deviceOrientationHeading + 360) % 360;
     if (lastDeviceHeading === null) lastDeviceHeading = rawHeading;
-
-    const SMOOTH_FACTOR = 0.12;
+    const SMOOTH_FACTOR = clamp(speedKmh / 80, 0.08, 0.25);
     lastDeviceHeading = lerpAngle(lastDeviceHeading, rawHeading, SMOOTH_FACTOR);
-
     const diff = normalizeAngleDifference(lastDeviceHeading, targetHeading);
-    const weight = Math.max(0, 1 - Math.min(Math.abs(diff)/90, 1));
-
+	const MAX_SENSOR_INFLUENCE = 25;
+	if (Math.abs(diff) > MAX_SENSOR_INFLUENCE) return targetHeading;
+    const weight = clamp(1 - Math.abs(diff) / 70, 0, 1);
     return lerpAngle(targetHeading, lastDeviceHeading, weight);
 }
 
@@ -2474,7 +2365,7 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     if (isFinite(lon)) lastGpsLng = lon;
     if (isFinite(headingDeg)) lastGpsHeading = headingDeg;
     if (isFinite(speedKmh)) lastGpsSpeedKmh = speedKmh;
-
+	const prevHeading = smoothTransformTarget.heading;
     smoothTransformTarget.lat = lat;
     smoothTransformTarget.lon = lon;
     smoothTransformTarget.heading = headingDeg;
@@ -2482,9 +2373,10 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     smoothTransformTarget.zoom = clamp(calculateTargetZoom(speedKmh), 0, 22);
     smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
     smoothTransformTarget.callback = callback || null;
-
-    if (!smoothTransformAnimFrame) {
-        smoothTransformTarget.lastFrameTime = performance.now();
+	if (smoothTransformAnimFrame && isFinite(prevHeading) && Math.abs(normalizeAngleDifference(prevHeading, headingDeg ?? 0)) < 1) {
+		return;
+	}
+    if (!smoothTransformAnimFrame) {smoothTransformTarget.lastFrameTime = performance.now();
         smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
     }
 }
@@ -2499,59 +2391,77 @@ function smoothTransformStep(now) {
     const elapsed = now - (smoothTransformTarget.lastFrameTime || now);
     const minInterval = 1000 / AUTO_FOLLOW_FPS;
     if (elapsed < minInterval) {
-        smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
-        return;
+		if (elapsed < minInterval) {
+			smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+			return;
+		}
+
     }
     smoothTransformTarget.lastFrameTime = now;
 
-    const { lat: targetLat, lon: targetLon, heading: targetHeading, speedKmh: targetSpeed,
-            zoom: targetZoom, iconSize: targetIconSize, callback } = smoothTransformTarget;
+    const {
+        lat: targetLat,
+        lon: targetLon,
+        heading: targetHeading,
+        speedKmh: targetSpeed,
+        zoom: targetZoom,
+        iconSize: targetIconSize,
+        callback
+    } = smoothTransformTarget;
 
-    // --- Update marker position ---
+    // 1. Update marker position
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
-    // --- Smooth pan ---
+    // 2. Smooth pan / zoom
     if (autoFollow) {
         if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
             lastMapCenter = map.getCenter();
         }
         const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
         const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
-        if (deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD || Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD) {
+        if ( targetSpeed >= ROTATE_SPEED_THRESHOLD &&( deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD || Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD)) {
             map.flyTo([targetLat, targetLon], targetZoom, { animate: true, duration: 0.15, easeLinearity: 0.35 });
             lastMapCenter = { lat: targetLat, lng: targetLon };
             lastZoom = targetZoom;
         }
     }
 
-    // --- Smoothed heading (ใช้ครั้งเดียวต่อเฟรม) ---
-    const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
+    // 3. Smoothed heading (single source of truth)
+	const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? lastReliableHeading ?? 0, targetSpeed);
+	lastReliableHeading = smoothedHeading;
+    const speedFactor = clamp(targetSpeed / 60, 0, 1);
+    const mapSmooth = lerp(0.18, 0.08, speedFactor);
+    const markerSmooth = lerp(0.28, 0.55, speedFactor);
 
-    // --- Dynamic smooth factor based on speed ---
-    // รถเร็ว -> marker หมุนไวกว่า map
-    const speedFactor = clamp(targetSpeed / 60, 0, 1); // 0 = slow, 1 = fast
-    const mapSmooth = lerp(0.25, 0.1, speedFactor);    // map หมุนช้าลงเมื่อเร็ว
-    const markerSmooth = lerp(0.35, 0.6, speedFactor); // marker หมุนเร็วขึ้นเมื่อเร็ว
-
-// --- Smooth map rotation (LOCK WHEN STOPPED) ---
-	const pane = getRotationElement(map);
-	if (pane) {
-		let desiredMapRotation = lastMapRotation;
-		if (autoRotate && targetSpeed > 1) {
-			desiredMapRotation = (-smoothedHeading + 360) % 360;
+    // 4. Smooth map rotation
+    const pane = getRotationElement(map);
+    if (pane) {
+        if (autoRotate && targetSpeed >= ROTATE_SPEED_THRESHOLD) {
+            const desiredMapRotation = (-smoothedHeading + 360) % 360;
+            lastMapRotation = lerpAngle(
+                lastMapRotation,
+                desiredMapRotation,
+                mapSmooth
+            );
+            isMapRotated = true;
+        }
+        if (autoRotate || isMapRotated) {
+			pane.style.transform = `rotate(${lastMapRotation}deg)`;
 		}
-		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
-		pane.style.transform = `rotate(${lastMapRotation}deg)`;
-		isMapRotated = Math.abs(lastMapRotation) > 0.5;
-	}
-
-    // --- Smooth marker rotation (relative to map) ---
+    }
+	
+    // 5. Smooth marker rotation (RELATIVE TO MAP)
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-        lastMarkerAngle = lerpAngle(lastMarkerAngle, smoothedHeading, markerSmooth);
-        vehicleMarker.setRotationAngle(lastMarkerAngle);
+		if (targetSpeed >= ROTATE_SPEED_THRESHOLD) {
+			const relativeMarkerAngle = (smoothedHeading + lastMapRotation + 360) % 360;
+			lastMarkerAngle = lerpAngle(lastMarkerAngle, relativeMarkerAngle, markerSmooth);
+		} else {
+			lastMarkerAngle = smoothedHeading;
+		}
+		vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
 
-    // --- Icon size smooth update ---
+    // 6. Icon size smoothing
     if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
         lastIconSize = targetIconSize;
         const icon = L.icon({
@@ -2561,32 +2471,29 @@ function smoothTransformStep(now) {
         });
         vehicleMarker.setIcon(icon);
     }
-
     if (callback) callback();
-
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
 
-// -----------------------------
 // Reset Map Rotation
-// -----------------------------
 function resetMapRotation(callback = null) {
     const pane = getRotationElement(map);
     if (pane) pane.style.transform = "";
 
     lastMapRotation = 0;
+	isMapRotated = false;
     autoRotate = false;
 
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
-        vehicleMarker.setRotationAngle(lastGpsHeading || 0);
+		const resetHeading = lastReliableHeading ?? lastGpsHeading ?? 0;
+		lastMarkerAngle = resetHeading;
+		vehicleMarker.setRotationAngle(resetHeading);
     }
 
     if (callback) callback();
 }
 
-// -----------------------------
 // RELIABLE HEADING
-// -----------------------------
 function getReliableHeading(lat, lon, speedKmh, gpsHeading) {
     let movementHeading = null;
     if (lastPosition) {
@@ -2674,7 +2581,7 @@ function initMap(lat, lon) {
 function destroyMap() {
 	if (!map) return;
 	stopAutoFollowLoop();
-  // stop animator
+    stopDeviceOrientationTracking()
 	if (smoothTransformAnimFrame) {
 		cancelAnimationFrame(smoothTransformAnimFrame);
 		smoothTransformAnimFrame = null;
@@ -2684,8 +2591,6 @@ function destroyMap() {
 	pathCoordinates = []; routeBatchLayers = [];
 	lastMapRotation = 0; lastMarkerAngle = 0; lastIconSize = 32;
 	lastMapCenter = null;
-	autoFollowTarget = null;
-	autoFollowRunning = false;
 }
 
 const MIN_DIST_KM = 0.001;
@@ -2709,10 +2614,7 @@ function addRealtimePolylineSegment(lat, lon, speedKmh) {
     ).addTo(routeLayer);
 }
 
-
-// -----------------------------
 // Update route and autoFollow target
-// -----------------------------
 function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     if (!map || !vehicleMarker) return;
     if (!isFinite(lat) || !isFinite(lon)) return;
@@ -2723,8 +2625,6 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     lastGpsHeading = isFinite(headingDegInput) ? headingDegInput : lastGpsHeading;
 
     const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput ?? lastGpsHeading);
-    autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
-
     const now = Date.now();
     const lastCoord = pathCoordinates[pathCoordinates.length - 1];
 	if (
@@ -2748,9 +2648,8 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
         vehicleMarker.setRotationAngle(reliableHeading);
     }
 }
-// =============================
+
 // DRAW HISTORY ROUTE (UNCHANGED)
-// =============================
 function drawHistoryRoute(pathCoords) {
     if (!map || pathCoords.length < 2) return;
     if (!routeLayer) routeLayer = L.layerGroup().addTo(map);
@@ -2819,12 +2718,9 @@ function forceRecenterToVehicle() {
     );
 }
 
-// ============================
 // 🔹 GPS FOLLOW BUTTON (FIXED)
-// ============================
 document.getElementById('gpsFollowBtn').addEventListener('click', () => {
     if (!map || !vehicleMarker) return;
-
     const btn = document.getElementById('gpsFollowBtn');
     autoFollow = !autoFollow;
 	if (autoFollow) {
@@ -2900,7 +2796,7 @@ function startTracking() {
 
 	startBtn.disabled = true;
 	stopBtn.disabled = false;
-
+    startDeviceOrientationTracking();
 	navigator.geolocation.getCurrentPosition(
 		(pos) => {
 			const { latitude, longitude, heading } = pos.coords;
@@ -2910,8 +2806,7 @@ function startTracking() {
 				if (!map) {
 					initMap(latitude, longitude); 
 					map.whenReady(() => { 
-						setMapPaneTransformOriginToCenter(map); 
-						const safeCenter = clampLatLng(latitude, longitude); 
+						setMapPaneTransformOriginToCenter(map);  
 						map.setView([latitude, longitude], BASE_ZOOM, { animate: false }); 
 						const reliableHeading = getReliableHeading(latitude, longitude, 0, headingDeg); 
 						updateRoute(latitude, longitude, 0, reliableHeading); 
@@ -2985,8 +2880,8 @@ function startTracking() {
 					
       // --- Update display + map ---
 				updateSpeed(speedKmh);
-				const reliableHeading = getReliableHeading(latitude, longitude, speedKmh, heading);
-				updateRoute(latitude, longitude, speedKmh, reliableHeading);
+				//const reliableHeading = getReliableHeading(latitude, longitude, speedKmh, heading);
+				updateRoute(latitude, longitude, speedKmh, heading);
 	  
     // --- Idle / Energy ---
 				if (speedKmh < 2) {
@@ -3007,25 +2902,25 @@ function startTracking() {
 			if (tripLog.length > 10000) tripLog.shift();
 		}
 	  
-    if (prevPos) {
+	if (prevPos) {
 		const dist = getDistanceFromLatLonInKm(prevPos.latitude, prevPos.longitude, latitude, longitude);
-        const isStopped = checkIfStopped(latitude, longitude, speedKmh);
-        isMoving = !isStopped;
-		
-			if (isMoving && dist >= getDynamicMinDist(speedKmh)) {
-				totalDistance += dist;
-				cumulativeDistance += dist;
-				prevPos = { latitude, longitude };
-				updateEnergyConsumptionRealTime(dist, speedKmh);
-		  
-					if (totalDistance >= TARGET_DISTANCE_KM) {
-						totalDistance = 0;
-						tripLog.push({ time: pos.timestamp, coord: coordText });
-					}
-			}
-      } else {
-				prevPos = { latitude, longitude };
-			}
+		const isStopped = checkIfStopped(latitude, longitude, speedKmh);
+		isMoving = speedKmh > 0 || !isStopped;
+
+		if (isMoving && dist >= getDynamicMinDist(speedKmh)) {
+			totalDistance += dist;
+			cumulativeDistance += dist;
+			updateEnergyConsumptionRealTime(dist, speedKmh);
+			prevPos = { latitude, longitude };
+				if (totalDistance >= TARGET_DISTANCE_KM) {
+					totalDistance = 0;
+					tripLog.push({ time: pos.timestamp, coord: coordText });
+				}
+		}
+
+	} else {
+		prevPos = { latitude, longitude };
+	}
 
 		distanceSpan.textContent = cumulativeDistance.toFixed(3);
 		startCoordSpan.textContent = tripLog[0]?.coord || "-";
@@ -3056,13 +2951,9 @@ function startTracking() {
 function stopTracking() {
 	if (!isTracking) return;
 	if (smoothTransformAnimFrame) { cancelAnimationFrame(smoothTransformAnimFrame); smoothTransformAnimFrame = null; }
-    if (rotationAnimFrame) { cancelAnimationFrame(rotationAnimFrame); rotationAnimFrame = null; }
-    if (autoFollowAnimFrame) { cancelAnimationFrame(autoFollowAnimFrame); autoFollowAnimFrame = null; }
-    if (rotationAnimationFrame) { cancelAnimationFrame(rotationAnimationFrame); rotationAnimationFrame = null; }
 
     autoFollow = false;
     autoRotate = false;
-    autoFollowRunning = false;
 
 	try {
 		if (map._invalidateTimeout) {
@@ -3080,11 +2971,11 @@ function stopTracking() {
 		updateEndTimeInterval = null;
 	}
 
-	
 	isTracking = false;
 	lastGpsLat = null;
 	lastGpsLng = null;
 	lastGpsHeading = 0;
+	stopDeviceOrientationTracking()
 	stopAutoFollowLoop();
 	startBtn.disabled = false;
 	stopBtn.disabled = true;
@@ -3111,27 +3002,31 @@ function stopTracking() {
 		alert("ไม่มีข้อมูลตำแหน่งที่บันทึกไว้");
 		return;
 	}
-  // -----------------------------
+
   // 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset
-  // -----------------------------
 	const pathCoords = tripLog
 		.map(p => {
 			if (!p.coord) return null;
-				const [lat, lon] = p.coord.split(',').map(Number);
-					if (!isFinite(lat) || !isFinite(lon)) return null;
+			const [lat, lon] = p.coord.split(',').map(Number);
+			if (!isFinite(lat) || !isFinite(lon)) return null;
 			return [lat, lon, p.speed || 0];
 		})
 	.filter(Boolean);
 
-	if (isMapRotated) {
-		resetMapRotation(() => {
-			map.setZoom(BASE_ZOOM, { animate: false });
-			drawHistoryRoute(pathCoords);
-		});
-	} else {
+	const showHistoryRoute = () => {
 		map.setZoom(BASE_ZOOM, { animate: false });
 		drawHistoryRoute(pathCoords);
+		enableMapInteraction();
+		autoFollow = false;
+		autoRotate = false;
+	};
+
+	if (isMapRotated) {
+		resetMapRotation(showHistoryRoute);
+	} else {
+		showHistoryRoute();
 	}
+
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
