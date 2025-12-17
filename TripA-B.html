@@ -2310,13 +2310,12 @@ const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
 // ==============================
 function autoFollowLoop() { 
     if (!autoFollow || lastGpsLat === null || lastGpsLng === null) return;
-	if (smoothTransformAnimFrame) return;
     applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
 }
 
 let autoFollowLoopInterval = null;
 function startAutoFollowLoop() {
-    if (!autoFollowLoopInterval) autoFollowLoopInterval = setInterval(autoFollowLoop, 50);
+    if (!autoFollowLoopInterval) autoFollowLoopInterval = setInterval(autoFollowLoop, 1000 / AUTO_FOLLOW_FPS);
 }
 function stopAutoFollowLoop() {
     if (autoFollowLoopInterval) {
@@ -2781,7 +2780,6 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
 });
 
 let speedKmh = 0;
-
 function fetchNetworkLocation(callback) {
 	if (lastNetworkFix && Date.now() - lastNetworkFix.time < 2000) return;
 	navigator.geolocation.getCurrentPosition(
