@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 42.24</h2>
+<h2>Trip A-B Version 42.25</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2430,13 +2430,10 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 			rafIdleTimer = null;
 		}
 	}
-
-    if (smoothTransformAnimFrame) {
-        cancelAnimationFrame(smoothTransformAnimFrame);
-        smoothTransformAnimFrame = null;
-    }
-    smoothTransformTarget.lastFrameTime = performance.now();
-    smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+	if (!smoothTransformAnimFrame) {
+		smoothTransformTarget.lastFrameTime = performance.now();
+		smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+	}
 }
 
 let isFlying = false;
@@ -2473,7 +2470,6 @@ function smoothTransformStep(now) {
         effectiveHeading,
         targetSpeed
     );
-
     // -----------------------------
     // Marker position (REAL GPS)
     // -----------------------------
@@ -2483,7 +2479,7 @@ function smoothTransformStep(now) {
 	// Auto follow PAN
 	// -----------------------------
 	const mapCenter = map.getCenter();
-	if (autoFollow) {
+	if (autoFollow && targetSpeed > 0.5) {
 		if (!isFlying) {
 			const deltaLat = Math.abs(mapCenter.lat - centerLat);
 			const deltaLng = Math.abs(mapCenter.lng - centerLng);
@@ -2508,7 +2504,9 @@ function smoothTransformStep(now) {
 					lastZoom = targetZoom;
 				} else if (needPan) {
 					map.panTo([centerLat, centerLng], { animate: false });
+					lastZoom = map.getZoom();
 				}
+
 			}
 		}
 	}
@@ -2521,7 +2519,7 @@ function smoothTransformStep(now) {
     const markerSmooth = lerp(0.35, 0.6, speedFactor);
 
     const pane = getRotationElement(map);
-    if (pane && autoRotate) {
+    if (pane && autoRotate && targetSpeed > 2) {
         const desiredMapRotation = (-effectiveHeading + 360) % 360;
         lastMapRotation = lerpAngle(
             lastMapRotation,
@@ -2555,12 +2553,17 @@ function smoothTransformStep(now) {
     // -----------------------------
     // Idle / stop RAF
     // -----------------------------
-	const currentCenter = isFlying ? mapCenter : { lat: centerLat, lng: centerLng };
-	const noMovement =
-		Math.abs(currentCenter.lat - centerLat) < PAN_THRESHOLD &&
-		Math.abs(currentCenter.lng - centerLng) < PAN_THRESHOLD &&
-		Math.abs(normalizeAngleDifference(lastMarkerAngle, effectiveHeading)) < 0.5 &&
-		Math.abs(lastZoom - targetZoom) < 0.01;
+const markerPos = vehicleMarker.getLatLng();
+const noMovement =
+    getDistanceFromLatLonInKm(
+        markerPos.lat,
+        markerPos.lng,
+        targetLat,
+        targetLon
+    ) < 0.002 &&
+    Math.abs(normalizeAngleDifference(lastMarkerAngle, effectiveHeading)) < 0.5 &&
+    Math.abs(lastZoom - targetZoom) < 0.01;
+
 
     if (noMovement && targetSpeed < 1) {
         if (smoothTransformAnimFrame) {
@@ -2570,7 +2573,7 @@ function smoothTransformStep(now) {
         return;
     }
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
-    if (!autoRotate && isMapRotated) {
+    if (targetSpeed <= 2 && isMapRotated) {
         resetMapRotation();
     }
 }
