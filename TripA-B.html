@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 45.55</h2>
+<h2>Trip A-B Version 45.56</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2457,9 +2457,18 @@ function smoothTransformStep(now) {
             lastZoom = targetZoom;
         }
     }
+	
+	// 🚫 DEAD ZONE — จอด = ไม่หมุนอะไร
+	if (targetSpeed < 2) {
+		smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+		return;
+	}
 
-    // --- Smoothed heading (ใช้ครั้งเดียวต่อเฟรม) ---
-    const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
+	// ✅ heading สำหรับ MAP (การเคลื่อนที่จริง)
+	const mapHeading = targetHeading ?? lastReliableHeading ?? 0;
+
+	// ✅ heading สำหรับ MARKER (ผสม compass ได้)
+	const markerHeading = getSmoothedDeviceHeading(mapHeading);
 
     // --- Dynamic smooth factor based on speed ---
     // รถเร็ว -> marker หมุนไวกว่า map
@@ -2470,19 +2479,26 @@ function smoothTransformStep(now) {
 // --- Smooth map rotation (LOCK WHEN STOPPED) ---
 	const pane = getRotationElement(map);
 	if (pane) {
-		let desiredMapRotation = lastMapRotation;
 		if (autoRotate && targetSpeed > 1.5) {
-			desiredMapRotation = (-smoothedHeading + 360) % 360;
+			lastMapRotation = lerpAngle(
+				lastMapRotation,
+				(-mapHeading + 360) % 360,
+				mapSmooth
+			);
 		}
-		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
 		pane.style.transform = `rotate(${lastMapRotation}deg)`;
 		isMapRotated = Math.abs(lastMapRotation) > 0.5;
 	}
 
     // --- Smooth marker rotation (relative to map) ---
+	const relativeMarkerAngle = normalizeAngleDifference(markerHeading, lastMapRotation);
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-        lastMarkerAngle = lerpAngle(lastMarkerAngle, smoothedHeading, markerSmooth);
-        vehicleMarker.setRotationAngle(lastMarkerAngle);
+		lastMarkerAngle = lerpAngle(
+			lastMarkerAngle,
+			relativeMarkerAngle,
+			markerSmooth
+		);
+		vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
 
     // --- Icon size smooth update ---
