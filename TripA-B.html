@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 44.55</h2>
+<h2>Trip A-B Version 45.55</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2184,26 +2184,52 @@ let map = null;
 let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
-let routeBatchLayers = [];
+let lastLat = null; 
+let lastLon = null;
+let lastRotation = 0;
+let lastValidHeading = null;
+let routePolylines = [];
 let pathCoordinates = [];
+let routeBatchLayers = [];
 let isTracking = false;
 let isTrackingStarted = false;
+let isMapReady = false;
+let isRotationAnimating = false;
+let rotationAnimationFrame = null;
+let targetRotation = null;
+let isResettingRotation = false;
 let isMapRotated = false;
 let headingDeg = 0;
+let mapListenersAttached = false;
+let isPanAnimating = false;
+let isRotateAnimating = false;
+let rotationAnimFrame = null;
 let lastMarkerAngle = 0;
 let lastMapRotation = 0;
+let lastHeading = 0;
+let lastTranslateX = 0;
+let lastTranslateY = 0;
 let lastZoom = 0;
 let lastMapCenter = null;
+let lastAutoFollowTime = 0;
 let lastGpsLat = null;
 let lastGpsLng = null;
 let lastGpsHeading = 0;
 let lastGpsSpeedKmh = 0;
+let autoFollowAnimFrame = null;
+let autoFollowTimeout = null;
 let autoFollow = true;
 let autoRotate = true;
+let autoFollowTarget = null;
+let lastTransformHeading = null;
+let autoFollowRunning = false;
+let currentIconSize = 32;
 let lastIconSize = 32;
 let lastPosition = null;
 let lastReliableHeading = null;
+let lastIconUpdateTime = 0;
 const BASE_ZOOM = 17;
+let currentTargetZoom = BASE_ZOOM;
 const POLYLINE_BATCH_SIZE = 200;
 const vehicleIcon = L.icon({
 	iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
@@ -2228,16 +2254,13 @@ if (L.Marker && !L.Marker.prototype.setRotationAngle) {
 }
 
 // safeInvalidateMap: preserve behavior but operate on container, not pane
-let invalidateTimeout = null;
-
-function safeInvalidateMap(map, delay=300) {
-  clearTimeout(invalidateTimeout);
-  invalidateTimeout = setTimeout(() => {
-    map.invalidateSize();
-    setMapPaneTransformOriginToCenter(map);
-  }, delay);
+function safeInvalidateMap(targetMap, delay = 300) {
+	if (!targetMap || !targetMap.invalidateSize) return;
+	clearTimeout(targetMap._invalidateTimeout);
+	targetMap._invalidateTimeout = setTimeout(() => {
+		try { targetMap.invalidateSize(); setMapPaneTransformOriginToCenter(targetMap); } catch (e) { console.warn('safeInvalidateMap error', e); }
+	}, delay);
 }
-
 // -----------------------------
 // Helpers
 // -----------------------------
@@ -2289,42 +2312,30 @@ function getSpeedColor(s) {
 // ==============================
 const AUTO_FOLLOW_FPS = 18;       // target FPS
 const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
+const MAP_ROT_THRESHOLD = 2;      // min deg delta to rotate map
+const MARKER_ROT_THRESHOLD = 1;   // min deg delta to rotate marker
 const ZOOM_THRESHOLD = 0.05;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
 
 // ==============================
 // 🔹 AUTO FOLLOW LOOP
 // ==============================
-let autoFollowRafId = null;
-
-function autoFollowLoop() {
-    if (!autoFollow || !isTracking) {
-        autoFollowRafId = null;
-        return;
-    }
-
-    if (lastGpsLat !== null && lastGpsLng !== null) {
-		if (!smoothTransformAnimFrame) {
-			applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
-		}
-	}
-    autoFollowRafId = requestAnimationFrame(autoFollowLoop);
+function autoFollowLoop() { 
+    if (!autoFollow || lastGpsLat === null || lastGpsLng === null) return;
+	if (smoothTransformAnimFrame) return;
+    applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
 }
 
+let autoFollowLoopInterval = null;
 function startAutoFollowLoop() {
-    if (!autoFollowRafId) {
-        autoFollowRafId = requestAnimationFrame(autoFollowLoop);
-    }
+    if (!autoFollowLoopInterval) autoFollowLoopInterval = setInterval(autoFollowLoop, 50);
 }
-
 function stopAutoFollowLoop() {
-    if (autoFollowRafId) {
-        cancelAnimationFrame(autoFollowRafId);
-        autoFollowRafId = null;
+    if (autoFollowLoopInterval) {
+        clearInterval(autoFollowLoopInterval);
+        autoFollowLoopInterval = null;
     }
 }
-
-
 // ==============================
 // 🔹 DEVICE ORIENTATION
 // ==============================
@@ -2359,7 +2370,6 @@ function stopDeviceOrientationTracking() {
     lastDeviceHeading = null;
 }
 
-
 // ==============================
 // 🔹 GOOGLE MAPS STYLE SMOOTH TRANSFORM
 // ==============================
@@ -2376,7 +2386,6 @@ let smoothTransformTarget = {
 };
 
 let lastDeviceHeading = null;
-
 // Low-pass filter + adaptive weighting
 function getSmoothedDeviceHeading(targetHeading) {
     if (window.deviceOrientationHeading == null) return targetHeading;
@@ -2415,11 +2424,6 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 }
 
 function smoothTransformStep(now) {
-    if (!autoFollow && !isTracking) {
-        cancelAnimationFrame(smoothTransformAnimFrame);
-        smoothTransformAnimFrame = null;
-        return;
-    }
     if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
         if (smoothTransformAnimFrame) cancelAnimationFrame(smoothTransformAnimFrame);
         smoothTransformAnimFrame = null;
@@ -2441,7 +2445,7 @@ function smoothTransformStep(now) {
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
     // --- Smooth pan ---
-    if (autoFollow) {
+    if (autoFollow && targetSpeed > 1) {
         if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
             lastMapCenter = map.getCenter();
         }
@@ -2467,7 +2471,7 @@ function smoothTransformStep(now) {
 	const pane = getRotationElement(map);
 	if (pane) {
 		let desiredMapRotation = lastMapRotation;
-		if (autoRotate && targetSpeed > 1) {
+		if (autoRotate && targetSpeed > 1.5) {
 			desiredMapRotation = (-smoothedHeading + 360) % 360;
 		}
 		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
@@ -2506,8 +2510,7 @@ function resetMapRotation(callback = null) {
 
     lastMapRotation = 0;
     autoRotate = false;
-	isMapRotated = false;
-	
+
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
         vehicleMarker.setRotationAngle(lastGpsHeading || 0);
     }
@@ -2574,45 +2577,38 @@ function enableMapInteraction() {
 }
 // initMap 
 function initMap(lat, lon) {
-    if (!map) {
-        map = L.map("map", {
-            center: [lat, lon],
-            zoom: BASE_ZOOM,
-            zoomControl: false,
-            attributionControl: false,
-            worldCopyJump: true
-        });
+    destroyMap();
 
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
-        routeLayer = L.layerGroup().addTo(map);
-        vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon, interactive: false }).addTo(map);
+    map = L.map("map", {
+        center: [lat, lon],
+        zoom: BASE_ZOOM,
+        zoomControl: false,
+        attributionControl: false,
+        worldCopyJump: true
+    });
 
-        map.whenReady(() => {
-            setMapPaneTransformOriginToCenter(map);
-            lastMapCenter = map.getCenter();
-            const pane = getRotationElement(map);
-            if (pane) pane.style.transform = `rotate(0deg)`;
-            lastMapRotation = 0;
-            disableMapInteraction();
-            const reliableHeading = getReliableHeading(lat, lon, 0, 0);
-            updateRoute(lat, lon, 0, reliableHeading);
-            startAutoFollowLoop();
-            startDeviceOrientationTracking();
-        });
-    } else {
-        // ถ้า map มีอยู่แล้ว แค่เซ็ต center/zoom
-        const [safeLat, safeLng] = clampLatLng(lat, lon);
-        map.setView([safeLat, safeLng], BASE_ZOOM, { animate: false });
-    }
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
+    routeLayer = L.layerGroup().addTo(map);
+    vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon, interactive: false }).addTo(map);
+
+    map.whenReady(() => {
+        setMapPaneTransformOriginToCenter(map);
+        lastMapCenter = map.getCenter();
+        const pane = getRotationElement(map);
+        if (pane) pane.style.transform = `rotate(0deg)`;
+        lastMapRotation = 0;
+		disableMapInteraction();
+        const reliableHeading = getReliableHeading(lat, lon, 0, 0);
+        updateRoute(lat, lon, 0, reliableHeading);
+        startAutoFollowLoop();
+		startDeviceOrientationTracking();
+    });
 }
-
 
 function destroyMap() {
 	if (!map) return;
-	clearWatchId();
-	stopDeviceOrientationTracking();
 	stopAutoFollowLoop();
-	isMapRotated = false;
+  // stop animator
 	if (smoothTransformAnimFrame) {
 		cancelAnimationFrame(smoothTransformAnimFrame);
 		smoothTransformAnimFrame = null;
@@ -2622,8 +2618,11 @@ function destroyMap() {
 	pathCoordinates = []; routeBatchLayers = [];
 	lastMapRotation = 0; lastMarkerAngle = 0; lastIconSize = 32;
 	lastMapCenter = null;
+	autoFollowTarget = null;
+	autoFollowRunning = false;
 }
 
+const MIN_DIST_KM = 0.001;
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
     if (!map || !routeLayer) return;
 
@@ -2644,10 +2643,10 @@ function addRealtimePolylineSegment(lat, lon, speedKmh) {
     ).addTo(routeLayer);
 }
 
+
 // -----------------------------
 // Update route and autoFollow target
 // -----------------------------
-const MIN_DIST_KM = 0.001;
 function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     if (!map || !vehicleMarker) return;
     if (!isFinite(lat) || !isFinite(lon)) return;
@@ -2658,6 +2657,8 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     lastGpsHeading = isFinite(headingDegInput) ? headingDegInput : lastGpsHeading;
 
     const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput ?? lastGpsHeading);
+    autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
+
     const now = Date.now();
     const lastCoord = pathCoordinates[pathCoordinates.length - 1];
 	if (
@@ -2673,6 +2674,13 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
 		}
 		addRealtimePolylineSegment(lat, lon, speedKmh);
 	}
+
+    if (autoFollow) {
+        applySmoothTransform(lat, lon, reliableHeading, speedKmh, null);
+    } else {
+        vehicleMarker.setLatLng([lat, lon]);
+        vehicleMarker.setRotationAngle(reliableHeading);
+    }
 }
 // =============================
 // DRAW HISTORY ROUTE (UNCHANGED)
@@ -2776,7 +2784,6 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
         });
     }
 });
-let speedKmh = 0;
 
 function startTracking() {
 	if (isTrackingStarted || isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
@@ -2806,7 +2813,7 @@ function startTracking() {
 	elapsedTime = 0;
 	totalDistance = 0;
 	startAvgEfficiencyTracking();
- 
+  
   // --- Update UI ---
 	startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
 	endTimeSpan.textContent = "-";
@@ -2824,7 +2831,7 @@ function startTracking() {
 		updateTripTime();
 		updateIdleDisplay();
 	}, 1000);
-    destroyMap();
+
 	startBtn.disabled = true;
 	stopBtn.disabled = false;
 
@@ -2833,9 +2840,21 @@ function startTracking() {
 			const { latitude, longitude, heading } = pos.coords;
 			const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 			const headingDeg = (typeof heading === 'number' && isFinite(heading) && heading >= 0) ? heading : 0;
-			
-			initMap(latitude, longitude);
-				
+      // สร้าง map
+				if (!map) {
+					initMap(latitude, longitude); 
+					map.whenReady(() => { 
+						setMapPaneTransformOriginToCenter(map); 
+						const safeCenter = clampLatLng(latitude, longitude); 
+						map.setView([latitude, longitude], BASE_ZOOM, { animate: false }); 
+						const reliableHeading = getReliableHeading(latitude, longitude, 0, headingDeg); 
+						updateRoute(latitude, longitude, 0, reliableHeading); 
+						startAutoFollowLoop();
+					});
+				} else {
+    // map พร้อมอยู่แล้ว
+					startAutoFollowLoop();
+				}	
 			prevPos = { latitude, longitude };
 			prevTimestamp = pos.timestamp;
 			tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
@@ -2875,7 +2894,7 @@ function startTracking() {
 		avgEfficiencyPerPercent: 0,
 		path: [],
 	});
-	const isDesktop = !/Android|iPhone|iPad/i.test(navigator.userAgent);
+
 // --- Watch position ---
 	watchId = navigator.geolocation.watchPosition(
 			(pos) => {
@@ -2895,7 +2914,7 @@ function startTracking() {
 						speedKmh = timeSec > 0 ? (dist / timeSec) * 3600 : 0;
 				}
 
-      // กรอง speed ต่ำกว่า 3 km/h
+      // กรอง speed ต่ำกว่า 2 km/h
 				if (speedKmh < 2) speedKmh = 0;
 					prevTimestamp = pos.timestamp;
 					
@@ -2960,11 +2979,7 @@ function startTracking() {
 			stopTracking();
 			isTracking = false;
 		},
-    {
-        enableHighAccuracy: !isDesktop,
-        maximumAge: isDesktop ? 60000 : 0,
-        timeout: isDesktop ? 20000 : 10000
-    }
+		{ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
 	);
 }
 
