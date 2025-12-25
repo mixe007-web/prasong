@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 46.62</h2>
+<h2>Trip A-B Version 46.68</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2181,6 +2181,7 @@ function showLeafletMapFromTrip(trip) {
 // 🚗 MAP TRACKING CORE (CLEAN)
 // =============================
 let map = null;
+let speedKmh = 0;
 let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
@@ -2288,16 +2289,22 @@ function getSpeedColor(s) {
 }
 
 // ==============================
+// 🚗 AUTO FOLLOW 
+// ==============================
+const AUTO_FOLLOW_FPS = 18;       // target FPS
+const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
+const MAP_ROT_THRESHOLD = 2;      // min deg delta to rotate map
+const MARKER_ROT_THRESHOLD = 1;   // min deg delta to rotate marker
+const ZOOM_THRESHOLD = 0.05;      // min zoom delta to update
+const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
+
+// ==============================
 // 🔹 AUTO FOLLOW LOOP
 // ==============================
-
 function autoFollowLoop() { 
     if (!autoFollow || lastGpsLat === null || lastGpsLng === null) return;
-		const now = performance.now();
-		if (now - lastAutoFollowTime < 80) return; // ✅ throttle
-		lastAutoFollowTime = now;
-		if (smoothTransformAnimFrame) return;
-		applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading,lastGpsSpeedKmh);
+	if (smoothTransformAnimFrame) return;
+    applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
 }
 
 let autoFollowLoopInterval = null;
@@ -2398,36 +2405,6 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     }
 }
 
-// ==============================
-// 🚗 AUTO FOLLOW – Low-end detect
-// ==============================
-let isLowEndAndroid = true;
-async function detectLowEndByRAF() {
-    let frames = 0;
-    const start = performance.now();
-    function test(now) {
-        frames++;
-        if (now - start < 500) {
-            requestAnimationFrame(test);
-        }
-    }
-    requestAnimationFrame(test);
-    await new Promise(r => setTimeout(r, 600));
-    return frames < 25;
-}
-detectLowEndByRAF().then(isLow => {
-    isLowEndAndroid = isLow;
-});
-
-function getAutoFollowFPS() {
-    return isLowEndAndroid ? 30 : 60;
-}
-
-// thresholds
-const PAN_THRESHOLD = 0.00005;
-const ZOOM_THRESHOLD = 0.05;
-const ICON_SIZE_THRESHOLD = 1;
-
 function smoothTransformStep(now) {
     if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
         if (smoothTransformAnimFrame) cancelAnimationFrame(smoothTransformAnimFrame);
@@ -2436,7 +2413,7 @@ function smoothTransformStep(now) {
     }
 
     const elapsed = now - (smoothTransformTarget.lastFrameTime || now);
-    const minInterval = 1000 / getAutoFollowFPS();
+    const minInterval = 1000 / AUTO_FOLLOW_FPS;
     if (elapsed < minInterval) {
         smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
         return;
@@ -2450,7 +2427,7 @@ function smoothTransformStep(now) {
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
     // --- Smooth pan ---
-    if (autoFollow && targetSpeed > 1.5) {
+    if (autoFollow && targetSpeed > 1) {
         if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
             lastMapCenter = map.getCenter();
         }
@@ -2476,7 +2453,7 @@ function smoothTransformStep(now) {
 	const pane = getRotationElement(map);
 	if (pane) {
 		let desiredMapRotation = lastMapRotation;
-		if (autoRotate && targetSpeed > 1) {
+		if (autoRotate && targetSpeed > 2) {
 			desiredMapRotation = (-smoothedHeading + 360) % 360;
 		}
 		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
@@ -2491,18 +2468,15 @@ function smoothTransformStep(now) {
     }
 
     // --- Icon size smooth update ---
-	if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
-		lastIconSize = targetIconSize;
-
-		if (!cachedIcons[targetIconSize]) {
-			cachedIcons[targetIconSize] = L.icon({
-				iconUrl: vehicleIcon.options.iconUrl,
-				iconSize: [targetIconSize, targetIconSize],
-				iconAnchor: [targetIconSize / 2, targetIconSize / 2]
-			});
-		}
-		vehicleMarker.setIcon(cachedIcons[targetIconSize]);
-	}
+    if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
+        lastIconSize = targetIconSize;
+        const icon = L.icon({
+            iconUrl: vehicleIcon.options.iconUrl,
+            iconSize: [targetIconSize, targetIconSize],
+            iconAnchor: [targetIconSize / 2, targetIconSize / 2]
+        });
+        vehicleMarker.setIcon(icon);
+    }
 
     if (callback) callback();
 
