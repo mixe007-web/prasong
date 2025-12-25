@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 46.60</h2>
+<h2>Trip A-B Version 46.62</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2293,16 +2293,11 @@ function getSpeedColor(s) {
 
 function autoFollowLoop() { 
     if (!autoFollow || lastGpsLat === null || lastGpsLng === null) return;
-    const now = performance.now();
-    if (now - lastAutoFollowTime < 80) return; // ✅ throttle
-    lastAutoFollowTime = now;
-    if (smoothTransformAnimFrame) return;
-    applySmoothTransform(
-        lastGpsLat,
-        lastGpsLng,
-        lastGpsHeading,
-        lastGpsSpeedKmh
-    );
+		const now = performance.now();
+		if (now - lastAutoFollowTime < 80) return; // ✅ throttle
+		lastAutoFollowTime = now;
+		if (smoothTransformAnimFrame) return;
+		applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading,lastGpsSpeedKmh);
 }
 
 let autoFollowLoopInterval = null;
@@ -2365,6 +2360,7 @@ let smoothTransformTarget = {
 };
 
 let lastDeviceHeading = null;
+
 // Low-pass filter + adaptive weighting
 function getSmoothedDeviceHeading(targetHeading) {
     if (window.deviceOrientationHeading == null) return targetHeading;
@@ -2429,10 +2425,8 @@ function getAutoFollowFPS() {
 
 // thresholds
 const PAN_THRESHOLD = 0.00005;
-const MAP_ROT_THRESHOLD = 0.2;
 const ZOOM_THRESHOLD = 0.05;
 const ICON_SIZE_THRESHOLD = 1;
-
 
 function smoothTransformStep(now) {
     if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2455,83 +2449,46 @@ function smoothTransformStep(now) {
     // --- Update marker position ---
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
-// --- Smooth pan (Android optimized) ---
-if (autoFollow && targetSpeed > 1) {
-    if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
-        lastMapCenter = map.getCenter();
-    }
-
-    const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
-    const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
-    const needMove = deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD;
-    const needZoom = Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD;
-
-    if (needMove || needZoom) {
-        if (targetSpeed > 15) {
-            map.flyTo([targetLat, targetLon], targetZoom, {
-                animate: true,
-                duration: 0.15,
-                easeLinearity: 0.35
-            });
-        } else {
-            map.panTo([targetLat, targetLon], { animate: true, duration: 0.12 });
-            if (needZoom) map.setZoom(targetZoom);
+    // --- Smooth pan ---
+    if (autoFollow && targetSpeed > 1.5) {
+        if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
+            lastMapCenter = map.getCenter();
         }
-
-        lastMapCenter = { lat: targetLat, lng: targetLon };
-        lastZoom = targetZoom;
+        const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
+        const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
+        if (deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD || Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD) {
+            map.flyTo([targetLat, targetLon], targetZoom, { animate: true, duration: 0.15, easeLinearity: 0.35 });
+            lastMapCenter = { lat: targetLat, lng: targetLon };
+            lastZoom = targetZoom;
+        }
     }
-}
 
-	
-	// 🚫 DEAD ZONE — จอด = ไม่หมุนอะไร
-	const mapHeading = targetHeading ?? lastReliableHeading ?? 0;
-	const targetRotation = (-mapHeading + 360) % 360;
-	const pane = getRotationElement(map);
-	if (targetSpeed < 2) {
-		lastMapRotation = lerpAngle(lastMapRotation, targetRotation, 0.05);
-		pane && (pane.style.transform = `rotate(${lastMapRotation}deg)`);
-		smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
-		return;
-	}
-	// ✅ heading สำหรับ MARKER (ผสม compass ได้)
-	const markerHeading = getSmoothedDeviceHeading(mapHeading);
+    // --- Smoothed heading (ใช้ครั้งเดียวต่อเฟรม) ---
+    const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
 
     // --- Dynamic smooth factor based on speed ---
     // รถเร็ว -> marker หมุนไวกว่า map
     const speedFactor = clamp(targetSpeed / 60, 0, 1); // 0 = slow, 1 = fast
     const mapSmooth = lerp(0.25, 0.1, speedFactor);    // map หมุนช้าลงเมื่อเร็ว
     const markerSmooth = lerp(0.35, 0.6, speedFactor); // marker หมุนเร็วขึ้นเมื่อเร็ว
-	const diff = normalizeAngleDifference(lastMapRotation, targetRotation);
 
-	// --- Smooth map rotation (LOCK WHEN STOPPED) ---
+// --- Smooth map rotation (LOCK WHEN STOPPED) ---
+	const pane = getRotationElement(map);
 	if (pane) {
-		if (autoRotate && targetSpeed > 1.5) {
-			if (Math.abs(diff) > MAP_ROT_THRESHOLD) {
-				let effectiveSmooth = mapSmooth;
-				if (Math.abs(diff) < 1) effectiveSmooth = 0.02;
-					lastMapRotation = lerpAngle(
-						lastMapRotation,
-						targetRotation,
-						effectiveSmooth
-					);
-					pane.style.transform = `rotate(${lastMapRotation}deg)`;
-					isMapRotated = Math.abs(lastMapRotation) > 0.5;
-			}
+		let desiredMapRotation = lastMapRotation;
+		if (autoRotate && targetSpeed > 1) {
+			desiredMapRotation = (-smoothedHeading + 360) % 360;
 		}
+		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
+		pane.style.transform = `rotate(${lastMapRotation}deg)`;
+		isMapRotated = Math.abs(lastMapRotation) > 0.5;
 	}
+
     // --- Smooth marker rotation (relative to map) ---
-	// ปรับ offset ตามทิศ icon (ส่วนใหญ่ = 180)
-	const ICON_HEADING_OFFSET = 180;
-	// markerHeading = heading โลก (0=N)
-	const markerAngle = (markerHeading + ICON_HEADING_OFFSET) % 360;
-	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-		const nextAngle = lerpAngle(lastMarkerAngle, markerAngle, markerSmooth);
-		if (Math.abs(normalizeAngleDifference(lastMarkerAngle, nextAngle)) > 0.5) {
-			lastMarkerAngle = nextAngle;
-			vehicleMarker.setRotationAngle(lastMarkerAngle);
-		}
-	}
+    if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
+        lastMarkerAngle = lerpAngle(lastMarkerAngle, smoothedHeading, markerSmooth);
+        vehicleMarker.setRotationAngle(lastMarkerAngle);
+    }
 
     // --- Icon size smooth update ---
 	if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
@@ -2673,6 +2630,7 @@ function destroyMap() {
 	autoFollowRunning = false;
 }
 
+const MIN_DIST_KM = 0.001;
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
     if (!map || !routeLayer) return;
 
@@ -2693,46 +2651,6 @@ function addRealtimePolylineSegment(lat, lon, speedKmh) {
     ).addTo(routeLayer);
 }
 
-let lastSmoothTime = null;
-
-function getSmoothedPosition(lat, lon, speedKmh, headingDeg) {
-    const now = performance.now();
-
-    if (speedKmh < 1 || !lastPosition || !isFinite(headingDeg)) {
-        lastSmoothTime = now;
-        return { lat, lon };
-    }
-
-    if (!lastSmoothTime) {
-        lastSmoothTime = now;
-        return { lat, lon };
-    }
-
-    const dt = (now - lastSmoothTime) / 1000; // วินาที
-    lastSmoothTime = now;
-    const expectedDistKm = (speedKmh / 3600) * dt;
-    const headingRad = deg2rad(headingDeg);
-    const dLat = (expectedDistKm * Math.cos(headingRad)) / 110.574;
-    const dLon = (expectedDistKm * Math.sin(headingRad)) / (111.320 * Math.cos(deg2rad(lat)));
-    const projectedLat = lastPosition.lat + dLat;
-    const projectedLon = lastPosition.lon + dLon;
-    let gpsWeight;
-    if (speedKmh < 5) gpsWeight = 0.15;
-    else if (speedKmh < 15) gpsWeight = 0.35;
-    else if (speedKmh < 40) gpsWeight = 0.65;
-    else gpsWeight = 0.9;
-    return {
-        lat: lerp(projectedLat, lat, gpsWeight),
-        lon: lerp(projectedLon, lon, gpsWeight)
-    };
-}
-
-function getMinPolylineDistance(speedKmh) {
-    if (speedKmh < 5) return 0.006;   // 6 m
-    if (speedKmh < 15) return 0.004;  // 4 m
-    if (speedKmh < 40) return 0.002;  // 2 m
-    return 0.001;                     // 1 m
-}
 
 // -----------------------------
 // Update route and autoFollow target
@@ -2741,47 +2659,37 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     if (!map || !vehicleMarker) return;
     if (!isFinite(lat) || !isFinite(lon)) return;
 
-    const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput);
-    const rawLat = lat;
-    const rawLon = lon;
+    lastGpsLat = lat;
+    lastGpsLng = lon;
+    lastGpsSpeedKmh = speedKmh;
+    lastGpsHeading = isFinite(headingDegInput) ? headingDegInput : lastGpsHeading;
 
-    // smooth for polyline only
-    let drawLat = lat;
-    let drawLon = lon;
-    if (speedKmh >= 1) {
-        const smoothedPos = getSmoothedPosition(lat, lon, speedKmh, reliableHeading);
-        drawLat = smoothedPos.lat;
-        drawLon = smoothedPos.lon;
-        lastPosition = { lat: drawLat, lon: drawLon };
-    }
-    autoFollowTarget = { lat: rawLat, lon: rawLon, heading: reliableHeading, speedKmh };
+    const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput ?? lastGpsHeading);
+    autoFollowTarget = { lat, lon, heading: reliableHeading, speedKmh };
 
-    // --- draw polyline ---
-    if (speedKmh >= 1) {
-        const minDist = getMinPolylineDistance(speedKmh);
-        const lastCoord = pathCoordinates[pathCoordinates.length - 1];
+    const now = Date.now();
+    const lastCoord = pathCoordinates[pathCoordinates.length - 1];
+	if (
+		!lastCoord ||
+		getDistanceFromLatLonInKm(
+			lastCoord[0], lastCoord[1],
+			lat, lon
+		) >= MIN_DIST_KM
+	) {
+		pathCoordinates.push([lat, lon, speedKmh || 0, now]);
+			if (pathCoordinates.length > 20000) {
+			pathCoordinates.shift();
+		}
+		addRealtimePolylineSegment(lat, lon, speedKmh);
+	}
 
-        if (!lastCoord || getDistanceFromLatLonInKm(
-            lastCoord[0], lastCoord[1], drawLat, drawLon
-        ) >= minDist) {
-            pathCoordinates.push([drawLat, drawLon, speedKmh, Date.now()]);
-            addRealtimePolylineSegment(drawLat, drawLon, speedKmh);
-        }
-    }
-
-    if (pathCoordinates.length > 20000) {
-        pathCoordinates.shift();
-    }
-
-    // --- marker / map ---
     if (autoFollow) {
-        applySmoothTransform(rawLat, rawLon, reliableHeading, speedKmh, null);
+        applySmoothTransform(lat, lon, reliableHeading, speedKmh, null);
     } else {
-        vehicleMarker.setLatLng([rawLat, rawLon]);
+        vehicleMarker.setLatLng([lat, lon]);
         vehicleMarker.setRotationAngle(reliableHeading);
     }
 }
-
 // =============================
 // DRAW HISTORY ROUTE (UNCHANGED)
 // =============================
@@ -2945,7 +2853,6 @@ function startTracking() {
 					initMap(latitude, longitude); 
 					map.whenReady(() => { 
 						setMapPaneTransformOriginToCenter(map); 
-						const safeCenter = clampLatLng(latitude, longitude); 
 						map.setView([latitude, longitude], BASE_ZOOM, { animate: false }); 
 						const reliableHeading = getReliableHeading(latitude, longitude, 0, headingDeg); 
 						updateRoute(latitude, longitude, 0, reliableHeading); 
