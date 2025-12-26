@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 46.68</h2>
+<h2>Trip A-B Version 46.77</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2181,19 +2181,35 @@ function showLeafletMapFromTrip(trip) {
 // 🚗 MAP TRACKING CORE (CLEAN)
 // =============================
 let map = null;
-let speedKmh = 0;
+let SpeedKmh = 0;
 let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
+let lastLat = null; 
+let lastLon = null;
+let lastRotation = 0;
+let lastValidHeading = null;
+let routePolylines = [];
 let pathCoordinates = [];
 let routeBatchLayers = [];
 let isTracking = false;
 let isTrackingStarted = false;
+let isMapReady = false;
+let isRotationAnimating = false;
+let rotationAnimationFrame = null;
 let targetRotation = null;
+let isResettingRotation = false;
 let isMapRotated = false;
 let headingDeg = 0;
+let mapListenersAttached = false;
+let isPanAnimating = false;
+let isRotateAnimating = false;
+let rotationAnimFrame = null;
 let lastMarkerAngle = 0;
 let lastMapRotation = 0;
+let lastHeading = 0;
+let lastTranslateX = 0;
+let lastTranslateY = 0;
 let lastZoom = 0;
 let lastMapCenter = null;
 let lastAutoFollowTime = 0;
@@ -2201,14 +2217,18 @@ let lastGpsLat = null;
 let lastGpsLng = null;
 let lastGpsHeading = 0;
 let lastGpsSpeedKmh = 0;
+let autoFollowAnimFrame = null;
+let autoFollowTimeout = null;
 let autoFollow = true;
 let autoRotate = true;
 let autoFollowTarget = null;
+let lastTransformHeading = null;
 let autoFollowRunning = false;
+let currentIconSize = 32;
 let lastIconSize = 32;
 let lastPosition = null;
 let lastReliableHeading = null;
-let cachedIcons = {};
+let lastIconUpdateTime = 0;
 const BASE_ZOOM = 17;
 let currentTargetZoom = BASE_ZOOM;
 const POLYLINE_BATCH_SIZE = 200;
@@ -2291,21 +2311,21 @@ function getSpeedColor(s) {
 // ==============================
 // 🚗 AUTO FOLLOW 
 // ==============================
-const AUTO_FOLLOW_FPS = 18;       // target FPS
-const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
+const AUTO_FOLLOW_FPS = 15;       // target FPS
+const PAN_THRESHOLD = 0.00008;    // min lat/lng delta to pan
 const MAP_ROT_THRESHOLD = 2;      // min deg delta to rotate map
 const MARKER_ROT_THRESHOLD = 1;   // min deg delta to rotate marker
 const ZOOM_THRESHOLD = 0.05;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
-
+let lastFlyToTime = 0;
+const FLYTO_ZOOM_THROTTLE_MS = 500;
 // ==============================
 // 🔹 AUTO FOLLOW LOOP
 // ==============================
 function autoFollowLoop() { 
     if (!autoFollow || lastGpsLat === null || lastGpsLng === null) return;
-	if (smoothTransformAnimFrame) return;
-    applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
-}
+		applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
+	}
 
 let autoFollowLoopInterval = null;
 function startAutoFollowLoop() {
@@ -2427,7 +2447,7 @@ function smoothTransformStep(now) {
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
     // --- Smooth pan ---
-    if (autoFollow && targetSpeed > 1) {
+ /*   if (autoFollow) {
         if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
             lastMapCenter = map.getCenter();
         }
@@ -2438,7 +2458,31 @@ function smoothTransformStep(now) {
             lastMapCenter = { lat: targetLat, lng: targetLon };
             lastZoom = targetZoom;
         }
-    }
+    }*/
+	// --- Smooth pan / zoom 
+	if (autoFollow) {
+		if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
+			lastMapCenter = map.getCenter();
+			lastZoom = map.getZoom();
+		}
+
+		const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
+		const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
+		const needPan  = deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD;
+		const needZoom = Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD;
+		const nowTime = Date.now();
+		if (needZoom && nowTime - lastFlyToTime > FLYTO_ZOOM_THROTTLE_MS) {
+			map.flyTo([targetLat, targetLon], targetZoom, { animate: true, duration: 0.25 });
+			lastFlyToTime = nowTime;
+			lastZoom = targetZoom;
+			lastMapCenter = { lat: targetLat, lng: targetLon };
+		}
+    // 🔹 แค่ตำแหน่งขยับ → pan แบบไม่ animate
+		else if (needPan && targetSpeed > 1) {
+				map.panTo([targetLat, targetLon], { animate: false });
+				lastMapCenter = { lat: targetLat, lng: targetLon };
+		}
+	}
 
     // --- Smoothed heading (ใช้ครั้งเดียวต่อเฟรม) ---
     const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
@@ -2453,7 +2497,7 @@ function smoothTransformStep(now) {
 	const pane = getRotationElement(map);
 	if (pane) {
 		let desiredMapRotation = lastMapRotation;
-		if (autoRotate && targetSpeed > 2) {
+		if (autoRotate && targetSpeed > 1) {
 			desiredMapRotation = (-smoothedHeading + 360) % 360;
 		}
 		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
@@ -2827,6 +2871,7 @@ function startTracking() {
 					initMap(latitude, longitude); 
 					map.whenReady(() => { 
 						setMapPaneTransformOriginToCenter(map); 
+						const safeCenter = clampLatLng(latitude, longitude); 
 						map.setView([latitude, longitude], BASE_ZOOM, { animate: false }); 
 						const reliableHeading = getReliableHeading(latitude, longitude, 0, headingDeg); 
 						updateRoute(latitude, longitude, 0, reliableHeading); 
@@ -2835,7 +2880,7 @@ function startTracking() {
 				} else {
     // map พร้อมอยู่แล้ว
 					startAutoFollowLoop();
-				}	
+				}
 			prevPos = { latitude, longitude };
 			prevTimestamp = pos.timestamp;
 			tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
@@ -2875,7 +2920,6 @@ function startTracking() {
 		avgEfficiencyPerPercent: 0,
 		path: [],
 	});
-
 // --- Watch position ---
 	watchId = navigator.geolocation.watchPosition(
 			(pos) => {
@@ -2895,7 +2939,7 @@ function startTracking() {
 						speedKmh = timeSec > 0 ? (dist / timeSec) * 3600 : 0;
 				}
 
-      // กรอง speed ต่ำกว่า 2 km/h
+      // กรอง speed ต่ำกว่า 3 km/h
 				if (speedKmh < 2) speedKmh = 0;
 					prevTimestamp = pos.timestamp;
 					
@@ -2903,7 +2947,7 @@ function startTracking() {
 				updateSpeed(speedKmh);
 				const reliableHeading = getReliableHeading(latitude, longitude, speedKmh, heading);
 				updateRoute(latitude, longitude, speedKmh, reliableHeading);
-
+	  
     // --- Idle / Energy ---
 				if (speedKmh < 2) {
 					idleStartTime = idleStartTime || Date.now();
