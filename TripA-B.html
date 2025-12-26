@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 48.88</h2>
+<h2>Trip A-B Version 49.01</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2177,11 +2177,11 @@ function showLeafletMapFromTrip(trip) {
 	window.addEventListener('click', window._mapModalClickHandler);
 }
 
+
 // =============================
 // 🚗 MAP TRACKING CORE (CLEAN)
 // =============================
 let map = null;
-let SpeedKmh = 0;
 let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
@@ -2317,17 +2317,14 @@ const MAP_ROT_THRESHOLD = 5;      // min deg delta to rotate map
 const MARKER_ROT_THRESHOLD = 1;   // min deg delta to rotate marker
 const ZOOM_THRESHOLD = 0.05;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
-let lastFlyToTime = 0;
-const FLYTO_ZOOM_THROTTLE_MS = 500;
-let lastPanTime = 0;
-const PAN_THROTTLE_MS = 120;
+
 // ==============================
 // 🔹 AUTO FOLLOW LOOP
 // ==============================
-/*function autoFollowLoop() { 
+function autoFollowLoop() { 
     if (!autoFollow || lastGpsLat === null || lastGpsLng === null) return;
-		applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
-	}
+    applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
+}
 
 let autoFollowLoopInterval = null;
 function startAutoFollowLoop() {
@@ -2338,7 +2335,8 @@ function stopAutoFollowLoop() {
         clearInterval(autoFollowLoopInterval);
         autoFollowLoopInterval = null;
     }
-}*/
+}
+
 // ==============================
 // 🔹 DEVICE ORIENTATION
 // ==============================
@@ -2405,12 +2403,6 @@ function getSmoothedDeviceHeading(targetHeading) {
 
     return lerpAngle(targetHeading, lastDeviceHeading, weight);
 }
-function ensureSmoothTransformRunning() {
-    if (!smoothTransformAnimFrame && smoothTransformTarget.lat !== null) {
-        smoothTransformTarget.lastFrameTime = performance.now();
-        smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
-    }
-}
 
 function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callback = null) {
     if (!map || !vehicleMarker) return;
@@ -2426,19 +2418,21 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     smoothTransformTarget.zoom = clamp(calculateTargetZoom(speedKmh), 0, 22);
     smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
     smoothTransformTarget.callback = callback || null;
-    ensureSmoothTransformRunning();
+
+    if (!smoothTransformAnimFrame) {
+        smoothTransformTarget.lastFrameTime = performance.now();
+        smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+    }
 }
 
 function smoothTransformStep(now) {
-	if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
-		smoothTransformAnimFrame = null;
-		return;
-	}
-	if (!isFinite(smoothTransformTarget.lastFrameTime)) {
-		smoothTransformTarget.lastFrameTime = now;
-	}
+    if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
+        if (smoothTransformAnimFrame) cancelAnimationFrame(smoothTransformAnimFrame);
+        smoothTransformAnimFrame = null;
+        return;
+    }
 
-    const elapsed = now - smoothTransformTarget.lastFrameTime;
+    const elapsed = now - (smoothTransformTarget.lastFrameTime || now);
     const minInterval = 1000 / AUTO_FOLLOW_FPS;
     if (elapsed < minInterval) {
         smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
@@ -2453,29 +2447,19 @@ function smoothTransformStep(now) {
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
     // --- Smooth pan ---
-	if (autoFollow) {
+    if (autoFollow) {
         if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
             lastMapCenter = map.getCenter();
         }
         const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
         const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
         if (deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD || Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD) {
-			const nowTime = performance.now();
-			if (
-				nowTime - lastFlyToTime > FLYTO_ZOOM_THROTTLE_MS &&
-				!(map._panAnim && map._panAnim._inProgress)
-			) {
-				map.flyTo([targetLat, targetLon], targetZoom, {
-					animate: true,
-					duration: 0.15,
-					easeLinearity: 0.35
-				});
-				lastFlyToTime = nowTime;
-			}
+            map.flyTo([targetLat, targetLon], targetZoom, { animate: true, duration: 0.15, easeLinearity: 0.35 });
             lastMapCenter = { lat: targetLat, lng: targetLon };
             lastZoom = targetZoom;
         }
-	}
+    }
+
     // --- Smoothed heading (ใช้ครั้งเดียวต่อเฟรม) ---
     const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
 
@@ -2494,17 +2478,15 @@ function smoothTransformStep(now) {
 			desiredMapRotation = (-smoothedHeading + 360) % 360;
 		}
 		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
-		//pane.style.transform = `rotate(${lastMapRotation}deg)`;
 		if (
 			Math.abs(
 				normalizeAngleDifference(lastMapRotation, desiredMapRotation)
 			) > MAP_ROT_THRESHOLD
-		) {
+		){
 			pane.style.transform = `rotate(${lastMapRotation}deg)`;
 		}
 		isMapRotated = Math.abs(lastMapRotation) > 0.5;
-	}
-
+    }
     // --- Smooth marker rotation (relative to map) ---
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
         lastMarkerAngle = lerpAngle(lastMarkerAngle, smoothedHeading, markerSmooth);
@@ -2626,14 +2608,14 @@ function initMap(lat, lon) {
 		disableMapInteraction();
         const reliableHeading = getReliableHeading(lat, lon, 0, 0);
         updateRoute(lat, lon, 0, reliableHeading);
-        //startAutoFollowLoop();
+        startAutoFollowLoop();
 		startDeviceOrientationTracking();
     });
 }
 
 function destroyMap() {
 	if (!map) return;
-	//stopAutoFollowLoop();
+	stopAutoFollowLoop();
   // stop animator
 	if (smoothTransformAnimFrame) {
 		cancelAnimationFrame(smoothTransformAnimFrame);
@@ -2875,12 +2857,12 @@ function startTracking() {
 						map.setView([latitude, longitude], BASE_ZOOM, { animate: false }); 
 						const reliableHeading = getReliableHeading(latitude, longitude, 0, headingDeg); 
 						updateRoute(latitude, longitude, 0, reliableHeading); 
-						//startAutoFollowLoop();
+						startAutoFollowLoop();
 					});
-				}// else {
+				} else {
     // map พร้อมอยู่แล้ว
-				//	startAutoFollowLoop();
-				//}
+					startAutoFollowLoop();
+				}
 			prevPos = { latitude, longitude };
 			prevTimestamp = pos.timestamp;
 			tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
@@ -2947,7 +2929,7 @@ function startTracking() {
 				updateSpeed(speedKmh);
 				const reliableHeading = getReliableHeading(latitude, longitude, speedKmh, heading);
 				updateRoute(latitude, longitude, speedKmh, reliableHeading);
-	  
+	  	  
     // --- Idle / Energy ---
 				if (speedKmh < 2) {
 					idleStartTime = idleStartTime || Date.now();
@@ -3027,7 +3009,7 @@ function stopTracking() {
 	autoFollow = false;
     autoRotate = false;
 	stopDeviceOrientationTracking();
-	//stopAutoFollowLoop();
+	stopAutoFollowLoop();
 	isTrackingStarted = false;
 	isTracking = false;
 	lastGpsLat = null;
