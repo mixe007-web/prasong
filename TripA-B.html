@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 47.78</h2>
+<h2>Trip A-B Version 48.88</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2313,7 +2313,7 @@ function getSpeedColor(s) {
 // ==============================
 const AUTO_FOLLOW_FPS = 20;       // target FPS
 const PAN_THRESHOLD = 0.00008;    // min lat/lng delta to pan
-const MAP_ROT_THRESHOLD = 2;      // min deg delta to rotate map
+const MAP_ROT_THRESHOLD = 5;      // min deg delta to rotate map
 const MARKER_ROT_THRESHOLD = 1;   // min deg delta to rotate marker
 const ZOOM_THRESHOLD = 0.05;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
@@ -2453,68 +2453,55 @@ function smoothTransformStep(now) {
     vehicleMarker.setLatLng([targetLat, targetLon]);
 
     // --- Smooth pan ---
- /*   if (autoFollow) {
+	if (autoFollow) {
         if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
             lastMapCenter = map.getCenter();
         }
         const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
         const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
         if (deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD || Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD) {
-            map.flyTo([targetLat, targetLon], targetZoom, { animate: true, duration: 0.15, easeLinearity: 0.35 });
+			const nowTime = performance.now();
+			if (
+				nowTime - lastFlyToTime > FLYTO_ZOOM_THROTTLE_MS &&
+				!(map._panAnim && map._panAnim._inProgress)
+			) {
+				map.flyTo([targetLat, targetLon], targetZoom, {
+					animate: true,
+					duration: 0.15,
+					easeLinearity: 0.35
+				});
+				lastFlyToTime = nowTime;
+			}
             lastMapCenter = { lat: targetLat, lng: targetLon };
             lastZoom = targetZoom;
         }
-    }*/
-	// --- Smooth pan / zoom 
-	if (autoFollow) {
-		if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
-			lastMapCenter = map.getCenter();
-			lastZoom = map.getZoom();
-		}
-
-		const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
-		const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
-		const needPan  = deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD;
-		const needZoom = Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD;
-		const nowTime = Date.now();
-	// --- ZOOM (throttled) ---
-		if (needZoom && nowTime - lastFlyToTime > FLYTO_ZOOM_THROTTLE_MS) {
-			map.flyTo([targetLat, targetLon], targetZoom, {
-				animate: true,
-				duration: 0.25
-				});
-			lastFlyToTime = nowTime;
-			lastZoom = targetZoom;
-			const c = map.getCenter();
-			lastMapCenter = { lat: c.lat, lng: c.lng };
-		}
-
-	// --- PAN (independent) ---
-		if (needPan && targetSpeed > 1 && nowTime - lastPanTime > PAN_THROTTLE_MS) {
-			map.panTo([targetLat, targetLon], { animate: false });
-			lastMapCenter = { lat: targetLat, lng: targetLon };
-			lastPanTime = nowTime;
-		}
 	}
-
     // --- Smoothed heading (ใช้ครั้งเดียวต่อเฟรม) ---
     const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
 
     // --- Dynamic smooth factor based on speed ---
     // รถเร็ว -> marker หมุนไวกว่า map
     const speedFactor = clamp(targetSpeed / 60, 0, 1); // 0 = slow, 1 = fast
-    const mapSmooth = lerp(0.25, 0.1, speedFactor);    // map หมุนช้าลงเมื่อเร็ว
+    //const mapSmooth = lerp(0.25, 0.1, speedFactor);    // map หมุนช้าลงเมื่อเร็ว
+	const mapSmooth = lerp(0.18, 0.08, speedFactor);
     const markerSmooth = lerp(0.35, 0.6, speedFactor); // marker หมุนเร็วขึ้นเมื่อเร็ว
 
 // --- Smooth map rotation (LOCK WHEN STOPPED) ---
 	const pane = getRotationElement(map);
 	if (pane) {
 		let desiredMapRotation = lastMapRotation;
-		if (autoRotate && targetSpeed > 1) {
+		if (autoRotate && targetSpeed > 2) {
 			desiredMapRotation = (-smoothedHeading + 360) % 360;
 		}
 		lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
-		pane.style.transform = `rotate(${lastMapRotation}deg)`;
+		//pane.style.transform = `rotate(${lastMapRotation}deg)`;
+		if (
+			Math.abs(
+				normalizeAngleDifference(lastMapRotation, desiredMapRotation)
+			) > MAP_ROT_THRESHOLD
+		) {
+			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+		}
 		isMapRotated = Math.abs(lastMapRotation) > 0.5;
 	}
 
