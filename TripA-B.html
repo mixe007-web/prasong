@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 49.57</h2>
+<h2>Trip A-B Version 49.61</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2311,9 +2311,7 @@ function getSpeedColor(s) {
 // 🚗 AUTO FOLLOW 
 // ==============================
 const AUTO_FOLLOW_FPS = 30;       // target FPS
-const PAN_THRESHOLD = 0.00008;    // min lat/lng delta to pan
-const MAP_ROT_THRESHOLD = 3;      // min deg delta to rotate map
-const MARKER_ROT_THRESHOLD = 1;   // min deg delta to rotate marker
+const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
 const ZOOM_THRESHOLD = 0.05;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
 
@@ -2413,7 +2411,11 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     smoothTransformTarget.heading = headingDeg;
     smoothTransformTarget.speedKmh = speedKmh;
     smoothTransformTarget.zoom = clamp(calculateTargetZoom(speedKmh), 0, 22);
-    smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
+	const newSize = calculateIconSize(speedKmh);
+	if (Math.abs(newSize - lastIconSize) >= ICON_SIZE_THRESHOLD) {
+		lastIconSize = newSize;
+	}
+	smoothTransformTarget.iconSize = lastIconSize;
     smoothTransformTarget.callback = callback || null;
 
     if (!smoothTransformAnimFrame) {
@@ -2422,6 +2424,7 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
     }
 }
 let lockedHeading = null;
+let prevMapHeading = null;
 function smoothTransformStep(now) {
 	// ---------- Safety exit ----------
 	if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2485,55 +2488,78 @@ function smoothTransformStep(now) {
 		}
 	}
 	// ---------- Heading smoothing ----------
-	const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
+	const reliableHeading = getReliableHeading(
+		targetLat,
+		targetLon,
+		targetSpeed,
+		targetHeading
+	);
+
+	// ใช้ device orientation เฉพาะตอนหยุด
+	let smoothedHeading = reliableHeading;
+	if (targetSpeed < 1 && window.deviceOrientationHeading != null) {
+		smoothedHeading = getSmoothedDeviceHeading(reliableHeading);
+	}
+
 	const speedFactor = clamp(targetSpeed / 60, 0, 1);
 	const markerSmooth = clamp(lerp(0.4, 0.75, speedFactor), 0.4, 0.8);
-	let effectiveHeading = smoothedHeading;
-	if (targetSpeed < 0.5) {
+
+	let mapHeading = smoothedHeading;
+	let markerHeading = reliableHeading;
+
+	if (targetSpeed < 1) {
 		if (lockedHeading === null) {
 			lockedHeading = smoothedHeading;
 		}
-		effectiveHeading = lockedHeading;
+		mapHeading = lockedHeading;        // lock map
 	} else {
 		lockedHeading = null;
 	}
 
-	// ---------- Map rotation ----------
+	// ---------- Map rotation (Google Maps style) ----------
 	const pane = getRotationElement(map);
-	if (pane && autoRotate && targetSpeed > 1) {
-		const desiredMapRotation = (-effectiveHeading + 360) % 360;
-		const diff = Math.abs(
+	if (pane && autoRotate && isFinite(mapHeading)) {
+		const desiredMapRotation = (-mapHeading + 360) % 360;
+		const angleDiff = Math.abs(
 			normalizeAngleDifference(desiredMapRotation, lastMapRotation)
 		);
-		const mapSmooth = clamp(lerp(0.08, 0.35, Math.min(diff / 45, 1)), 0.08, 0.4);
-		if (diff > 60) {
-			lastMapRotation = desiredMapRotation;
-		} else {
-			lastMapRotation = lerpAngle(
-				lastMapRotation,
-				desiredMapRotation,
-				mapSmooth
+		let headingDelta = 0;
+		if (prevMapHeading !== null) {
+			headingDelta = Math.abs(
+				normalizeAngleDifference(mapHeading, prevMapHeading)
 			);
 		}
-		pane.style.transform = `rotate(${lastMapRotation}deg)`;
-		isMapRotated = Math.abs(lastMapRotation) > 0.5;
+		prevMapHeading = mapHeading;
+		const effectiveDiff = Math.max(angleDiff, headingDelta * 2);
+		if (effectiveDiff > 0.5) {
+			const turnFactor = clamp(effectiveDiff / 30, 0, 1);
+			const mapSmooth = clamp(lerp(0.12, 0.5, turnFactor), 0.12, 0.55);
+			if (effectiveDiff > 70) {
+				lastMapRotation = desiredMapRotation;
+			} else {
+				lastMapRotation = lerpAngle(
+					lastMapRotation,
+					desiredMapRotation,
+					mapSmooth
+				);
+			}
+			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+			isMapRotated = Math.abs(lastMapRotation) > 0.5;
+		}
 	}
 
-// ---------- Marker visual transform ----------
+	// ---------- Marker visual transform ----------
 	let headingDiff = 0;
 	if (vehicleMarker._icon && vehicleMarker._icon.parentNode) {
-		const markerAngleRelativeToMap =
-			normalizeAngleDifference(effectiveHeading, -lastMapRotation);
-
+		const markerAngleRelativeToMap = normalizeAngleDifference(markerHeading, -lastMapRotation);
+		const diffBefore = Math.abs(normalizeAngleDifference(markerAngleRelativeToMap, lastMarkerAngle));
 		lastMarkerAngle = lerpAngle(
 			lastMarkerAngle,
 			markerAngleRelativeToMap,
 			markerSmooth
 		);
 
-		headingDiff = Math.abs(
-			normalizeAngleDifference(markerAngleRelativeToMap, lastMarkerAngle)
-		);
+		headingDiff = diffBefore;
 
 		const scale = targetIconSize / BASE_ICON_SIZE;
 		vehicleMarker._icon.style.transformOrigin = '50% 50%';
@@ -2552,7 +2578,7 @@ function smoothTransformStep(now) {
 	// ---------- Idle detection (STOP RAF) ----------
 	const mapRotDiff = Math.abs(
 		normalizeAngleDifference(
-			(-effectiveHeading + 360) % 360,
+			(-mapHeading + 360) % 360,
 			lastMapRotation
 		)
 	);
@@ -2564,7 +2590,7 @@ function smoothTransformStep(now) {
 		mapRotDiff < 0.5 &&
 		Math.abs(targetSpeed) < 0.5;
 	if (still) {
-		lockedHeading = null;
+		prevMapHeading = null;
 		if (callback) callback();
 		smoothTransformAnimFrame = null;
 		return;
@@ -2855,6 +2881,8 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
         });
     }
 });
+let stopCounter = 0;
+const STOP_CONFIRM_FRAMES = 3;
 
 function startTracking() {
 	if (isTrackingStarted || isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
@@ -2982,6 +3010,14 @@ function startTracking() {
 					const dist = getDistanceFromLatLonInKm(prevPos.latitude, prevPos.longitude, latitude, longitude);
 					const timeSec = (pos.timestamp - prevTimestamp) / 1000;
 						speedKmh = timeSec > 0 ? (dist / timeSec) * 3600 : 0;
+				}
+				if (speedKmh < 3) {
+					stopCounter++;
+					if (stopCounter >= STOP_CONFIRM_FRAMES) {
+						speedKmh = 0;
+					}
+				} else {
+					stopCounter = 0;
 				}
 
       // กรอง speed ต่ำกว่า 3 km/h
