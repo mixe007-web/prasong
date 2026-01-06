@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 49.56</h2>
+<h2>Trip A-B Version 49.57</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2176,8 +2176,6 @@ function showLeafletMapFromTrip(trip) {
 	window._mapModalClickHandler = (e) => { if (e.target === mapModal) closeModal(); };
 	window.addEventListener('click', window._mapModalClickHandler);
 }
-
-
 // =============================
 // 🚗 MAP TRACKING CORE (CLEAN)
 // =============================
@@ -2423,7 +2421,7 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
         smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
     }
 }
-
+let lockedHeading = null;
 function smoothTransformStep(now) {
 	// ---------- Safety exit ----------
 	if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2490,10 +2488,20 @@ function smoothTransformStep(now) {
 	const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
 	const speedFactor = clamp(targetSpeed / 60, 0, 1);
 	const markerSmooth = clamp(lerp(0.4, 0.75, speedFactor), 0.4, 0.8);
+	let effectiveHeading = smoothedHeading;
+	if (targetSpeed < 0.5) {
+		if (lockedHeading === null) {
+			lockedHeading = smoothedHeading;
+		}
+		effectiveHeading = lockedHeading;
+	} else {
+		lockedHeading = null;
+	}
+
 	// ---------- Map rotation ----------
 	const pane = getRotationElement(map);
 	if (pane && autoRotate && targetSpeed > 1) {
-		const desiredMapRotation = (-smoothedHeading + 360) % 360;
+		const desiredMapRotation = (-effectiveHeading + 360) % 360;
 		const diff = Math.abs(
 			normalizeAngleDifference(desiredMapRotation, lastMapRotation)
 		);
@@ -2510,41 +2518,41 @@ function smoothTransformStep(now) {
 		pane.style.transform = `rotate(${lastMapRotation}deg)`;
 		isMapRotated = Math.abs(lastMapRotation) > 0.5;
 	}
-	// ---------- Marker visual transform ----------
+
 // ---------- Marker visual transform ----------
-let headingDiff = 0;
-if (vehicleMarker._icon && vehicleMarker._icon.parentNode) {
-    const markerAngleRelativeToMap =
-        normalizeAngleDifference(smoothedHeading, -lastMapRotation);
+	let headingDiff = 0;
+	if (vehicleMarker._icon && vehicleMarker._icon.parentNode) {
+		const markerAngleRelativeToMap =
+			normalizeAngleDifference(effectiveHeading, -lastMapRotation);
 
-    lastMarkerAngle = lerpAngle(
-        lastMarkerAngle,
-        markerAngleRelativeToMap,
-        markerSmooth
-    );
+		lastMarkerAngle = lerpAngle(
+			lastMarkerAngle,
+			markerAngleRelativeToMap,
+			markerSmooth
+		);
 
-    headingDiff = Math.abs(
-        normalizeAngleDifference(markerAngleRelativeToMap, lastMarkerAngle)
-    );
+		headingDiff = Math.abs(
+			normalizeAngleDifference(markerAngleRelativeToMap, lastMarkerAngle)
+		);
 
-    const scale = targetIconSize / BASE_ICON_SIZE;
-    vehicleMarker._icon.style.transformOrigin = '50% 50%';
-const t = vehicleMarker._icon.style.transform || '';
-const translate =
-  t.match(/translate(?:3d)?\([^)]+\)/)?.[0] || '';
+		const scale = targetIconSize / BASE_ICON_SIZE;
+		vehicleMarker._icon.style.transformOrigin = '50% 50%';
+		const t = vehicleMarker._icon.style.transform || '';
+		const translate =
+		t.match(/translate(?:3d)?\([^)]+\)/)?.[0] || '';
 
-vehicleMarker._icon.style.transformOrigin = '50% 50%';
-vehicleMarker._icon.style.transform =
-  `${translate} rotate(${lastMarkerAngle}deg) scale(${scale})`;
+		vehicleMarker._icon.style.transformOrigin = '50% 50%';
+		vehicleMarker._icon.style.transform =
+		`${translate} rotate(${lastMarkerAngle}deg) scale(${scale})`;
 
-} else {
-    headingDiff = 999;
-}
+	} else {
+		headingDiff = 999;
+	}
 
 	// ---------- Idle detection (STOP RAF) ----------
 	const mapRotDiff = Math.abs(
 		normalizeAngleDifference(
-			(-smoothedHeading + 360) % 360,
+			(-effectiveHeading + 360) % 360,
 			lastMapRotation
 		)
 	);
@@ -2556,6 +2564,7 @@ vehicleMarker._icon.style.transform =
 		mapRotDiff < 0.5 &&
 		Math.abs(targetSpeed) < 0.5;
 	if (still) {
+		lockedHeading = null;
 		if (callback) callback();
 		smoothTransformAnimFrame = null;
 		return;
