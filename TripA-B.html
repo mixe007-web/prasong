@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 50.12</h2>
+<h2>Trip A-B Version 50.11</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2481,32 +2481,24 @@ function smoothTransformStep(now) {
 
     // --- Dynamic smooth factor based on speed ---
     const speedFactor = clamp(targetSpeed / 60, 0, 1);
+    const mapSmooth = lerp(0.25, 0.1, speedFactor);
     const markerSmooth = lerp(0.35, 0.6, speedFactor);
 
     // --- Smooth map rotation ---
     const pane = getRotationElement(map);
     if (pane) {
         let desiredMapRotation = lastMapRotation;
-
-        if (autoRotate && targetHeading !== null) {
-            // 🚦 ถ้ารถเคลื่อนที่ ให้หมุนตาม heading
-            if (targetSpeed > 0.5) { 
-                desiredMapRotation = (-smoothedHeading + 360) % 360;
-            }
-            // 🚥 ถ้ารถจอด map จะคงมุมสุดท้าย (lastMapRotation)
+        if (autoRotate && targetSpeed > 1) {
+            desiredMapRotation = (-smoothedHeading + 360) % 360;
         }
-
-        const minMapSmooth = 0.1; 
-        const mapSmooth = lerp(minMapSmooth, 0.1, speedFactor);
         lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, mapSmooth);
         pane.style.transform = `rotate(${lastMapRotation}deg)`;
         isMapRotated = Math.abs(lastMapRotation) > 0.5;
     }
+
     // --- Smooth marker rotation ---
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-        const rotationDiff = normalizeAngleDifference(smoothedHeading, lastMarkerAngle);
-        const adaptiveMarkerSmooth = clamp(markerSmooth + Math.abs(rotationDiff)/90, 0, 1);
-        lastMarkerAngle = lerpAngle(lastMarkerAngle, smoothedHeading, adaptiveMarkerSmooth);
+        lastMarkerAngle = lerpAngle(lastMarkerAngle, smoothedHeading, markerSmooth);
         vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
 
@@ -2526,7 +2518,6 @@ function smoothTransformStep(now) {
     // --- Loop ต่อด้วย requestAnimationFrame ---
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
-
 // -----------------------------
 // Reset Map Rotation
 // -----------------------------
