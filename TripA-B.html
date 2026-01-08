@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 50.11</h2>
+<h2>Trip A-B Version 51.11</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -1104,7 +1104,9 @@ function updateDistanceAccum(trip, distElem){
 	distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
 	saveTripsToStorage();
 }
+
 function saveTripsToStorage(){ localStorage.setItem("tripRecorderTrips",JSON.stringify(trips)); }
+
 // ===================== History (batch, smooth) =====================
 function updateHistory() {
 	if (!tripHistoryDiv) return;
@@ -1142,6 +1144,7 @@ function updateHistory() {
 
   requestAnimationFrame(renderBatch);
 }
+
 // Delete single
 tripHistoryDiv.addEventListener('click', e=>{
 	const target=e.target;
@@ -1174,8 +1177,6 @@ setInterval(()=>{
 	trips.forEach(trip=>{
 		if(trip.locked) return;
 		let delta = mainDistance - (trip.lastDistance !== 0 ? trip.lastDistance : trip.distanceStartAt);
-
-    // ป้องกัน jump หรือติดลบ
 		if (delta > 0 && delta < 100) {
 			trip.distanceAccum += delta;
 		}
@@ -1363,18 +1364,18 @@ function updateEfficiency() {
 		energyPer100kmSpan.classList.add('energyPer100kmSpan-poor');
 	}
 
-//efficiencyPerPercentBar
+	//efficiencyPerPercentBar
 	const now = Date.now();
 	const speedDiff = Math.abs(speed - lastEfficiencySpeed);
 	if (speedDiff < 1 && now - lastEfficiencyUpdate < 300) {
-		return; // ข้ามการอัปเดต bar ถ้าเปลี่ยนเล็กน้อยและเร็วเกินไป
+		return;
 	}
 	lastEfficiencySpeed = speed;
 	lastEfficiencyUpdate = now;
 
 	let efficiencyPerPercent = getEfficiencyPerPercent(speed || 0);
 
-// ป้องกันค่าต่ำสุด และจำกัดสูงสุด
+	// ป้องกันค่าต่ำสุด และจำกัดสูงสุด
 	const MIN_EFF = 2.4;
 	const MAX_EFF = 6.02;
 	efficiencyPerPercent = Math.min(Math.max(efficiencyPerPercent, MIN_EFF), MAX_EFF);
@@ -1842,8 +1843,7 @@ document.addEventListener("DOMContentLoaded", function() {loadHistory(2);});
 	const toggleBtn = document.getElementById("toggleTripHistory");
 	const historySection = document.getElementById("tripHistorySection");
 
-  let isHistoryVisible = false;
-
+let isHistoryVisible = false;
 toggleBtn.addEventListener("click", () => {
     isHistoryVisible = !isHistoryVisible;
     historySection.style.display = isHistoryVisible ? "block" : "none";
@@ -1885,23 +1885,23 @@ function updatePosition(lat, lon, alt, speedKmh) {
 	if (alt == null || isNaN(speedKmh)) return;
 	if (prevAlt !== null) {
 		let deltaAlt = alt - prevAlt;
-			if (deltaAlt < -1 && speedKmh > 20) {
-				const now = Date.now();
-					if (now - lastRegenTime > 500) {
-						const socPercentElem = document.getElementById("socPercent");
-							if (socPercentElem) {
-								const socPercent = parseFloat(socPercentElem.textContent.replace('%', ''));
-									if (socPercent <= 96) {
-										applyRegenBySlope(deltaAlt, speedKmh);
-										lastRegenTime = now;
-									}
-							}
-					}
-			} else if (deltaAlt > 1 && speedKmh > 10) {
-				applyExtraEnergyByUphill(deltaAlt, speedKmh);
-			}
+		if (deltaAlt < -1 && speedKmh > 20) {
+			const now = Date.now();
+				if (now - lastRegenTime > 500) {
+					const socPercentElem = document.getElementById("socPercent");
+						if (socPercentElem) {
+							const socPercent = parseFloat(socPercentElem.textContent.replace('%', ''));
+								if (socPercent <= 96) {
+									applyRegenBySlope(deltaAlt, speedKmh);
+									lastRegenTime = now;
+								}
+						}
+				}
+		} else if (deltaAlt > 1 && speedKmh > 10) {
+			applyExtraEnergyByUphill(deltaAlt, speedKmh);
+		}
 	}
-  prevAlt = alt;
+	prevAlt = alt;
 }
 function applyExtraEnergyByUphill(deltaAlt, speedKmh) {
 	const vehicleMassKg = 2100;
@@ -2096,7 +2096,6 @@ const endIcon = L.divIcon({
 });
 
 // ✅ showLeafletMapFromTrip
-
 function showLeafletMapFromTrip(trip) {
 	if (!trip?.path?.length) return alert("Trip นี้ไม่มีข้อมูลตำแหน่ง");
 	const mapModal = document.getElementById('mapModal');
@@ -2184,52 +2183,30 @@ let map = null;
 let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
-let lastLat = null; 
-let lastLon = null;
-let lastRotation = 0;
-let lastValidHeading = null;
-let routePolylines = [];
 let pathCoordinates = [];
 let routeBatchLayers = [];
 let isTracking = false;
 let isTrackingStarted = false;
 let isMapReady = false;
-let isRotationAnimating = false;
-let rotationAnimationFrame = null;
-let targetRotation = null;
-let isResettingRotation = false;
 let isMapRotated = false;
 let headingDeg = 0;
-let mapListenersAttached = false;
-let isPanAnimating = false;
-let isRotateAnimating = false;
-let rotationAnimFrame = null;
 let lastMarkerAngle = 0;
 let lastMapRotation = 0;
-let lastHeading = 0;
-let lastTranslateX = 0;
-let lastTranslateY = 0;
 let lastZoom = 0;
 let lastMapCenter = null;
-let lastAutoFollowTime = 0;
 let lastGpsLat = null;
 let lastGpsLng = null;
 let lastGpsHeading = 0;
 let lastGpsSpeedKmh = 0;
 let autoFollowAnimFrame = null;
-let autoFollowTimeout = null;
 let autoFollow = true;
 let autoRotate = true;
 let autoFollowTarget = null;
-let lastTransformHeading = null;
 let autoFollowRunning = false;
-let currentIconSize = 32;
 let lastIconSize = 32;
 let lastPosition = null;
 let lastReliableHeading = null;
-let lastIconUpdateTime = 0;
 const BASE_ZOOM = 17;
-let currentTargetZoom = BASE_ZOOM;
 const POLYLINE_BATCH_SIZE = 200;
 const vehicleIcon = L.icon({
 	iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
@@ -2322,13 +2299,10 @@ const ICON_SIZE_THRESHOLD = 1;    // min icon size delta to update
 // ==============================
 function autoFollowLoopRAF() {
     if (autoFollow && lastGpsLat !== null && lastGpsLng !== null) {
-        // เรียก smooth transform เฉพาะถ้าไม่มี animation อยู่แล้ว
         if (!smoothTransformAnimFrame) {
             applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading, lastGpsSpeedKmh);
         }
     }
-
-    // เรียกตัวเองต่อเนื่อง
     autoFollowAnimFrame = requestAnimationFrame(autoFollowLoopRAF);
 }
 
@@ -2384,6 +2358,18 @@ function stopDeviceOrientationTracking() {
     lastDeviceHeading = null;
 }
 
+// Low-pass filter + adaptive weighting
+function getSmoothedDeviceHeading(targetHeading) {
+    if (window.deviceOrientationHeading == null) return targetHeading;
+    let rawHeading = (window.deviceOrientationHeading + 360) % 360;
+    if (lastDeviceHeading === null) lastDeviceHeading = rawHeading;
+    const SMOOTH_FACTOR = 0.12;
+    lastDeviceHeading = lerpAngle(lastDeviceHeading, rawHeading, SMOOTH_FACTOR);
+    const diff = normalizeAngleDifference(lastDeviceHeading, targetHeading);
+    const weight = Math.max(0, 1 - Math.min(Math.abs(diff)/90, 1));
+    return lerpAngle(targetHeading, lastDeviceHeading, weight);
+}
+
 // ==============================
 // 🔹 SMOOTH TRANSFORM STEP
 // ==============================
@@ -2398,19 +2384,6 @@ let smoothTransformTarget = {
     callback: null,
     lastFrameTime: 0
 };
-
-// Low-pass filter + adaptive weighting
-function getSmoothedDeviceHeading(targetHeading) {
-    if (window.deviceOrientationHeading == null) return targetHeading;
-    let rawHeading = (window.deviceOrientationHeading + 360) % 360;
-    if (lastDeviceHeading === null) lastDeviceHeading = rawHeading;
-    const SMOOTH_FACTOR = 0.12;
-    lastDeviceHeading = lerpAngle(lastDeviceHeading, rawHeading, SMOOTH_FACTOR);
-    const diff = normalizeAngleDifference(lastDeviceHeading, targetHeading);
-    const weight = Math.max(0, 1 - Math.min(Math.abs(diff)/90, 1));
-    return lerpAngle(targetHeading, lastDeviceHeading, weight);
-}
-
 // ==============================
 // 🔹 APPLY SMOOTH TRANSFORM
 // ==============================
@@ -2469,7 +2442,7 @@ function smoothTransformStep(now) {
 
     // --- Smoothed heading ---
     const smoothedHeading = getSmoothedDeviceHeading(targetHeading ?? 0);
-
+	
     // --- Dynamic smooth factor based on speed ---
     const speedFactor = clamp(targetSpeed / 60, 0, 1);
     const mapSmooth = lerp(0.25, 0.1, speedFactor);
@@ -2509,6 +2482,7 @@ function smoothTransformStep(now) {
     // --- Loop ต่อด้วย requestAnimationFrame ---
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
+
 // -----------------------------
 // Reset Map Rotation
 // -----------------------------
@@ -2554,6 +2528,7 @@ function clearWatchId() {
 		watchId = null;
 	}
 }
+
 let mapInteractionLocked = true;
 function disableMapInteraction() {
     if (!map) return;
@@ -2582,6 +2557,7 @@ function enableMapInteraction() {
     } catch (e) {}
     mapInteractionLocked = false;
 }
+
 // initMap 
 function initMap(lat, lon) {
     destroyMap();
@@ -2615,7 +2591,6 @@ function initMap(lat, lon) {
 function destroyMap() {
 	if (!map) return;
 	stopAutoFollowLoop();
-  // stop animator
 	if (smoothTransformAnimFrame) {
 		cancelAnimationFrame(smoothTransformAnimFrame);
 		smoothTransformAnimFrame = null;
@@ -2629,7 +2604,6 @@ function destroyMap() {
 	autoFollowRunning = false;
 }
 
-const MIN_DIST_KM = 0.001;
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
     if (!map || !routeLayer) return;
 
@@ -2650,10 +2624,10 @@ function addRealtimePolylineSegment(lat, lon, speedKmh) {
     ).addTo(routeLayer);
 }
 
-
 // -----------------------------
 // Update route and autoFollow target
 // -----------------------------
+const MIN_DIST_KM = 0.001;
 function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     if (!map || !vehicleMarker) return;
     if (!isFinite(lat) || !isFinite(lon)) return;
@@ -2681,7 +2655,6 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
 		}
 		addRealtimePolylineSegment(lat, lon, speedKmh);
 	}
-
     if (autoFollow) {
         applySmoothTransform(lat, lon, reliableHeading, speedKmh, null);
     } else {
@@ -2765,7 +2738,6 @@ function forceRecenterToVehicle() {
 // ============================
 document.getElementById('gpsFollowBtn').addEventListener('click', () => {
     if (!map || !vehicleMarker) return;
-
     const btn = document.getElementById('gpsFollowBtn');
     autoFollow = !autoFollow;
 	if (autoFollow) {
@@ -2791,9 +2763,9 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
         });
     }
 });
+
 let stopCounter = 0;
 const STOP_CONFIRM_FRAMES = 3;
-
 function startTracking() {
 	if (isTrackingStarted || isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
 	if (!plateInput.value.trim()) { alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม'); plateInput.focus(); return; }
