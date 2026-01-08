@@ -2375,7 +2375,7 @@ function handleDeviceOrientation(event) {
     if (!isFinite(alpha)) return;
     window.deviceOrientationHeading = alpha;
 }
-
+let lastDeviceHeading = null;
 function stopDeviceOrientationTracking() {
     if (!deviceOrientationActive) return;
     deviceOrientationActive = false;
@@ -2399,21 +2399,15 @@ let smoothTransformTarget = {
     lastFrameTime: 0
 };
 
-let lastDeviceHeading = null;
-
 // Low-pass filter + adaptive weighting
 function getSmoothedDeviceHeading(targetHeading) {
     if (window.deviceOrientationHeading == null) return targetHeading;
-
     let rawHeading = (window.deviceOrientationHeading + 360) % 360;
     if (lastDeviceHeading === null) lastDeviceHeading = rawHeading;
-
     const SMOOTH_FACTOR = 0.12;
     lastDeviceHeading = lerpAngle(lastDeviceHeading, rawHeading, SMOOTH_FACTOR);
-
     const diff = normalizeAngleDifference(lastDeviceHeading, targetHeading);
     const weight = Math.max(0, 1 - Math.min(Math.abs(diff)/90, 1));
-
     return lerpAngle(targetHeading, lastDeviceHeading, weight);
 }
 
@@ -2422,7 +2416,6 @@ function getSmoothedDeviceHeading(targetHeading) {
 // ==============================
 function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callback = null) {
     if (!map || !vehicleMarker) return;
-
     if (isFinite(lat)) lastGpsLat = lat;
     if (isFinite(lon)) lastGpsLng = lon;
     if (isFinite(headingDeg)) lastGpsHeading = headingDeg;
@@ -2447,7 +2440,6 @@ function smoothTransformStep(now) {
         smoothTransformAnimFrame = null;
         return;
     }
-
     const elapsed = now - (smoothTransformTarget.lastFrameTime || now);
     const minInterval = 1000 / AUTO_FOLLOW_FPS;
     if (elapsed < minInterval) {
@@ -2455,7 +2447,6 @@ function smoothTransformStep(now) {
         return;
     }
     smoothTransformTarget.lastFrameTime = now;
-
     const { lat: targetLat, lon: targetLon, heading: targetHeading, speedKmh: targetSpeed,
             zoom: targetZoom, iconSize: targetIconSize, callback } = smoothTransformTarget;
 
