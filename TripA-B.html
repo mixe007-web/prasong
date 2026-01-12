@@ -2442,20 +2442,19 @@ function smoothTransformStep(now) {
         callback
     } = smoothTransformTarget;
 
-    /* ---------- SPEED FACTOR ---------- */
+    // --- Speed factor ---
     const speedFactor = clamp(targetSpeed / 60, 0, 1);
-
-    /* ---------- MARKER POSITION ---------- */
+    // --- Update marker position ---
     if (smoothedLat === null) {
-        smoothedLat = targetLat;
-        smoothedLon = targetLon;
-    }
-    const posSmooth = lerp(0.15, 0.35, speedFactor);
-    smoothedLat = lerp(smoothedLat, targetLat, posSmooth);
-    smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
-    vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
+		smoothedLat = targetLat;
+		smoothedLon = targetLon;
+	}
+	const posSmooth = lerp(0.15, 0.35, speedFactor);
+	smoothedLat = lerp(smoothedLat, targetLat, posSmooth);
+	smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
+	vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
 
-    /* ---------- MAP PAN ---------- */
+    // --- Smooth pan ---
     if (autoFollow) {
         if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
             lastMapCenter = map.getCenter();
@@ -2478,7 +2477,6 @@ function smoothTransformStep(now) {
             lastZoom = map.getZoom();
         }
     }
-
     /* ---------- MAP HEADING (SINGLE SOURCE) ---------- */
     let mapHeading;
     if (targetSpeed < 3) {
