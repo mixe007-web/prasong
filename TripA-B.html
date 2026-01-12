@@ -694,7 +694,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 11.23</h2>
+<h2>Trip A-B Version 12.24</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2406,6 +2406,7 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
         smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
     }
 }
+
 let isRotationActive = false;
 let accumulatedTurn = 0;
 let lastTurnHeading = null;
@@ -2489,26 +2490,37 @@ function smoothTransformStep(now) {
         mapHeading = targetHeading % 360;
     }
 
-    /* ---------- ROTATION SPEED GATE ---------- */
-    if (isRotationActive) {
-        if (targetSpeed < ROTATE_STOP_SPEED) {
-            isRotationActive = false;
-            accumulatedTurn *= 0.9;
-        }
-    } else {
-        if (targetSpeed > ROTATE_START_SPEED) {
-            isRotationActive = true;
-            accumulatedTurn = 0;
-            lastTurnHeading = mapHeading;
-            lastTurnTime = performance.now();
-        }
-    }
+	/* ---------- ROTATION SPEED GATE ---------- */
+	if (isRotationActive) {
+		if (targetSpeed < ROTATE_STOP_SPEED) {
+			isRotationActive = false;
+			accumulatedTurn *= 0.9;
+		}
+	} else {
+		if (targetSpeed > ROTATE_START_SPEED) {
+			isRotationActive = true;
+			accumulatedTurn = 0;
+			lastTurnHeading = mapHeading;
+			lastTurnTime = performance.now();
+		}
+	}
 
-    if (!autoRotate) {
-        accumulatedTurn = 0;
-        lastTurnHeading = mapHeading;
-        isRotationActive = false;
-    }
+	/* ===== PATCH: RESET ROTATION TIMING ON RESUME ===== */
+	if (!isRotationActive && isMapRotated && targetSpeed > ROTATE_START_SPEED) {
+		lastRotationTime = performance.now();
+		isMapRotated = false;
+	}
+    if (!isRotationActive && targetSpeed < ROTATE_STOP_SPEED) {
+		accumulatedTurn = 0;
+		lastTurnHeading = mapHeading;
+	}
+
+	/* ---------- AUTO ROTATE OFF ---------- */
+	if (!autoRotate) {
+		accumulatedTurn = 0;
+		lastTurnHeading = mapHeading;
+		isRotationActive = false;
+	}
 
     /* ---------- TURN ACCUMULATION ---------- */
     const nowTime = performance.now();
@@ -2533,34 +2545,34 @@ function smoothTransformStep(now) {
 
     /* ---------- MAP ROTATION ---------- */
 	const pane = getRotationElement(map);
-	if (pane && autoRotate) {
+	if (pane && autoRotate && isRotationActive) {
 		if (targetSpeed < 3) {
 			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+			lastRotationTime = performance.now();
 			isMapRotated = false;
-			return;
-		}
-		const desiredMapRotation = (-mapHeading + 360) % 360;
-		const angleDiff = normalizeAngleDifference(desiredMapRotation, lastMapRotation);
-		const absAngleDiff = Math.abs(angleDiff);
-		const nowTs = performance.now();
-		const dt = Math.max(16, nowTs - lastRotationTime);
-		const yawRate = absAngleDiff / dt * 1000;
-		lastRotationTime = nowTs;
-		if (absAngleDiff > 45 || yawRate > 90) {
-			lastMapRotation = desiredMapRotation;
 		} else {
-        let rotationAlpha;
-        if (yawRate > 25 || Math.abs(accumulatedTurn) > 8) {
-            rotationAlpha = clamp(lerp(0.5, 0.95, clamp(yawRate / 120, 0, 1)), 0.5, 0.95);
-        } else {
-            rotationAlpha = lerp(0.2, 0.45, speedFactor);
-        }
-        lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation,rotationAlpha);
+			const desiredMapRotation = (-mapHeading + 360) % 360;
+			const angleDiff = normalizeAngleDifference(desiredMapRotation, lastMapRotation);
+			const absAngleDiff = Math.abs(angleDiff);
+			const nowTs = performance.now();
+			const dt = Math.max(16, nowTs - lastRotationTime);
+			const yawRate = absAngleDiff / dt * 1000;
+			lastRotationTime = nowTs;
+			if (absAngleDiff > 45 || yawRate > 90) {
+				lastMapRotation = desiredMapRotation;
+				} else {
+					let rotationAlpha;
+					if (yawRate > 25 || Math.abs(accumulatedTurn) > 8) {
+						rotationAlpha = clamp(lerp(0.5, 0.95, clamp(yawRate / 120, 0, 1)), 0.5, 0.95);
+					} else {
+						rotationAlpha = lerp(0.2, 0.45, speedFactor);
+					}
+					lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation,rotationAlpha);
+				}
+			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+			isMapRotated = true;
 		}
-		pane.style.transform = `rotate(${lastMapRotation}deg)`;
-		isMapRotated = true;
 	}
-
     /* ---------- MARKER ROTATION ---------- */
     const markerSmooth = targetSpeed > 3 ? lerp(0.4, 0.65, speedFactor) : 1;
 
