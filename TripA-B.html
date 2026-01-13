@@ -353,18 +353,28 @@ button:disabled {
 	width: 100%;
 	height: 300px;
 }
-.leaflet-marker-icon {
-    z-index: 10000;
-    transform-origin: center center;
 
-    --marker-scale: 1;
-    --marker-rotate: 0deg;
-
-    transform:
-        translate(-50%, -50%)
-        rotate(var(--marker-rotate))
-        scale(var(--marker-scale));
+.vehicle-marker {
+    /* Leaflet จัดตำแหน่งเอง */
 }
+
+.vehicle-inner {
+    width: 32px; /* BASE_ICON_SIZE */
+    height: 32px;
+    transform-origin: center center;
+    --marker-rotate: 0deg;
+    --marker-scale: 1;
+    transform: rotate(var(--marker-rotate)) scale(var(--marker-scale));
+}
+
+.vehicle-inner img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* ป้องกัน image บิด/ยืด */
+    display: block;
+    pointer-events: none; /* ป้องกัน interaction image */
+}
+
 
 #map-container {
 	position: relative;
@@ -694,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 12.24</h2>
+<h2>Trip A-B Version 11.56</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2143,7 +2153,7 @@ function showLeafletMapFromTrip(trip) {
 	L.marker([end.lat, end.lng], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(m);
 
 	const latlngs = entries.map(e => [e.lat, e.lng]);
-	if (latlngs.length >= 2) m.fitBounds(latlngs, { padding: [60, 60], maxZoom: BASE_ZOOM });
+	if (latlngs.length >= 2) m.fitBounds(latlngs, { padding: [80, 80], maxZoom: BASE_ZOOM });
 	else m.setView(latlngs[0], BASE_ZOOM);
 
 	setTimeout(() => m.invalidateSize(), 300);
@@ -2209,29 +2219,29 @@ let lastReliableHeading = null;
 const BASE_ZOOM = 17;
 const BASE_ICON_SIZE = 32;
 const POLYLINE_BATCH_SIZE = 200;
-const vehicleIcon = L.icon({
-	iconUrl: 'https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png',
-	iconSize: [BASE_ICON_SIZE, BASE_ICON_SIZE],
-	iconAnchor: [BASE_ICON_SIZE / 2, BASE_ICON_SIZE / 2]
+const vehicleIcon = L.divIcon({
+    className: 'vehicle-marker',
+    html: `<div class="vehicle-inner"><img src="https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png" /></div>`,
+    iconSize: [BASE_ICON_SIZE, BASE_ICON_SIZE],
+    iconAnchor: [BASE_ICON_SIZE / 2, BASE_ICON_SIZE / 2]
 });
 // rotated marker fallback
 if (L.Marker && !L.Marker.prototype.setRotationAngle) {
-	L.Marker.include({
-		setRotationAngle: function(angle) {
-			if (!this._icon) return;
-			try {
-				this._icon.style.transformOrigin = '50% 50%';
-				const baseTransform = this._icon.style.transform || "";
-				const cleaned = baseTransform.replace(/rotate\([^)]*\)/, "").trim();
-				this._icon.style.transform = `${cleaned} rotate(${angle}deg) translateZ(0)`;
-				this._rotationAngle = angle;
-			} catch (e) {
-				console.warn('setRotationAngle fallback failed', e);
-			}
-		}
-	});
-  console.warn("⚠️ leaflet.rotatedMarker fallback applied (improved).");
+    L.Marker.include({
+        setRotationAngle: function(angle) {
+            if (!this._icon) return;
+            try {
+                const inner = this._icon.querySelector('.vehicle-inner') || this._icon;
+                inner.style.setProperty('--marker-rotate', `${angle}deg`);
+                this._rotationAngle = angle;
+            } catch (e) {
+                console.warn('setRotationAngle fallback failed', e);
+            }
+        }
+    });
+    console.warn("⚠️ leaflet.rotatedMarker fallback applied (improved).");
 }
+
 
 // safeInvalidateMap: preserve behavior but operate on container, not pane
 function safeInvalidateMap(targetMap, delay = 300) {
@@ -2263,9 +2273,9 @@ function calculateTargetZoom(speedKmh) {
 	return 14;
 }
 function calculateIconSize(speedKmh) {
-	if (speedKmh < 40) return 32;
-	if (speedKmh < 80) return 26;
-	if (speedKmh < 120) return 20;
+	if (speedKmh < 30) return 32;
+	if (speedKmh < 60) return 26;
+	if (speedKmh < 100) return 20;
 	return 16;
 }
 function getRotationElement(targetMap = map) {
@@ -2414,11 +2424,13 @@ let lastTurnTime = 0;
 let smoothedLat = null;
 let smoothedLon = null;
 let frozenHeading = null;
+let isInTurn = false;
+let effectiveHeading;
 const ROTATE_STOP_SPEED  = 2;
 const ROTATE_START_SPEED = 4;
 const TURN_ACCUM_RESET_TIME = 600;
-const TURN_MIN_RATE = 0.15;
-
+const TURN_MIN_RATE = 0.3;
+const TURN_START_ANGLE = 10;
 function smoothTransformStep(now) {
     if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
         smoothTransformAnimFrame = null;
@@ -2478,128 +2490,129 @@ function smoothTransformStep(now) {
             lastZoom = map.getZoom();
         }
     }
-    /* ---------- MAP HEADING (SINGLE SOURCE) ---------- */
-    let mapHeading;
-    if (targetSpeed < 3) {
-        if (frozenHeading === null) {
-            frozenHeading = lastGpsHeading ?? targetHeading;
-        }
-        mapHeading = frozenHeading;
-    } else {
-        frozenHeading = null;
-        mapHeading = targetHeading % 360;
-    }
 
-	/* ---------- ROTATION SPEED GATE ---------- */
-	if (isRotationActive) {
+    // --- Map heading (GPS / road only) ---
+    let mapHeading;
+	if (targetSpeed < ROTATE_STOP_SPEED) {
+		if (frozenHeading === null) {
+			frozenHeading = lastGpsHeading;
+		}
+			effectiveHeading = frozenHeading;
+	} else {
+		frozenHeading = null;
+		effectiveHeading = targetHeading % 360;
+	}
+
+mapHeading = effectiveHeading;
+
+    // --- Rotation hysteresis (speed gate) ---
+    if (isRotationActive) {
 		if (targetSpeed < ROTATE_STOP_SPEED) {
 			isRotationActive = false;
 			accumulatedTurn *= 0.9;
 		}
-	} else {
-		if (targetSpeed > ROTATE_START_SPEED) {
-			isRotationActive = true;
-			accumulatedTurn = 0;
-			lastTurnHeading = mapHeading;
+    } else {
+        if (targetSpeed > ROTATE_START_SPEED) {
+            isRotationActive = true;
+            accumulatedTurn = 0;
+            lastTurnHeading = mapHeading;
 			lastTurnTime = performance.now();
-		}
-	}
+        }
+    }
 
-	/* ===== PATCH: RESET ROTATION TIMING ON RESUME ===== */
-	if (!isRotationActive && isMapRotated && targetSpeed > ROTATE_START_SPEED) {
-		lastRotationTime = performance.now();
-		isMapRotated = false;
-	}
-    if (!isRotationActive && targetSpeed < ROTATE_STOP_SPEED) {
-		accumulatedTurn = 0;
-		lastTurnHeading = mapHeading;
-	}
-
-	/* ---------- AUTO ROTATE OFF ---------- */
+    // --- Integrated turn calculation ---
 	if (!autoRotate) {
 		accumulatedTurn = 0;
 		lastTurnHeading = mapHeading;
-		isRotationActive = false;
 	}
-
-    /* ---------- TURN ACCUMULATION ---------- */
     const nowTime = performance.now();
     let turnDelta = 0;
-
     if (lastTurnHeading !== null) {
         turnDelta = normalizeAngleDifference(mapHeading, lastTurnHeading);
     }
-
     const absTurnDelta = Math.abs(turnDelta);
-
-    if (nowTime - lastTurnTime > TURN_ACCUM_RESET_TIME) {
-        accumulatedTurn = 0;
-    } else if (absTurnDelta < TURN_MIN_RATE) {
-        accumulatedTurn *= 0.85;
-    } else {
-        accumulatedTurn += turnDelta;
-        lastTurnTime = nowTime;
-    }
-
-    lastTurnHeading = mapHeading;
-
-    /* ---------- MAP ROTATION ---------- */
-	const pane = getRotationElement(map);
-	if (pane && autoRotate && isRotationActive) {
-		if (targetSpeed < 3) {
-			pane.style.transform = `rotate(${lastMapRotation}deg)`;
-			lastRotationTime = performance.now();
-			isMapRotated = false;
-		} else {
-			const desiredMapRotation = (-mapHeading + 360) % 360;
-			const angleDiff = normalizeAngleDifference(desiredMapRotation, lastMapRotation);
-			const absAngleDiff = Math.abs(angleDiff);
-			const nowTs = performance.now();
-			const dt = Math.max(16, nowTs - lastRotationTime);
-			const yawRate = absAngleDiff / dt * 1000;
-			lastRotationTime = nowTs;
-			if (absAngleDiff > 45 || yawRate > 90) {
-				lastMapRotation = desiredMapRotation;
-				} else {
-					let rotationAlpha;
-					if (yawRate > 25 || Math.abs(accumulatedTurn) > 8) {
-						rotationAlpha = clamp(lerp(0.5, 0.95, clamp(yawRate / 120, 0, 1)), 0.5, 0.95);
-					} else {
-						rotationAlpha = lerp(0.2, 0.45, speedFactor);
-					}
-					lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation,rotationAlpha);
-				}
-			pane.style.transform = `rotate(${lastMapRotation}deg)`;
-			isMapRotated = true;
-		}
+	if (nowTime - lastTurnTime > TURN_ACCUM_RESET_TIME) {
+		accumulatedTurn = 0;
+	} else if (absTurnDelta < TURN_MIN_RATE) {
+		accumulatedTurn *= 0.85;
+	} else {
+		accumulatedTurn += turnDelta;
+		lastTurnTime = nowTime;
 	}
-    /* ---------- MARKER ROTATION ---------- */
+    lastTurnHeading = mapHeading;
+	
+	const turnMagnitude = Math.abs(accumulatedTurn);
+	if (!isInTurn && turnMagnitude >= TURN_START_ANGLE) {
+		isInTurn = true;
+	}
+
+    // --- Smooth map rotation ---
+const pane = getRotationElement(map);
+if (pane && autoRotate) {
+
+    if (targetSpeed < ROTATE_STOP_SPEED) {
+        pane.style.transform = `rotate(${lastMapRotation}deg)`;
+        isMapRotated = false;
+        isInTurn = false;
+        accumulatedTurn = 0;
+        lastTurnHeading = mapHeading;
+    } else {
+
+        const desiredMapRotation = (-mapHeading + 360) % 360;
+        const angleDiff = normalizeAngleDifference(desiredMapRotation, lastMapRotation);
+
+        // TURN ENTRY (snap)
+        if (!isInTurn && turnMagnitude >= TURN_START_ANGLE) {
+            lastMapRotation = desiredMapRotation;
+            pane.style.transform = `rotate(${lastMapRotation}deg)`;
+            isMapRotated = true;
+            isInTurn = true;
+        }
+
+        // TURN FOLLOW
+        else if (isInTurn) {
+            const FOLLOW_SMOOTH = 0.75;
+            lastMapRotation = lerpAngle(
+                lastMapRotation,
+                desiredMapRotation,
+                FOLLOW_SMOOTH
+            );
+            pane.style.transform = `rotate(${lastMapRotation}deg)`;
+            isMapRotated = true;
+
+            if (Math.abs(angleDiff) < 1.5 && turnMagnitude < 3) {
+                isInTurn = false;
+                accumulatedTurn = 0;
+            }
+        }
+    }
+}
+
+
+    // --- Marker heading (device + GPS blended) ---
+    const markerHeading = mapHeading;
     const markerSmooth = targetSpeed > 3 ? lerp(0.4, 0.65, speedFactor) : 1;
 
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-        lastMarkerAngle = lerpAngle(lastMarkerAngle, mapHeading, markerSmooth);
+        lastMarkerAngle = lerpAngle(lastMarkerAngle, markerHeading, markerSmooth);
         vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
 
-	/* ---------- ICON SIZE (STABLE CENTERED) ---------- */
-	if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
-		lastIconSize = targetIconSize;
-		const size = targetIconSize;
-		const icon = L.icon({
-			iconUrl: vehicleIcon.options.iconUrl,
-			iconSize: [size, size],
-			iconAnchor: [size * 0.5, size * 0.5],
-			className: 'vehicle-icon'
-		});
-		vehicleMarker.setIcon(icon);
-		vehicleMarker.setLatLng(vehicleMarker.getLatLng());
-		if (typeof vehicleMarker.setRotationAngle === 'function') {
-			vehicleMarker.setRotationAngle(lastMarkerAngle);
-		}
-	}
+    // --- Icon size smooth update ---
+if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
+    lastIconSize = targetIconSize;
 
-    if (callback) callback();
-    smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+    if (vehicleMarker && vehicleMarker._icon) {
+        const inner = vehicleMarker._icon.querySelector('.vehicle-inner');
+        if (inner) {
+            const scale = targetIconSize / BASE_ICON_SIZE;
+            inner.style.setProperty('--marker-scale', scale);
+        }
+    }
+}
+
+	if (callback) callback();
+	smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
 
 // -----------------------------
