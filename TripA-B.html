@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 11.60</h2>
+<h2>Trip A-B Version 12.01</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2274,8 +2274,8 @@ function calculateTargetZoom(speedKmh) {
 	return 14;
 }
 function calculateIconSize(speedKmh) {
-	if (speedKmh < 30) return 32;
-	if (speedKmh < 60) return 26;
+	if (speedKmh < 60) return 32;
+	if (speedKmh < 80) return 26;
 	if (speedKmh < 100) return 20;
 	return 16;
 }
@@ -2413,17 +2413,21 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 let smoothedLat = null;
 let smoothedLon = null;
 let frozenMapRotation = null;
-
+let lastHeadingForTurn = null;
+let lastHeadingTime = 0;
+let isTurning = false;
+let justResumed = false;
+const TURN_RATE_THRESHOLD = 25;   // deg/sec → ถือว่าเลี้ยวจริง
+const STRAIGHT_RATE_THRESHOLD = 5; // deg/sec → ถือว่าถนนตรง
 const AUTO_FOLLOW_FPS = 30;       // target FPS
 const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
-const MAP_ROT_THRESHOLD = 2;      // min deg delta to rotate map
-const MARKER_ROT_THRESHOLD = 1;   // min deg delta to rotate marker
 const ZOOM_THRESHOLD = 0.1;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 0.05;    // min icon size delta to update
 const ROTATE_STOP_SPEED  = 2;
+const SNAP_ANGLE = 8; // deg
 
 
-let SNAP_ANGLE_THRESHOLD = 15; // ค่าเป็นองศา, เล็ก = snap map ทันทีแม้เลี้ยวเล็ก
+
 
 function smoothTransformStep(now) {
     if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2481,31 +2485,70 @@ function smoothTransformStep(now) {
     }
 
     // --- Map rotation ---
-    const pane = getRotationElement(map);
-    if (pane) {
-        if (targetSpeed < ROTATE_STOP_SPEED) {
-            // Freeze map rotation when stopped
-            if (frozenMapRotation === null) frozenMapRotation = lastMapRotation;
-            pane.style.transform = `rotate(${frozenMapRotation}deg)`;
-        } else {
-            frozenMapRotation = null; // clear freeze
+	const pane = getRotationElement(map);
+	if (pane) {
+		if (!isFinite(targetHeading)) {
+			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+			return;
+		}
+		const mapHeading = (targetHeading + 360) % 360;
+		const desiredMapRotation = (-mapHeading + 360) % 360;
+		const nowTime = performance.now();
+		if (targetSpeed < ROTATE_STOP_SPEED) {
+			if (frozenMapRotation === null) {
+				frozenMapRotation = lastMapRotation;
+			}
+			pane.style.transform = `rotate(${frozenMapRotation}deg)`;
+			lastHeadingForTurn = null;
+			lastHeadingTime = 0;
+			isTurning = false;
+			justResumed = true;
+		} else {
+			frozenMapRotation = null;
+			let turnRate = 0;
+			if (lastHeadingForTurn !== null) {
+				const deltaAngle = normalizeAngleDifference(mapHeading, lastHeadingForTurn);
+				const deltaTime = (nowTime - lastHeadingTime) / 1000;
+				if (deltaTime > 0) {
+					turnRate = Math.abs(deltaAngle / deltaTime);
+				}
+			}
+			const angleDiff = normalizeAngleDifference(
+				desiredMapRotation,
+				lastMapRotation
+			);
+			lastHeadingForTurn = mapHeading;
+			lastHeadingTime = nowTime;
+			if (
+				!isTurning &&
+				(turnRate > TURN_RATE_THRESHOLD || Math.abs(angleDiff) > SNAP_ANGLE)
+			) {
+				isTurning = true;
+			} else if (
+				isTurning &&
+				turnRate < STRAIGHT_RATE_THRESHOLD &&
+				Math.abs(angleDiff) < 3
+			) {
+				isTurning = false;
+			}
+			if (justResumed) {
+				lastMapRotation = desiredMapRotation;
+				justResumed = false;
+			} else if (isTurning || Math.abs(angleDiff) > 3) {
+				lastMapRotation = desiredMapRotation;
+			} else {
+				const straightSmooth = lerp(0.75, 0.95, speedFactor);
+				lastMapRotation = lerpAngle(
+					lastMapRotation,
+					desiredMapRotation,
+					straightSmooth
+				);
+			}
 
-            const mapHeading = targetHeading % 360;
-            const desiredMapRotation = (-mapHeading + 360) % 360;
-            const angleDiff = normalizeAngleDifference(desiredMapRotation, lastMapRotation);
-
-            if (Math.abs(angleDiff) > SNAP_ANGLE_THRESHOLD) {
-                // Snap map immediately if turn exceeds threshold
-                lastMapRotation = desiredMapRotation;
-            } else {
-                // Smooth follow for smaller turns
-                const FOLLOW_SMOOTH = 0.75;
-                lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, FOLLOW_SMOOTH);
-            }
-
-            pane.style.transform = `rotate(${lastMapRotation}deg)`;
-        }
-    }
+			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+	
+		}
+	}
 
     // --- Marker rotation ---
     const markerHeading = targetHeading % 360;
@@ -2530,7 +2573,6 @@ function smoothTransformStep(now) {
     if (callback) callback();
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
-
 
 // -----------------------------
 // Reset Map Rotation
