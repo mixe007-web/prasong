@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 12.03</h2>
+<h2>Trip A-B Version 12.04</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2422,7 +2422,6 @@ function smoothTransformStep(now) {
         smoothTransformAnimFrame = null;
         return;
     }
-
     const elapsed = now - (smoothTransformTarget.lastFrameTime || now);
     const minInterval = 1000 / AUTO_FOLLOW_FPS;
     if (elapsed < minInterval) {
@@ -2430,7 +2429,6 @@ function smoothTransformStep(now) {
         return;
     }
     smoothTransformTarget.lastFrameTime = now;
-
     const {
         lat: targetLat,
         lon: targetLon,
@@ -2440,8 +2438,7 @@ function smoothTransformStep(now) {
         iconSize: targetIconSize,
         callback
     } = smoothTransformTarget;
-
-    // --- Smooth marker position ---
+    // -- Smooth marker position ---
     if (smoothedLat === null) {
         smoothedLat = targetLat;
         smoothedLon = targetLon;
@@ -2451,7 +2448,6 @@ function smoothTransformStep(now) {
     smoothedLat = lerp(smoothedLat, targetLat, posSmooth);
     smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
     vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
-
     // --- Smooth pan ---
     if (autoFollow) {
         if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
@@ -2471,7 +2467,6 @@ function smoothTransformStep(now) {
             lastZoom = map.getZoom();
         }
     }
-
 	// --- Map rotation ---
 	const pane = getRotationElement(map);
 	if (pane) {
@@ -2541,7 +2536,6 @@ function smoothTransformStep(now) {
 			}
 		}
 	}
-	
     // --- Marker rotation ---
     const markerHeading = targetHeading % 360;
     const markerSmooth = targetSpeed > 3 ? lerp(0.4, 0.65, speedFactor) : 1;
@@ -2549,7 +2543,6 @@ function smoothTransformStep(now) {
         lastMarkerAngle = lerpAngle(lastMarkerAngle, markerHeading, markerSmooth);
         vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
-
     // --- Icon size smooth update ---
     if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
         lastIconSize = targetIconSize;
@@ -2565,7 +2558,6 @@ function smoothTransformStep(now) {
     if (callback) callback();
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
-
 // -----------------------------
 // Reset Map Rotation
 // -----------------------------
@@ -2580,7 +2572,6 @@ function resetMapRotation(callback = null) {
 
     if (callback) callback();
 }
-
 // -----------------------------
 // RELIABLE HEADING
 // -----------------------------
@@ -2639,7 +2630,6 @@ function enableMapInteraction() {
     } catch (e) {}
     mapInteractionLocked = false;
 }
-
 // initMap 
 function initMap(lat, lon) {
     destroyMap();
@@ -2699,7 +2689,6 @@ function addRealtimePolylineSegment(lat, lon, speedKmh) {
     const color = getSpeedColor(speedKmh || 0);
     L.polyline([[lastCoord[0], lastCoord[1]], [lat, lon]], {color, weight: 4, opacity: 0.95, interactive: false}).addTo(routeLayer);
 }
-
 // -----------------------------
 // Update route and autoFollow target
 // -----------------------------
@@ -2795,7 +2784,6 @@ function forceRecenterToVehicle() {
     }
     applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading ?? 0, lastGpsSpeedKmh || 0);
 }
-
 // ============================
 // 🔹 GPS FOLLOW BUTTON (FIXED)
 // ============================
@@ -2833,7 +2821,6 @@ function startTracking() {
 	if (isTrackingStarted || isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
 	if (!plateInput.value.trim()) { alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม'); plateInput.focus(); return; }
 	if (!navigator.geolocation) { alert('อุปกรณ์ของคุณไม่รองรับการระบุตำแหน่ง'); return; }
-    
   // --- Reset state ---
 	autoFollow = true;
 	autoRotate = true;
@@ -2857,7 +2844,6 @@ function startTracking() {
 	elapsedTime = 0;
 	totalDistance = 0;
 	startAvgEfficiencyTracking();
-  
   // --- Update UI ---
 	startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
 	endTimeSpan.textContent = "-";
@@ -2866,10 +2852,8 @@ function startTracking() {
 	avgSpeedSpan.textContent = "0.0";
 	startCoordSpan.textContent = "-";
 	endCoordSpan.textContent = "-";
-
 	if (elapsedTimeInterval) clearInterval(elapsedTimeInterval);
 	if (updateEndTimeInterval) clearInterval(updateEndTimeInterval);
-
 	elapsedTimeInterval = setInterval(() => {
 		checkIdleStatus();
 		updateTripTime();
