@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 12.05</h2>
+<h2>Trip A-B Version 12.2</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2201,7 +2201,7 @@ let isMapReady = false;
 let isMapRotated = false;
 let headingDeg = 0;
 let lastMarkerAngle = 0;
-let lastMapRotation = 0;
+let lastMapRotation = null;
 let lastZoom = 0;
 let lastMapCenter = null;
 let lastGpsLat = null;
@@ -2403,19 +2403,13 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 
 let smoothedLat = null;
 let smoothedLon = null;
-let frozenMapRotation = null;
 let lastHeadingForTurn = null;
 let lastHeadingTime = 0;
-let isTurning = false;
-let justResumed = false;
-const TURN_RATE_THRESHOLD = 20;   // deg/sec → ถือว่าเลี้ยวจริง
-const STRAIGHT_RATE_THRESHOLD = 4; // deg/sec → ถือว่าถนนตรง
+let wasStopped = false;
 const AUTO_FOLLOW_FPS = 30;       // target FPS
 const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
 const ZOOM_THRESHOLD = 0.1;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 0.05;    // min icon size delta to update
-const ROTATE_STOP_SPEED  = 2;
-const SNAP_ANGLE = 7; // deg
 
 function smoothTransformStep(now) {
     if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2469,67 +2463,56 @@ function smoothTransformStep(now) {
     }
 	// --- Map rotation ---
 	const pane = getRotationElement(map);
-	if (pane) {
-		if (!isFinite(targetHeading)) {
+	if (pane && isFinite(targetHeading)) {
+		if (!lastHeadingTime) {
+			lastHeadingTime = now;
+		}
+		const mapHeading = (targetHeading + 360) % 360;
+		const desiredMapRotation = (-mapHeading + 360) % 360;
+		if (lastMapRotation === null) {
+			lastMapRotation = desiredMapRotation;
+		}
+		const dt = Math.min((now - lastHeadingTime) / 1000, 0.12);
+		lastHeadingTime = now;
+		const angleDiff = normalizeAngleDifference(
+			desiredMapRotation,
+			lastMapRotation
+		);
+		const absDiff = Math.abs(angleDiff);
+		let turnRate = 0;
+		if (lastHeadingForTurn !== null && dt > 0) {
+			const dh = normalizeAngleDifference(mapHeading, lastHeadingForTurn);
+			turnRate = Math.abs(dh / dt);
+		}
+		lastHeadingForTurn = mapHeading;
+		if (targetSpeed < 3) {
+			wasStopped = true;
 			pane.style.transform = `rotate(${lastMapRotation}deg)`;
+			isMapRotated = true;
 		} else {
-				const mapHeading = (targetHeading + 360) % 360;
-				const desiredMapRotation = (-mapHeading + 360) % 360;
-				const nowTime = performance.now();
-				if (targetSpeed < ROTATE_STOP_SPEED) {
-				if (frozenMapRotation === null) {
-					frozenMapRotation = lastMapRotation;
-				}
-				pane.style.transform = `rotate(${frozenMapRotation}deg)`;
-				lastHeadingForTurn = null;
-				lastHeadingTime = 0;
-				isTurning = false;
-				justResumed = true;
-				return;
-			}
-			if (justResumed) {
+			if (wasStopped) {
 				lastMapRotation = desiredMapRotation;
-				pane.style.transform = `rotate(${lastMapRotation}deg)`;
-				frozenMapRotation = null;
-				lastHeadingForTurn = mapHeading;
-				lastHeadingTime = nowTime;
-				justResumed = false;
-				isMapRotated = true;
-				return;
+				wasStopped = false;
 			}
-			let turnRate = 0;
-			if (lastHeadingForTurn !== null) {
-				const deltaAngle = normalizeAngleDifference(mapHeading, lastHeadingForTurn);
-				const deltaTime = (nowTime - lastHeadingTime) / 1000;
-				if (deltaTime > 0) {
-					turnRate = Math.abs(deltaAngle / deltaTime);
-				}
-			}
-			lastHeadingForTurn = mapHeading;
-			lastHeadingTime = nowTime;
-			const angleDiff = Math.abs(normalizeAngleDifference(desiredMapRotation, lastMapRotation));
-			if (!isTurning) {
-				if (turnRate > TURN_RATE_THRESHOLD || angleDiff > SNAP_ANGLE) {
-					isTurning = true;
-				}
+			let maxTurnSpeed;
+			if (absDiff > 30 || turnRate > 25) {
+				maxTurnSpeed = 220;
+			} else if (absDiff < 12 && turnRate < 6) {
+				maxTurnSpeed = 360;
 			} else {
-				if (turnRate < STRAIGHT_RATE_THRESHOLD * 1.5 && angleDiff < 6) {
-					isTurning = false;
-				}
+				maxTurnSpeed = targetSpeed < 40 ? 140 : 200;
 			}
-			if (isTurning) {
-				lastMapRotation = desiredMapRotation;
-			}	else {
-				const smoothFactor =
-					angleDiff > 12 ? 0.92 :
-					angleDiff > 6  ? 0.88 :
-									0.82;
-				lastMapRotation = lerpAngle(lastMapRotation, desiredMapRotation, smoothFactor);
-			}
+			const maxStep = maxTurnSpeed * dt;
+			const step =
+				absDiff <= maxStep
+					? angleDiff
+					: Math.sign(angleDiff) * maxStep;
+			lastMapRotation = (lastMapRotation + step + 360) % 360;
 			pane.style.transform = `rotate(${lastMapRotation}deg)`;
 			isMapRotated = true;
 		}
 	}
+
     // --- Marker rotation ---
     const markerHeading = targetHeading % 360;
     const markerSmooth = targetSpeed > 3 ? lerp(0.4, 0.65, speedFactor) : 1;
