@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 12.2</h2>
+<h2>Trip A-B Version 09.12</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2281,6 +2281,7 @@ function getRotationElement(targetMap = map) {
 	try { return targetMap.getPane('mapPane'); }
 	catch (e) { return targetMap.getContainer()?.querySelector('.leaflet-map-pane') ?? null; }
 }
+
 function setMapPaneTransformOriginToCenter(targetMap = map) {
 	if (!targetMap) return;
 	const pane = getRotationElement(targetMap);
@@ -2403,13 +2404,21 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 
 let smoothedLat = null;
 let smoothedLon = null;
-let lastHeadingForTurn = null;
-let lastHeadingTime = 0;
-let wasStopped = false;
+let frozenMapRotation = null;
+let freezeRotation = false;
+let resumeTimestamp = null;
+let lastHeading = null;
+let lastHeadingTimestamp = 0;
 const AUTO_FOLLOW_FPS = 30;       // target FPS
 const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
 const ZOOM_THRESHOLD = 0.1;      // min zoom delta to update
 const ICON_SIZE_THRESHOLD = 0.05;    // min icon size delta to update
+
+function stepAngle(from, to, maxStep) {
+    const diff = normalizeAngleDifference(to, from);
+    if (Math.abs(diff) <= maxStep) return to;
+    return from + Math.sign(diff) * maxStep;
+}
 
 function smoothTransformStep(now) {
     if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2464,58 +2473,114 @@ function smoothTransformStep(now) {
 	// --- Map rotation ---
 	const pane = getRotationElement(map);
 	if (pane && isFinite(targetHeading)) {
-		if (!lastHeadingTime) {
-			lastHeadingTime = now;
-		}
+		const nowTime = performance.now();
 		const mapHeading = (targetHeading + 360) % 360;
-		const desiredMapRotation = (-mapHeading + 360) % 360;
+		// ---------- CONFIG ----------
+		const ROTATE_STOP_SPEED = 3;       // km/h
+		const LOW_SPEED_NO_ROTATE = 6;      // km/h
+		const LOW_SPEED_TURN_RATE = 4;       // deg/sec
+		const LOOKAHEAD_TIME = 0.35;       // sec (prediction)
+		const RESUME_GRACE_TIME = 400;     // ms
+		const MAX_ROTATE_SPEED = 180;      // deg/sec
+		const SMOOTH_STRAIGHT = 0.35;
+		const SMOOTH_CURVE = 0.18;
+		const MIN_PREDICT_DEG = targetSpeed < 90 ? 5 : targetSpeed > 110 ? 3 : 4;
+		// ---------- INIT ----------
 		if (lastMapRotation === null) {
-			lastMapRotation = desiredMapRotation;
-		}
-		const dt = Math.min((now - lastHeadingTime) / 1000, 0.12);
-		lastHeadingTime = now;
-		const angleDiff = normalizeAngleDifference(
-			desiredMapRotation,
-			lastMapRotation
-		);
-		const absDiff = Math.abs(angleDiff);
-		let turnRate = 0;
-		if (lastHeadingForTurn !== null && dt > 0) {
-			const dh = normalizeAngleDifference(mapHeading, lastHeadingForTurn);
-			turnRate = Math.abs(dh / dt);
-		}
-		lastHeadingForTurn = mapHeading;
-		if (targetSpeed < 3) {
-			wasStopped = true;
+			lastMapRotation = (-mapHeading + 360) % 360;
+			lastHeading = mapHeading;
+			lastHeadingTimestamp = nowTime;
 			pane.style.transform = `rotate(${lastMapRotation}deg)`;
-			isMapRotated = true;
-		} else {
-			if (wasStopped) {
-				lastMapRotation = desiredMapRotation;
-				wasStopped = false;
+			return;
+		}
+		// 🛑 STOP → freeze rotation
+		if (targetSpeed < ROTATE_STOP_SPEED) {
+			frozenMapRotation ??= lastMapRotation;
+			pane.style.transform = `rotate(${frozenMapRotation}deg)`;
+			freezeRotation = true;
+			resumeTimestamp = null;
+		}
+		// ▶ MOVE / ROTATE
+		if (targetSpeed >= ROTATE_STOP_SPEED) {
+			freezeRotation = false;
+		}
+		// ▶ Resume from stop (keep old angle)
+		if (!freezeRotation) {
+			if (frozenMapRotation !== null) {
+				lastMapRotation = frozenMapRotation;
+				frozenMapRotation = null;
+				resumeTimestamp = nowTime;
+				lastHeading = mapHeading;
+				lastHeadingTimestamp = nowTime;
 			}
-			let maxTurnSpeed;
-			if (absDiff > 30 || turnRate > 25) {
-				maxTurnSpeed = 220;
-			} else if (absDiff < 12 && turnRate < 6) {
-				maxTurnSpeed = 360;
+			const deltaTime = Math.max(
+				(nowTime - lastHeadingTimestamp) / 1000,
+				0.001
+			);
+			const deltaHeading = normalizeAngleDifference(mapHeading, lastHeading);
+			const angularVelocity = deltaHeading / deltaTime;
+			lastHeading = mapHeading;
+			lastHeadingTimestamp = nowTime;
+			// 🔮 Predict heading
+			let desiredRotation;
+			let predictedHeading;
+			const isLowSpeed = targetSpeed < LOW_SPEED_NO_ROTATE;
+			const isTurning = Math.abs(angularVelocity) > LOW_SPEED_TURN_RATE;
+			if (isLowSpeed && !isTurning) {
+				desiredRotation = lastMapRotation;
 			} else {
-				maxTurnSpeed = targetSpeed < 40 ? 140 : 200;
+				if (Math.abs(angularVelocity) < 1.2) {
+					predictedHeading = mapHeading;
+				} else {
+					predictedHeading =
+					mapHeading +
+					Math.sign(angularVelocity) *
+					Math.max(
+						Math.abs(angularVelocity) * LOOKAHEAD_TIME,
+						MIN_PREDICT_DEG
+					);
+				}
+				desiredRotation = (-predictedHeading + 360) % 360;
+
 			}
-			const maxStep = maxTurnSpeed * dt;
-			const step =
-				absDiff <= maxStep
-					? angleDiff
-					: Math.sign(angleDiff) * maxStep;
-			lastMapRotation = (lastMapRotation + step + 360) % 360;
+			// ⏳ Grace time after resume
+			const inGrace =
+				resumeTimestamp &&
+				nowTime - resumeTimestamp < RESUME_GRACE_TIME;
+			// 🔄 Curve factor (continuous)
+			if (!inGrace) {
+				const curveFactor = clamp(
+					Math.abs(angularVelocity) / 25,
+					0,
+					1
+				);
+				const smoothFactor = lerp(
+					SMOOTH_STRAIGHT,
+					SMOOTH_CURVE,
+					curveFactor
+				);
+				// 🚦 Clamp rotation speed (U-turn safe)
+				const maxStep = MAX_ROTATE_SPEED * deltaTime;
+				lastMapRotation = stepAngle(
+					lastMapRotation,
+					desiredRotation,
+					maxStep
+				);
+				// ✨ Final smoothing
+				lastMapRotation = lerpAngle(
+					lastMapRotation,
+					desiredRotation,
+					smoothFactor
+				);
+			}
 			pane.style.transform = `rotate(${lastMapRotation}deg)`;
-			isMapRotated = true;
 		}
+		isMapRotated = true;
 	}
 
     // --- Marker rotation ---
     const markerHeading = targetHeading % 360;
-    const markerSmooth = targetSpeed > 3 ? lerp(0.4, 0.65, speedFactor) : 1;
+    const markerSmooth = targetSpeed > ROTATE_STOP_SPEED ? lerp(0.4, 0.65, speedFactor) : 1;
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
         lastMarkerAngle = lerpAngle(lastMarkerAngle, markerHeading, markerSmooth);
         vehicleMarker.setRotationAngle(lastMarkerAngle);
