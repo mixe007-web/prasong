@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip A-B Version 09.12</h2>
+<h2>Travelogue Version 09.00</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2409,10 +2409,11 @@ let freezeRotation = false;
 let resumeTimestamp = null;
 let lastHeading = null;
 let lastHeadingTimestamp = 0;
-const AUTO_FOLLOW_FPS = 30;       // target FPS
-const PAN_THRESHOLD = 0.00005;    // min lat/lng delta to pan
-const ZOOM_THRESHOLD = 0.1;      // min zoom delta to update
-const ICON_SIZE_THRESHOLD = 0.05;    // min icon size delta to update
+const ROTATE_STOP_SPEED = 3;       // km/h
+const AUTO_FOLLOW_FPS = 30;
+const PAN_THRESHOLD = 0.00005;
+const ZOOM_THRESHOLD = 0.1;
+const ICON_SIZE_THRESHOLD = 0.05;
 
 function stepAngle(from, to, maxStep) {
     const diff = normalizeAngleDifference(to, from);
@@ -2476,7 +2477,6 @@ function smoothTransformStep(now) {
 		const nowTime = performance.now();
 		const mapHeading = (targetHeading + 360) % 360;
 		// ---------- CONFIG ----------
-		const ROTATE_STOP_SPEED = 3;       // km/h
 		const LOW_SPEED_NO_ROTATE = 6;      // km/h
 		const LOW_SPEED_TURN_RATE = 4;       // deg/sec
 		const LOOKAHEAD_TIME = 0.35;       // sec (prediction)
@@ -2577,7 +2577,6 @@ function smoothTransformStep(now) {
 		}
 		isMapRotated = true;
 	}
-
     // --- Marker rotation ---
     const markerHeading = targetHeading % 360;
     const markerSmooth = targetSpeed > ROTATE_STOP_SPEED ? lerp(0.4, 0.65, speedFactor) : 1;
@@ -2628,7 +2627,6 @@ function getReliableHeading(lat, lon, speedKmh, gpsHeading) {
     lastPosition = { lat, lon };
     return lastReliableHeading;
 }
-
 function calcMovementHeading(prevLat, prevLon, lat, lon) {
     if (!isFinite(prevLat) || !isFinite(prevLon) || !isFinite(lat) || !isFinite(lon)) return null;
     const y = Math.sin(deg2rad(lon - prevLon)) * Math.cos(deg2rad(lat));
