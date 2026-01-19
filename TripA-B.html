@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 10.00</h2>
+<h2>Travelogue Version 10.01</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2383,14 +2383,9 @@ let smoothedLon = null;
 let frozenMapRotation = null;
 let lastHeading = null;
 let lastMapRotation = null;
-let rotationAccumulator = 0;
 let rotationFrozen = false;
-let stableHeading = null;
-let stableHeadingFrames = 0;
-
-const HEADING_STABLE_DELTA = 2;   // องศา
-const HEADING_STABLE_REQUIRED = 3; // เฟรม
-
+let lastHeadingTimestamp = 0;
+let smoothedAngularVelocity = 0;
 const ROTATE_STOP_SPEED = 3;
 const ROTATE_RESUME_SPEED = 4;
 const AUTO_FOLLOW_FPS = 30;
@@ -2449,94 +2444,84 @@ function smoothTransformStep(now) {
         }
     }
 	
-// --- Map rotation ---
-const pane = getRotationElement(map);
-if (pane && isFinite(targetHeading)) {
+	// --- Map rotation ---
+	const pane = getRotationElement(map);
+	if (pane && isFinite(targetHeading)) {
+		const nowTime = now;
+		const mapHeading = (targetHeading + 360) % 360;
+		// ---------- INIT ----------
+		if (lastMapRotation === null) {
+			lastMapRotation = (-mapHeading + 360) % 360;
+			lastHeading = mapHeading;
+			lastHeadingTimestamp = nowTime;
+			smoothedAngularVelocity = 0;
+			frozenMapRotation = null;
+			rotationFrozen = false;
+		}
+		// ---------- STOP / FREEZE ----------
+		if (targetSpeed < ROTATE_STOP_SPEED) {
+			if (!rotationFrozen) {
+				frozenMapRotation = lastMapRotation;
+				rotationFrozen = true;
+				smoothedAngularVelocity = 0;
+			}
+		// ---------- RESUME ----------
+		} else if (targetSpeed > ROTATE_RESUME_SPEED && rotationFrozen) {
+			lastMapRotation = frozenMapRotation;
+			frozenMapRotation = null;
+			lastHeading = mapHeading;
+			lastHeadingTimestamp = nowTime;
+			smoothedAngularVelocity = 0;
+			rotationFrozen = false;
+		}
+		// ---------- ACTIVE ROTATION ----------
+		if (!rotationFrozen) {
+			const deltaTime = Math.max((nowTime - lastHeadingTimestamp) / 1000, 0.016);
+			const deltaHeading = normalizeAngleDifference(mapHeading, lastHeading);
+			const angularVelocity = deltaHeading / deltaTime;
+			lastHeading = mapHeading;
+			lastHeadingTimestamp = nowTime;
+			smoothedAngularVelocity = lerp(smoothedAngularVelocity, angularVelocity, 0.35);
+			const absRate = Math.abs(smoothedAngularVelocity);
+			// ---------- STATE DETECTION ----------
+			let rotationState = "STRAIGHT";
+			if ((Math.abs(deltaHeading) > 150 && absRate > 20) || absRate > 25) {
+				rotationState = "UTURN";
+			} else if (absRate > 18) {
+				rotationState = "CURVE";
+			} else if (absRate > 3) {
+				rotationState = "TURN";
+			}
+			if (rotationState === "STRAIGHT") {
+				smoothedAngularVelocity *= 0.85;
+			}
+			// ---------- PREDICTION ----------
+			const lookAheadTime =
+				rotationState === "UTURN" ? 0.2 :
+				rotationState === "CURVE" ? 0.4 :
+				rotationState === "TURN"  ? 0.3 :
+											0.15;
+			const predictedHeading =
+				(mapHeading + smoothedAngularVelocity * lookAheadTime + 360) % 360;
+			const desiredRotation =
+				(-predictedHeading + 360) % 360;
+			// ---------- SMOOTHING ----------
+			const rotateSmooth =
+				rotationState === "UTURN" ? 0.8 :
+				rotationState === "CURVE" ? 0.35 :
+				rotationState === "TURN"  ? 0.5 :
+											0.15;
+			lastMapRotation = lerpAngle(
+				lastMapRotation,
+				desiredRotation,
+				rotateSmooth
+			);
+		}
 
-    const mapHeading = (targetHeading + 360) % 360;
-
-    // ---------- INIT ----------
-    if (lastMapRotation === null) {
-        lastMapRotation = (-mapHeading + 360) % 360;
-        lastHeading = mapHeading;
-        stableHeading = mapHeading;
-        stableHeadingFrames = 0;
-        rotationAccumulator = 0;
-    }
-
-    // ---------- HEADING STABILITY ----------
-    const diffStable = Math.abs(
-        normalizeAngleDifference(mapHeading, stableHeading)
-    );
-
-    if (diffStable < HEADING_STABLE_DELTA) {
-        stableHeadingFrames++;
-    } else {
-        stableHeading = mapHeading;
-        stableHeadingFrames = 0;
-    }
-
-    let allowRotate = stableHeadingFrames >= HEADING_STABLE_REQUIRED;
-
-    // ---------- STOP ----------
-    if (targetSpeed < ROTATE_STOP_SPEED) {
-        if (!rotationFrozen) {
-            frozenMapRotation = lastMapRotation;
-            rotationFrozen = true;
-        }
-        allowRotate = false;
-    }
-
-    // ---------- RESUME ----------
-    if (targetSpeed > ROTATE_RESUME_SPEED && rotationFrozen) {
-        lastMapRotation = frozenMapRotation;
-        frozenMapRotation = null;
-        lastHeading = mapHeading;
-        rotationAccumulator = 0;
-        stableHeading = mapHeading;
-        stableHeadingFrames = 0;
-        rotationFrozen = false;
-        allowRotate = false;
-    }
-
-    // ---------- ROTATE ----------
-    if (allowRotate && !rotationFrozen) {
-
-        const deltaHeading = normalizeAngleDifference(
-            mapHeading,
-            lastHeading
-        );
-
-        lastHeading = mapHeading;
-        rotationAccumulator += deltaHeading;
-
-        const deadZone =
-            targetSpeed < 10 ? 3 :
-            targetSpeed < 30 ? 2 : 1;
-
-        if (Math.abs(rotationAccumulator) >= deadZone) {
-
-            const rotateSmooth =
-                targetSpeed < 10 ? 0.25 :
-                targetSpeed < 30 ? 0.4 : 0.6;
-
-            const desiredRotation =
-                (-mapHeading + 360) % 360;
-
-            lastMapRotation = lerpAngle(
-                lastMapRotation,
-                desiredRotation,
-                rotateSmooth
-            );
-
-            rotationAccumulator *= 0.4;
-        }
-    }
-
-    // ---------- APPLY ----------
-    pane.style.transform = `rotate(${lastMapRotation}deg)`;
-    isMapRotated = true;
-}
+		// ---------- APPLY ----------
+		pane.style.transform = `rotate(${rotationFrozen ? frozenMapRotation : lastMapRotation}deg)`;
+		isMapRotated = true;
+	}
 
 	// --- Marker rotation ---
 	const markerHeading = targetHeading % 360;
