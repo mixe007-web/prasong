@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 10.01</h2>
+<h2>Travelogue Version 10.02</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2522,7 +2522,6 @@ function smoothTransformStep(now) {
 		pane.style.transform = `rotate(${rotationFrozen ? frozenMapRotation : lastMapRotation}deg)`;
 		isMapRotated = true;
 	}
-
 	// --- Marker rotation ---
 	const markerHeading = targetHeading % 360;
 	const markerSmooth = targetSpeed > ROTATE_STOP_SPEED ? lerp(0.4, 0.65, speedFactor) : 1;
