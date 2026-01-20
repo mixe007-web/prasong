@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 11.07</h2>
+<h2>Travelogue Version 11.09</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2376,7 +2376,6 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
         smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
     }
 }
-
 let smoothedLat = null;
 let smoothedLon = null;
 let frozenMapRotation = null;
@@ -2422,31 +2421,44 @@ function smoothTransformStep(now) {
     smoothedLat = lerp(smoothedLat, targetLat, posSmooth);
     smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
     vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
-	// --- Smooth pan ---
+// --- Smooth pan ---
 if (autoFollow) {
 
-    const center = map.getCenter();
+    if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
+        lastMapCenter = map.getCenter();
+        lastZoom = map.getZoom();
+    }
 
-    const dLat = smoothedLat - center.lat;
-    const dLng = smoothedLon - center.lng;
+    const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
+    const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
 
-    // เล็กพอ = ไม่ต้อง pan
-    if (
-        Math.abs(dLat) > PAN_THRESHOLD ||
-        Math.abs(dLng) > PAN_THRESHOLD
-    ) {
-        // interpolate center เอง
-        const followFactor = speedFactor < 0.3 ? 0.08 : 0.15;
+    const shouldPan =
+        deltaLat > PAN_THRESHOLD ||
+        deltaLng > PAN_THRESHOLD ||
+        Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD;
 
-        const nextLat = center.lat + dLat * followFactor;
-        const nextLng = center.lng + dLng * followFactor;
+    const panInterval =
+        speedFactor < 0.3 ? 160 :
+        speedFactor < 0.6 ? 120 :
+                            90;
 
-        map.setView([nextLat, nextLng], targetZoom, {
-            animate: false
+    if (shouldPan && now - lastPanTime > panInterval) {
+
+        lastPanTime = now;
+
+        const panLat = speedFactor < 0.25 ? smoothedLat : targetLat;
+        const panLon = speedFactor < 0.25 ? smoothedLon : targetLon;
+
+        map.flyTo([panLat, panLon], targetZoom, {
+            animate: true,
+            duration: 0.22,
+            easeLinearity: 0.25
         });
+
+        lastMapCenter = { lat: panLat, lng: panLon };
+        lastZoom = targetZoom;
     }
 }
-
 
 	// --- Map rotation ---
 const pane = getRotationElement(map);
