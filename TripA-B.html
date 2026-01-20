@@ -2261,9 +2261,9 @@ function normalizeAngleDifference(a, b) {
 	return diff;
 }
 function calculateTargetZoom(speedKmh) {
-	if (speedKmh < 80) return 17;
-	if (speedKmh < 100) return 16;
-	if (speedKmh < 120) return 15;
+	if (speedKmh < 60) return 17;
+	if (speedKmh < 80) return 16;
+	if (speedKmh < 100) return 15;
 	return 14;
 }
 function calculateIconSize(speedKmh) {
@@ -2277,7 +2277,6 @@ function getRotationElement(targetMap = map) {
 	try { return targetMap.getPane('mapPane'); }
 	catch (e) { return targetMap.getContainer()?.querySelector('.leaflet-map-pane') ?? null; }
 }
-
 function setMapPaneTransformOriginToCenter(targetMap = map) {
 	if (!targetMap) return;
 	const pane = getRotationElement(targetMap);
@@ -2286,6 +2285,7 @@ function setMapPaneTransformOriginToCenter(targetMap = map) {
 	pane.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
 }
 function getSpeedColor(s) {
+	if (s < 10) return '#630202';
 	if (s < 20) return '#FF0000';
 	if (s < 40) return '#FFA500';
 	if (s < 60) return '#FFFF00';
