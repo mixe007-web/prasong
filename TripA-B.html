@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 11.05</h2>
+<h2>Travelogue Version 11.07</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2423,63 +2423,88 @@ function smoothTransformStep(now) {
     smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
     vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
 	// --- Smooth pan ---
-	if (autoFollow) {
-		if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
-			lastMapCenter = { lat: smoothedLat, lng: smoothedLon };
-			lastZoom = targetZoom;
-		}
-		const deltaLat = Math.abs(lastMapCenter.lat - smoothedLat);
-		const deltaLng = Math.abs(lastMapCenter.lng - smoothedLon);
-		if (
-			now - lastPanTime > 120 &&
-			(
-				deltaLat > PAN_THRESHOLD ||
-				deltaLng > PAN_THRESHOLD ||
-				Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD
-			)
-		) {
-			lastPanTime = now;
-			const panLat = speedFactor < 0.3 ? smoothedLat : targetLat;
-			const panLon = speedFactor < 0.3 ? smoothedLon : targetLon;
-			map.flyTo([panLat, panLon], targetZoom, {
-				animate: true,
-				duration: 0.2,
-				easeLinearity: 0.3
-			});
-			lastMapCenter = { lat: panLat, lng: panLon };
-			lastZoom = targetZoom;
-		}
-	}
-	// --- Map rotation ---
-	const pane = getRotationElement(map);
-	if (pane && isFinite(targetHeading)) {
-		const mapHeading = (targetHeading + 360) % 360;
-		// INIT
-		if (lastMapRotation === null) {
-			lastMapRotation = (-mapHeading + 360) % 360;
-			frozenMapRotation = lastMapRotation;
-			rotationFrozen = false;
-		}
-		// STOP
-		if (targetSpeed < ROTATE_STOP_SPEED) {
-			if (!rotationFrozen) {
-				frozenMapRotation = lastMapRotation;
-				rotationFrozen = true;
-			}
-		}
-		// RESUME
-		else if (targetSpeed > ROTATE_RESUME_SPEED && rotationFrozen) {
-			rotationFrozen = false;
-		}
-		// FOLLOW
-		if (!rotationFrozen) {
-			const desiredRotation = (-mapHeading + 360) % 360;
-			lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.85);
-		}
-		pane.style.transform = `rotate(${rotationFrozen ? frozenMapRotation : lastMapRotation}deg)`;
-		isMapRotated = true;
-	}
+if (autoFollow) {
 
+    const center = map.getCenter();
+
+    const dLat = smoothedLat - center.lat;
+    const dLng = smoothedLon - center.lng;
+
+    // เล็กพอ = ไม่ต้อง pan
+    if (
+        Math.abs(dLat) > PAN_THRESHOLD ||
+        Math.abs(dLng) > PAN_THRESHOLD
+    ) {
+        // interpolate center เอง
+        const followFactor = speedFactor < 0.3 ? 0.08 : 0.15;
+
+        const nextLat = center.lat + dLat * followFactor;
+        const nextLng = center.lng + dLng * followFactor;
+
+        map.setView([nextLat, nextLng], targetZoom, {
+            animate: false
+        });
+    }
+}
+
+
+	// --- Map rotation ---
+const pane = getRotationElement(map);
+if (pane && isFinite(targetHeading)) {
+
+    const mapHeading = (targetHeading + 360) % 360;
+    const desiredRotation = (-mapHeading + 360) % 360;
+
+    // INIT
+    if (lastMapRotation === null) {
+        lastMapRotation = desiredRotation;
+        frozenMapRotation = desiredRotation;
+        rotationFrozen = false;
+    }
+
+    // STOP: รถหยุด → freeze มุม
+    if (targetSpeed < ROTATE_STOP_SPEED) {
+        if (!rotationFrozen) {
+            frozenMapRotation = lastMapRotation;
+            rotationFrozen = true;
+        }
+    }
+
+    // RESUME: ออกตัว → รอจนกว่าจะเลี้ยวจริง
+    else if (targetSpeed > ROTATE_RESUME_SPEED && rotationFrozen) {
+        rotationFrozen = false;
+        frozenMapRotation = lastMapRotation;
+    }
+
+    // FOLLOW
+ if (!rotationFrozen) {
+
+    const delta = Math.abs(
+        normalizeAngleDifference(desiredRotation, lastMapRotation)
+    );
+
+    if (delta < 4) {
+		lastMapRotation = desiredRotation;
+    }
+    else if (delta > 8) {
+        lastMapRotation = lerpAngle(
+            lastMapRotation,
+            desiredRotation,
+            0.85
+        );
+    }
+    else {
+        lastMapRotation = lerpAngle(
+            lastMapRotation,
+            desiredRotation,
+            0.35
+        );
+    }
+}
+
+    pane.style.transform = `rotate(${lastMapRotation}deg)`;
+    isMapRotated = true;
+}
 	// --- Marker rotation---
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
 		if (targetSpeed < ROTATE_STOP_SPEED) {
