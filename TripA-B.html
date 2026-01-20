@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 11.02</h2>
+<h2>Travelogue Version 11.05</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2200,7 +2200,6 @@ let isTrackingStarted = false;
 let isMapReady = false;
 let isMapRotated = false;
 let headingDeg = 0;
-let lastMarkerAngle = 0;
 let lastZoom = 0;
 let lastMapCenter = null;
 let lastGpsLat = null;
@@ -2381,14 +2380,10 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 let smoothedLat = null;
 let smoothedLon = null;
 let frozenMapRotation = null;
-let lastHeading = null;
 let lastMapRotation = null;
 let rotationFrozen = false;
-let lastHeadingTimestamp = 0;
-let smoothedAngularVelocity = 0;
 let lastPanTime = 0;
-let rawAngularVelocity = 0;
-let rotationState = "STRAIGHT";
+let lastMarkerAngle = 0;
 const ROTATE_STOP_SPEED = 3;
 const ROTATE_RESUME_SPEED = 4;
 const AUTO_FOLLOW_FPS = 30;
@@ -2430,24 +2425,26 @@ function smoothTransformStep(now) {
 	// --- Smooth pan ---
 	if (autoFollow) {
 		if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
-			lastMapCenter = map.getCenter();
+			lastMapCenter = { lat: smoothedLat, lng: smoothedLon };
+			lastZoom = targetZoom;
 		}
-		const currentCenter = map.getCenter();
-		const deltaLat = Math.abs(currentCenter.lat - smoothedLat);
-		const deltaLng = Math.abs(currentCenter.lng - smoothedLon);
+		const deltaLat = Math.abs(lastMapCenter.lat - smoothedLat);
+		const deltaLng = Math.abs(lastMapCenter.lng - smoothedLon);
 		if (
 			now - lastPanTime > 120 &&
-			(deltaLat > PAN_THRESHOLD ||
-			deltaLng > PAN_THRESHOLD ||
-			Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD)
+			(
+				deltaLat > PAN_THRESHOLD ||
+				deltaLng > PAN_THRESHOLD ||
+				Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD
+			)
 		) {
 			lastPanTime = now;
-			const panLat = speedFactor < 0.2 ? smoothedLat : targetLat;
-			const panLon = speedFactor < 0.2 ? smoothedLon : targetLon;
+			const panLat = speedFactor < 0.3 ? smoothedLat : targetLat;
+			const panLon = speedFactor < 0.3 ? smoothedLon : targetLon;
 			map.flyTo([panLat, panLon], targetZoom, {
-				animate: targetSpeed > ROTATE_STOP_SPEED, //true,
-				duration: 0.25,
-				easeLinearity: 0.25
+				animate: true,
+				duration: 0.2,
+				easeLinearity: 0.3
 			});
 			lastMapCenter = { lat: panLat, lng: panLon };
 			lastZoom = targetZoom;
@@ -2456,117 +2453,39 @@ function smoothTransformStep(now) {
 	// --- Map rotation ---
 	const pane = getRotationElement(map);
 	if (pane && isFinite(targetHeading)) {
-		const nowTime = now;
 		const mapHeading = (targetHeading + 360) % 360;
-		// ---------- INIT ----------
+		// INIT
 		if (lastMapRotation === null) {
 			lastMapRotation = (-mapHeading + 360) % 360;
-			lastHeading = mapHeading;
-			lastHeadingTimestamp = nowTime;
-			smoothedAngularVelocity = 0;
-			frozenMapRotation = null;
+			frozenMapRotation = lastMapRotation;
 			rotationFrozen = false;
 		}
-		// ---------- STOP / FREEZE ----------
+		// STOP
 		if (targetSpeed < ROTATE_STOP_SPEED) {
 			if (!rotationFrozen) {
-			lastMarkerAngle = (-lastMapRotation + 360) % 360;
 				frozenMapRotation = lastMapRotation;
-				lastHeadingTimestamp = nowTime;
 				rotationFrozen = true;
-				smoothedAngularVelocity = 0;
 			}
-		// ---------- RESUME ----------
-		} else if (targetSpeed > ROTATE_RESUME_SPEED && rotationFrozen) {
-			lastMapRotation = frozenMapRotation;
-			lastHeadingTimestamp = nowTime;
-			lastMarkerAngle = mapHeading;
-			lastHeading = mapHeading;
-			smoothedAngularVelocity = 0;
+		}
+		// RESUME
+		else if (targetSpeed > ROTATE_RESUME_SPEED && rotationFrozen) {
 			rotationFrozen = false;
 		}
-		// ---------- ACTIVE ROTATION ----------
-		const deltaHeadingPreview =
-			lastHeading !== null
-			? normalizeAngleDifference(mapHeading, lastHeading)
-			: 0;
+		// FOLLOW
 		if (!rotationFrozen) {
-			const deltaTime = clamp((nowTime - lastHeadingTimestamp) / 1000, 0.016, 0.25);
-			const deltaHeading = deltaHeadingPreview;
-			rawAngularVelocity = deltaHeading / deltaTime;
-			// --- dead zone (eliminate GPS jitter) ---
-			if (Math.abs(rawAngularVelocity) < 1.5) {
-				rawAngularVelocity = 0;
-			}
-			const absRaw = Math.abs(rawAngularVelocity);
-			// ---------- STATE DETECTION (ใช้ raw เท่านั้น) ----------
-			rotationState = "STRAIGHT";
-			if ((Math.abs(deltaHeading) > 150 && absRaw > 20) || absRaw > 25) {
-				rotationState = "UTURN";
-			} else if (absRaw > 18) {
-				rotationState = "CURVE";
-			} else if (absRaw > 3) {
-				rotationState = "TURN";
-			}
-			lastHeading = mapHeading;
-			if (rotationState !== "STRAIGHT") {
-				lastHeadingTimestamp = nowTime;
-			}
-			// ---------- ANGULAR VELOCITY MANAGEMENT ----------
-			if (rotationState === "STRAIGHT") {	
-				smoothedAngularVelocity = 0;
-				rawAngularVelocity = 0;
-				lastMapRotation = lerpAngle(
-					lastMapRotation,
-					(-mapHeading + 360) % 360,
-					0.9
-				);
-			} else {
-				// ---------- ANGULAR VELOCITY SMOOTH ----------
-				const ANGULAR_RESPONSE = rotationState === "TURN" ? 0.6 : 0.45;
-				smoothedAngularVelocity = lerp(
-					smoothedAngularVelocity,
-					rawAngularVelocity,
-					ANGULAR_RESPONSE
-				);
-				// ---------- PREDICTION ----------
-				const lookAheadTime =
-					rotationState === "UTURN" ? 0.2 :
-					rotationState === "CURVE" ? 0.4 :
-					rotationState === "TURN"  ? 0.25 :
-											0;
-				const predictedHeading =
-					(mapHeading + smoothedAngularVelocity * lookAheadTime + 360) % 360;
-				const desiredRotation = (-predictedHeading + 360) % 360;
-				// ---------- ROTATION SMOOTH ----------
-				const rotateSmooth =
-					rotationState === "UTURN" ? 0.85 :
-					rotationState === "CURVE" ? 0.45 :
-					rotationState === "TURN"  ? 0.7  :
-											0.6;
-				lastMapRotation = lerpAngle(
-					lastMapRotation,
-					desiredRotation,
-					rotateSmooth
-				);
-			}
+			const desiredRotation = (-mapHeading + 360) % 360;
+			lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.85);
 		}
-		// ---------- APPLY ----------
 		pane.style.transform = `rotate(${rotationFrozen ? frozenMapRotation : lastMapRotation}deg)`;
 		isMapRotated = true;
 	}
-	
-	// --- Marker rotation ---
-	const markerHeading = targetHeading % 360;
+
+	// --- Marker rotation---
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
 		if (targetSpeed < ROTATE_STOP_SPEED) {
 			vehicleMarker.setRotationAngle(lastMarkerAngle);
 		} else {
-			if (rotationState === "STRAIGHT") {
-				lastMarkerAngle = (targetHeading + 360) % 360;;
-			} else {
-				lastMarkerAngle = (-lastMapRotation + 360) % 360;
-			}
+			lastMarkerAngle = (targetHeading + 360) % 360;
 			vehicleMarker.setRotationAngle(lastMarkerAngle);
 		}
 	}
