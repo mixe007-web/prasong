@@ -704,7 +704,7 @@ button:disabled {
 
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 10.02</h2>
+<h2>Travelogue Version 11.02</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2386,10 +2386,13 @@ let lastMapRotation = null;
 let rotationFrozen = false;
 let lastHeadingTimestamp = 0;
 let smoothedAngularVelocity = 0;
+let lastPanTime = 0;
+let rawAngularVelocity = 0;
+let rotationState = "STRAIGHT";
 const ROTATE_STOP_SPEED = 3;
 const ROTATE_RESUME_SPEED = 4;
 const AUTO_FOLLOW_FPS = 30;
-const PAN_THRESHOLD = 0.00005;
+const PAN_THRESHOLD = 0.00012;
 const ZOOM_THRESHOLD = 0.1;
 const ICON_SIZE_THRESHOLD = 0.05;
 
@@ -2424,26 +2427,32 @@ function smoothTransformStep(now) {
     smoothedLat = lerp(smoothedLat, targetLat, posSmooth);
     smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
     vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
-    // --- Smooth pan ---
-    if (autoFollow) {
-        if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
-            lastMapCenter = map.getCenter();
-        }
-        const deltaLat = Math.abs(lastMapCenter.lat - targetLat);
-        const deltaLng = Math.abs(lastMapCenter.lng - targetLon);
-        if (deltaLat > PAN_THRESHOLD || deltaLng > PAN_THRESHOLD || Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD) {
-            const panLat = speedFactor < 0.2 ? smoothedLat : targetLat;
-            const panLon = speedFactor < 0.2 ? smoothedLon : targetLon;
-            map.flyTo([panLat, panLon], targetZoom, {
-                animate: true,
-                duration: 0.15,
-                easeLinearity: 0.35
-            });
-            lastMapCenter = map.getCenter();
-            lastZoom = map.getZoom();
-        }
-    }
-	
+	// --- Smooth pan ---
+	if (autoFollow) {
+		if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
+			lastMapCenter = map.getCenter();
+		}
+		const currentCenter = map.getCenter();
+		const deltaLat = Math.abs(currentCenter.lat - smoothedLat);
+		const deltaLng = Math.abs(currentCenter.lng - smoothedLon);
+		if (
+			now - lastPanTime > 120 &&
+			(deltaLat > PAN_THRESHOLD ||
+			deltaLng > PAN_THRESHOLD ||
+			Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD)
+		) {
+			lastPanTime = now;
+			const panLat = speedFactor < 0.2 ? smoothedLat : targetLat;
+			const panLon = speedFactor < 0.2 ? smoothedLon : targetLon;
+			map.flyTo([panLat, panLon], targetZoom, {
+				animate: targetSpeed > ROTATE_STOP_SPEED, //true,
+				duration: 0.25,
+				easeLinearity: 0.25
+			});
+			lastMapCenter = { lat: panLat, lng: panLon };
+			lastZoom = targetZoom;
+		}
+	}
 	// --- Map rotation ---
 	const pane = getRotationElement(map);
 	if (pane && isFinite(targetHeading)) {
@@ -2461,80 +2470,106 @@ function smoothTransformStep(now) {
 		// ---------- STOP / FREEZE ----------
 		if (targetSpeed < ROTATE_STOP_SPEED) {
 			if (!rotationFrozen) {
+			lastMarkerAngle = (-lastMapRotation + 360) % 360;
 				frozenMapRotation = lastMapRotation;
+				lastHeadingTimestamp = nowTime;
 				rotationFrozen = true;
 				smoothedAngularVelocity = 0;
 			}
 		// ---------- RESUME ----------
 		} else if (targetSpeed > ROTATE_RESUME_SPEED && rotationFrozen) {
 			lastMapRotation = frozenMapRotation;
-			frozenMapRotation = null;
-			lastHeading = mapHeading;
 			lastHeadingTimestamp = nowTime;
+			lastMarkerAngle = mapHeading;
+			lastHeading = mapHeading;
 			smoothedAngularVelocity = 0;
 			rotationFrozen = false;
 		}
 		// ---------- ACTIVE ROTATION ----------
+		const deltaHeadingPreview =
+			lastHeading !== null
+			? normalizeAngleDifference(mapHeading, lastHeading)
+			: 0;
 		if (!rotationFrozen) {
-			const deltaTime = Math.max((nowTime - lastHeadingTimestamp) / 1000, 0.016);
-			const deltaHeading = normalizeAngleDifference(mapHeading, lastHeading);
-			const angularVelocity = deltaHeading / deltaTime;
-			lastHeading = mapHeading;
-			lastHeadingTimestamp = nowTime;
-			smoothedAngularVelocity = lerp(smoothedAngularVelocity, angularVelocity, 0.35);
-			const absRate = Math.abs(smoothedAngularVelocity);
-			// ---------- STATE DETECTION ----------
-			let rotationState = "STRAIGHT";
-			if ((Math.abs(deltaHeading) > 150 && absRate > 20) || absRate > 25) {
+			const deltaTime = clamp((nowTime - lastHeadingTimestamp) / 1000, 0.016, 0.25);
+			const deltaHeading = deltaHeadingPreview;
+			rawAngularVelocity = deltaHeading / deltaTime;
+			// --- dead zone (eliminate GPS jitter) ---
+			if (Math.abs(rawAngularVelocity) < 1.5) {
+				rawAngularVelocity = 0;
+			}
+			const absRaw = Math.abs(rawAngularVelocity);
+			// ---------- STATE DETECTION (ใช้ raw เท่านั้น) ----------
+			rotationState = "STRAIGHT";
+			if ((Math.abs(deltaHeading) > 150 && absRaw > 20) || absRaw > 25) {
 				rotationState = "UTURN";
-			} else if (absRate > 18) {
+			} else if (absRaw > 18) {
 				rotationState = "CURVE";
-			} else if (absRate > 3) {
+			} else if (absRaw > 3) {
 				rotationState = "TURN";
 			}
-			if (rotationState === "STRAIGHT") {
-				smoothedAngularVelocity *= 0.85;
+			lastHeading = mapHeading;
+			if (rotationState !== "STRAIGHT") {
+				lastHeadingTimestamp = nowTime;
 			}
-			// ---------- PREDICTION ----------
-			const lookAheadTime =
-				rotationState === "UTURN" ? 0.2 :
-				rotationState === "CURVE" ? 0.4 :
-				rotationState === "TURN"  ? 0.3 :
-											0.15;
-			const predictedHeading =
-				(mapHeading + smoothedAngularVelocity * lookAheadTime + 360) % 360;
-			const desiredRotation =
-				(-predictedHeading + 360) % 360;
-			// ---------- SMOOTHING ----------
-			const rotateSmooth =
-				rotationState === "UTURN" ? 0.8 :
-				rotationState === "CURVE" ? 0.35 :
-				rotationState === "TURN"  ? 0.5 :
-											0.15;
-			lastMapRotation = lerpAngle(
-				lastMapRotation,
-				desiredRotation,
-				rotateSmooth
-			);
+			// ---------- ANGULAR VELOCITY MANAGEMENT ----------
+			if (rotationState === "STRAIGHT") {	
+				smoothedAngularVelocity = 0;
+				rawAngularVelocity = 0;
+				lastMapRotation = lerpAngle(
+					lastMapRotation,
+					(-mapHeading + 360) % 360,
+					0.9
+				);
+			} else {
+				// ---------- ANGULAR VELOCITY SMOOTH ----------
+				const ANGULAR_RESPONSE = rotationState === "TURN" ? 0.6 : 0.45;
+				smoothedAngularVelocity = lerp(
+					smoothedAngularVelocity,
+					rawAngularVelocity,
+					ANGULAR_RESPONSE
+				);
+				// ---------- PREDICTION ----------
+				const lookAheadTime =
+					rotationState === "UTURN" ? 0.2 :
+					rotationState === "CURVE" ? 0.4 :
+					rotationState === "TURN"  ? 0.25 :
+											0;
+				const predictedHeading =
+					(mapHeading + smoothedAngularVelocity * lookAheadTime + 360) % 360;
+				const desiredRotation = (-predictedHeading + 360) % 360;
+				// ---------- ROTATION SMOOTH ----------
+				const rotateSmooth =
+					rotationState === "UTURN" ? 0.85 :
+					rotationState === "CURVE" ? 0.45 :
+					rotationState === "TURN"  ? 0.7  :
+											0.6;
+				lastMapRotation = lerpAngle(
+					lastMapRotation,
+					desiredRotation,
+					rotateSmooth
+				);
+			}
 		}
-
 		// ---------- APPLY ----------
 		pane.style.transform = `rotate(${rotationFrozen ? frozenMapRotation : lastMapRotation}deg)`;
 		isMapRotated = true;
 	}
+	
 	// --- Marker rotation ---
 	const markerHeading = targetHeading % 360;
-	const markerSmooth = targetSpeed > ROTATE_STOP_SPEED ? lerp(0.4, 0.65, speedFactor) : 1;
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
 		if (targetSpeed < ROTATE_STOP_SPEED) {
 			vehicleMarker.setRotationAngle(lastMarkerAngle);
 		} else {
-			const markerSmooth = lerp(0.35, 0.6, speedFactor);
-			lastMarkerAngle = lerpAngle(lastMarkerAngle, markerHeading, markerSmooth);
+			if (rotationState === "STRAIGHT") {
+				lastMarkerAngle = (targetHeading + 360) % 360;;
+			} else {
+				lastMarkerAngle = (-lastMapRotation + 360) % 360;
+			}
 			vehicleMarker.setRotationAngle(lastMarkerAngle);
 		}
 	}
-
     // --- Icon size smooth update ---
     if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
         lastIconSize = targetIconSize;
@@ -2546,7 +2581,6 @@ function smoothTransformStep(now) {
             }
         }
     }
-
     if (callback) callback();
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
@@ -2561,7 +2595,6 @@ function resetMapRotation(callback = null) {
     if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
         vehicleMarker.setRotationAngle(lastGpsHeading || 0);
     }
-
     if (callback) callback();
 }
 // -----------------------------
@@ -2800,8 +2833,6 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
     }
 });
 
-let stopCounter = 0;
-const STOP_CONFIRM_FRAMES = 3;
 function startTracking() {
 	if (isTrackingStarted || isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
 	if (!plateInput.value.trim()) { alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม'); plateInput.focus(); return; }
@@ -2920,15 +2951,6 @@ function startTracking() {
 					const timeSec = (pos.timestamp - prevTimestamp) / 1000;
 						speedKmh = timeSec > 0 ? (dist / timeSec) * 3600 : 0;
 				}
-				if (speedKmh < 3) {
-					stopCounter++;
-					if (stopCounter >= STOP_CONFIRM_FRAMES) {
-						speedKmh = 0;
-					}
-				} else {
-					stopCounter = 0;
-				}
-
       // กรอง speed ต่ำกว่า 3 km/h
 				if (speedKmh < 2) speedKmh = 0;
 					prevTimestamp = pos.timestamp;
