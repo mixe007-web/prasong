@@ -2593,7 +2593,6 @@ function clearWatchId() {
 		watchId = null;
 	}
 }
-
 let mapInteractionLocked = true;
 function disableMapInteraction() {
     if (!map) return;
@@ -2608,7 +2607,6 @@ function disableMapInteraction() {
     } catch (e) {}
     mapInteractionLocked = true;
 }
-
 function enableMapInteraction() {
     if (!map) return;
     try {
@@ -2650,7 +2648,6 @@ function initMap(lat, lon) {
 		startDeviceOrientationTracking();
     });
 }
-
 function destroyMap() {
 	if (!map) return;
 	const pane = getRotationElement(map);
