@@ -403,6 +403,20 @@ button:disabled {
 .leaflet-control-attribution {
 	display: none !important;
 }
+.leaflet-rotate-wrapper {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  pointer-events: none; /* ให้ทะลุ */
+}
+
+/* ให้ทุก pane ข้างในรับ event ได้ */
+.leaflet-rotate-wrapper .leaflet-pane {
+  pointer-events: auto;
+}
+
+
 #wltpKm {
 	font-weight: bold;
 }
@@ -697,13 +711,12 @@ button:disabled {
 		flex: 1 0 100%;
 	}
 }
-
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 11.11</h2>
+<h2>Travelogue Version 11.12</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2125,7 +2138,7 @@ function showLeafletMapFromTrip(trip) {
 	if (mapContainer._leaflet_id) mapContainer._leaflet_id = null;
 	const m = L.map('leafletMap', { center: [13.7563, 100.5018], zoom: BASE_ZOOM });
 	window.replayMap = m;
-	L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+	L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 		attribution: '&copy; OpenStreetMap contributors, &copy; CARTO', noWrap: true
 	}).addTo(m);
 	const entries = trip.path
@@ -2210,6 +2223,7 @@ let autoRotate = true;
 let lastIconSize = 32;
 let lastPosition = null;
 let lastReliableHeading = null;
+let followWarmupFrames = 0;
 const BASE_ZOOM = 17;
 const BASE_ICON_SIZE = 32;
 const POLYLINE_BATCH_SIZE = 200;
@@ -2237,12 +2251,26 @@ if (L.Marker && !L.Marker.prototype.setRotationAngle) {
 }
 // safeInvalidateMap: preserve behavior but operate on container, not pane
 function safeInvalidateMap(targetMap, delay = 300) {
-	if (!targetMap || !targetMap.invalidateSize) return;
-	clearTimeout(targetMap._invalidateTimeout);
-	targetMap._invalidateTimeout = setTimeout(() => {
-		try { targetMap.invalidateSize(); setMapPaneTransformOriginToCenter(targetMap); } catch (e) { console.warn('safeInvalidateMap error', e); }
-	}, delay);
+  if (!targetMap || !targetMap.invalidateSize) return;
+
+  clearTimeout(targetMap._invalidateTimeout);
+  targetMap._invalidateTimeout = setTimeout(() => {
+    try {
+      if (!targetMap || !targetMap._loaded) return;
+
+      const container = targetMap.getContainer?.();
+      if (!container || !container.isConnected) return;
+
+      ensureRotationWrapper(targetMap);
+      targetMap.invalidateSize(true);
+      setMapPaneTransformOriginToCenter(targetMap);
+    } catch (e) {
+      console.warn("safeInvalidateMap error", e);
+    }
+  }, delay);
 }
+
+
 // -----------------------------
 // Helpers
 // -----------------------------
@@ -2270,18 +2298,55 @@ function calculateIconSize(speedKmh) {
 	if (speedKmh < 120) return 20;
 	return 16;
 }
+// PATCH: getRotationElement must return wrapper ONLY (never map-pane)
 function getRotationElement(targetMap = map) {
-	if (!targetMap) return null;
-	try { return targetMap.getPane('mapPane'); }
-	catch (e) { return targetMap.getContainer()?.querySelector('.leaflet-map-pane') ?? null; }
+  if (!targetMap) return null;
+  const container = targetMap.getContainer?.();
+  if (!container) return null;
+
+  // ensure wrapper exists
+  const wrapper = ensureRotationWrapper(targetMap);
+  return wrapper || null;
 }
+
+// -----------------------------
+// PATCH: rotate wrapper instead of map-pane transform (FIX POINTER EVENTS)
+// -----------------------------
+function ensureRotationWrapper(targetMap = map) {
+  if (!targetMap) return null;
+
+  const container = targetMap.getContainer?.();
+  if (!container) return null;
+
+  let wrapper = container.querySelector(".leaflet-rotate-wrapper");
+  if (wrapper) return wrapper;
+
+  // ครอบ leaflet-pane ทั้งก้อน (รวม map-pane, marker-pane, popup-pane ฯลฯ)
+  const paneRoot = container.querySelector(".leaflet-pane");
+  if (!paneRoot) return null;
+
+  wrapper = document.createElement("div");
+  wrapper.className = "leaflet-rotate-wrapper";
+
+  paneRoot.parentNode.insertBefore(wrapper, paneRoot);
+  wrapper.appendChild(paneRoot);
+
+  return wrapper;
+}
+
 function setMapPaneTransformOriginToCenter(targetMap = map) {
-	if (!targetMap) return;
-	const pane = getRotationElement(targetMap);
-	if (!pane) return;
-	const size = targetMap.getSize();
-	pane.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
+  if (!targetMap) return;
+  const container = targetMap.getContainer?.();
+  if (!container) return;
+
+  // PATCH: ตั้ง origin ที่ wrapper (ตัวที่หมุนจริง)
+  const wrapper = container.querySelector(".leaflet-rotate-wrapper");
+  const size = targetMap.getSize?.();
+  if (!wrapper || !size) return;
+
+  wrapper.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
 }
+
 function getSpeedColor(s) {
 	if (s < 10) return '#630202';
 	if (s < 20) return '#FF0000';
@@ -2296,30 +2361,43 @@ function getSpeedColor(s) {
 window.deviceOrientationHeading = null;
 let deviceOrientationActive = false;
 function startDeviceOrientationTracking() {
-    if (deviceOrientationActive) return;
-    deviceOrientationActive = true;
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-            .then(state => {
-                if (state === 'granted') {
-                    window.addEventListener('deviceorientation', handleDeviceOrientation, true);
-                }
-            }).catch(console.error);
-    } else {
-        window.addEventListener('deviceorientation', handleDeviceOrientation, true);
-    }
+  if (deviceOrientationActive) return;
+  deviceOrientationActive = true;
+
+  // PATCH: กัน bind ซ้ำ
+  window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
+
+  if (typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function") {
+    DeviceOrientationEvent.requestPermission()
+      .then(state => {
+        if (state === "granted") {
+          window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+        }
+      })
+      .catch(console.error);
+  } else {
+    window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+  }
 }
 
 let lastDeviceOrientationTime = 0;
 function handleDeviceOrientation(event) {
-    const now = Date.now();
-    if (now - lastDeviceOrientationTime < 100) return;
-    lastDeviceOrientationTime = now;
-    const alpha = event.alpha;
-    if (!isFinite(alpha)) return;
-    window.deviceOrientationHeading = alpha;
+  if (!deviceOrientationActive) return;
+
+  const now = Date.now();
+  if (now - lastDeviceOrientationTime < 100) return;
+  lastDeviceOrientationTime = now;
+
+  if (typeof event.webkitCompassHeading === "number" && isFinite(event.webkitCompassHeading)) {
+    window.deviceOrientationHeading = event.webkitCompassHeading;
+    return;
+  }
+
+  window.deviceOrientationHeading = null;
 }
+
+
 let lastDeviceHeading = null;
 function stopDeviceOrientationTracking() {
     if (!deviceOrientationActive) return;
@@ -2358,213 +2436,662 @@ let smoothTransformTarget = {
 // 🔹 APPLY SMOOTH TRANSFORM
 // ==============================
 function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callback = null) {
-    if (!map || !vehicleMarker) return;
-    if (isFinite(lat)) lastGpsLat = lat;
-    if (isFinite(lon)) lastGpsLng = lon;
-    if (isFinite(headingDeg)) lastGpsHeading = headingDeg;
-    if (isFinite(speedKmh)) lastGpsSpeedKmh = speedKmh;
-    smoothTransformTarget.lat = lat;
-    smoothTransformTarget.lon = lon;
-    smoothTransformTarget.heading = headingDeg;
-    smoothTransformTarget.speedKmh = speedKmh;
-    smoothTransformTarget.zoom = clamp(calculateTargetZoom(speedKmh), 0, 22);
-    smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
-    smoothTransformTarget.callback = callback || null;
-    if (!smoothTransformAnimFrame) {
-        smoothTransformTarget.lastFrameTime = performance.now();
-        smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
-    }
+  if (!map || !vehicleMarker) return;
+
+  // PATCH: กันยิงตอน map ยังไม่ ready
+  if (!map._loaded) return;
+
+  if (isFinite(lat)) lastGpsLat = lat;
+  if (isFinite(lon)) lastGpsLng = lon;
+  if (isFinite(headingDeg)) lastGpsHeading = headingDeg;
+  if (isFinite(speedKmh)) lastGpsSpeedKmh = speedKmh;
+
+  smoothTransformTarget.lat = lat;
+  smoothTransformTarget.lon = lon;
+  smoothTransformTarget.heading = headingDeg;
+  smoothTransformTarget.speedKmh = speedKmh;
+  smoothTransformTarget.zoom = clamp(calculateTargetZoom(speedKmh), 0, 22);
+  smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
+  smoothTransformTarget.callback = callback || null;
+
+  // PATCH: เริ่ม loop เฉพาะตอนยังไม่รัน
+  if (!smoothTransformAnimFrame) {
+    followWarmupFrames = 6;
+    resumePanFrames = 2;
+    resumeRotateLockFrames = 1;
+
+    smoothTransformTarget.lastFrameTime = performance.now();
+    smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+  }
 }
 
 let smoothedLat = null;
 let smoothedLon = null;
+
 let frozenMapRotation = null;
 let lastMapRotation = null;
 let rotationFrozen = false;
+
 let lastMarkerAngle = 0;
 let lastHeading = null;
+let lastMapHeading = null;
 let resumeCooldown = 0;
 let curveMomentum = 0;
-let inCurve = false
+let inCurve = false;
 let smoothFactor = 0.3;
+
+let lastRawLat = null;
+let lastRawLon = null;
+
 let resumePanFrames = 0;
+let resumeRotateLockFrames = 0;
+let lastFlyToTime = 0;
+let lastAppliedPanLat = null;
+let lastAppliedPanLon = null;
+let firstFollowFlyDone = false;
+let flyToInProgress = false;
+let flyToEndTime = 0;
+// --- history buffer for curve prediction ---
+const FLYTO_MIN_INTERVAL_MS = 70;     // กัน flyTo รัวเกินจน pan ช้า
+const MIN_MOVE_FOR_MOTION_M = 1.2;    // กัน motion heading จาก noise เมือง
+const MIN_MOVE_FOR_HISTORY_M = 0.8;   // เก็บ history แม้ขยับน้อย แต่ไม่เอา noise
+const posHistory = []; // [{lat, lon, t}]
+const HISTORY_MAX = 4;
+
 const PAN_THRESHOLD = 0.00005;
 const DEFAULT_SMOOTH = 0.3;
+
 const RESUME_COOLDOWN_FRAMES = 8;
 const ROTATE_STOP_SPEED = 3;
-const ROTATE_RESUME_SPEED = 4;
+const ROTATE_RESUME_SPEED = 3.05;
+const ROTATION_DEADBAND_DEG = 1.6;   // กันหมุนสั่นๆ ตอนวิ่งตรง (1.2 - 2.5)
+const STRAIGHT_STABLE_DEG = 4.0;     // ถ้าเลี้ยวน้อยกว่า 4° ถือว่าเกือบตรง
+const UTURN_SNAP_DEG = 120;          // ถ้าหมุนกระโดดเกินนี้ ให้ snap ทันที
+
 const AUTO_FOLLOW_FPS = 30;
 const ZOOM_THRESHOLD = 0.1;
 const ICON_SIZE_THRESHOLD = 0.05;
 
-function smoothTransformStep(now) {
-    if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
-        smoothTransformAnimFrame = null;
-        return;
-    }
-    const elapsed = now - (smoothTransformTarget.lastFrameTime || now);
-    const minInterval = 1000 / AUTO_FOLLOW_FPS;
-    if (elapsed < minInterval) {
-        smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
-        return;
-    }
-    smoothTransformTarget.lastFrameTime = now;
-    const {
-        lat: targetLat,
-        lon: targetLon,
-        heading: targetHeading,
-        speedKmh: targetSpeed,
-        zoom: targetZoom,
-        iconSize: targetIconSize,
-        callback
-    } = smoothTransformTarget;
-    // -- Smooth marker position ---
-    if (smoothedLat === null) {
-        smoothedLat = targetLat;
-        smoothedLon = targetLon;
-    }
-    const speedFactor = clamp(targetSpeed / 60, 0, 1);
-    const posSmooth = lerp(0.15, 0.35, speedFactor);
-    smoothedLat = lerp(smoothedLat, targetLat, posSmooth);
-    smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
-    vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
+// ===== helpers (local) =====
+// ==============================
+// PATCH: GLOBAL RESET STATE (one place)
+// ==============================
+function resetFollowRotationState(full = false) {
+  // rotation + follow
+  lastMapRotation = null;
+  frozenMapRotation = null;
+  rotationFrozen = false;
+  lastMapHeading = null;
+  resumeCooldown = 0;
 
-    // --- Smooth pan ---
-	if (autoFollow) {
-		if (!lastMapCenter || !isFinite(lastMapCenter.lat)) {
-			lastMapCenter = map.getCenter();
-		}
-		let panLat = targetLat;
-		let panLon = targetLon;
-		if (resumePanFrames > 0) {
-			panLat = smoothedLat;
-			panLon = smoothedLon;
-		} else if (speedFactor < 0.2) {
-			panLat = smoothedLat;
-			panLon = smoothedLon;
-		}	
-		const deltaLat = Math.abs(lastMapCenter.lat - panLat);
-		const deltaLng = Math.abs(lastMapCenter.lng - panLon);
-		if (
-			deltaLat > PAN_THRESHOLD ||
-			deltaLng > PAN_THRESHOLD ||
-			Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD
-		) {
-			const curveBoost = clamp(curveMomentum / 20, 0, 1);
-			const panDuration = lerp(0.14, 0.24, speedFactor * (1 - 0.3 * curveBoost));
-			const panEase = lerp(0.48, 0.32, speedFactor);
-			map.flyTo([panLat, panLon], targetZoom, {
-				animate: true,
-				duration: panDuration,
-				easeLinearity: panEase
-			});
-			lastMapCenter = map.getCenter();
-			lastZoom = map.getZoom();
-		}
-	}
-	// --- Map rotation ---
-	const pane = getRotationElement(map);
-	if (pane && isFinite(targetHeading)) {
-		const mapHeading = (targetHeading + 360) % 360;
-		const desiredRotation = (-mapHeading + 360) % 360;
-		if (lastMapRotation === null) {
-			lastMapRotation = desiredRotation;
-			frozenMapRotation = desiredRotation;
-			lastHeading = mapHeading;
-		}
-		// === STOP ===
-		if (targetSpeed < ROTATE_STOP_SPEED) {
-			rotationFrozen = true;
-			frozenMapRotation = lastMapRotation;
-			resumeCooldown = RESUME_COOLDOWN_FRAMES;
-			curveMomentum *= 0.8; 
-			inCurve = false;
-			smoothFactor = DEFAULT_SMOOTH;
-		}
-		// === RESUME ===
-		else if (rotationFrozen && targetSpeed > ROTATE_RESUME_SPEED) {
-			if (resumeCooldown > 0) {
-				resumeCooldown--;
-			} else {
-				rotationFrozen = false;
-				lastHeading = mapHeading;
-				curveMomentum = 0;
-				resumePanFrames = 4;
-			}
-		}
-		// === FOLLOW ===
-		if (!rotationFrozen) {
-			const headingDelta = normalizeAngleDifference(mapHeading, lastHeading);
-			lastHeading = mapHeading;
-			const absTurn = Math.abs(headingDelta);
-			let effectiveTurn = absTurn;
-			if (targetSpeed < 6) {
-				effectiveTurn = Math.max(0, effectiveTurn - 4);
-			}
-			if (effectiveTurn > 4) {
-				inCurve = true;
-				curveMomentum = Math.min(curveMomentum + effectiveTurn, 22);
-			} else {
-				const exitDecay = effectiveTurn < 2 ? 0.92 : 0.85;
-				curveMomentum *= exitDecay;
-				if (curveMomentum < 2) inCurve = false;
-			}
-			if (inCurve) {
-				const speedWeight = clamp(targetSpeed / 50, 0.4, 1);
-				smoothFactor = clamp((0.45 + curveMomentum / 55) * speedWeight, 0.45, 0.78);
-			} else {
-				smoothFactor = DEFAULT_SMOOTH;
-			}
-			if (absTurn > 10) {
-				lastMapRotation = desiredRotation;
-			} else if (!rotationFrozen) {
-				let followFactor = smoothFactor;
-				if (absTurn > 6) followFactor = 0.65;
-				lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
-			}
-		}
-		pane.style.transform = `rotate(${lastMapRotation}deg)`;
-		isMapRotated = true;
-	}
-	// --- Marker rotation ---
-	const markerHeading = targetHeading % 360;
-	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-		if (targetSpeed < ROTATE_STOP_SPEED) {
-			vehicleMarker.setRotationAngle(lastMarkerAngle);
-		} else {
-			const markerSmooth = clamp(smoothFactor + 0.1, 0.45, 0.7);
-			lastMarkerAngle = lerpAngle(lastMarkerAngle, markerHeading, markerSmooth);
-			vehicleMarker.setRotationAngle(lastMarkerAngle);
-		}
-	}
-    // --- Icon size smooth update ---
-    if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
-        lastIconSize = targetIconSize;
-        if (vehicleMarker && vehicleMarker._icon) {
-            const inner = vehicleMarker._icon.querySelector('.vehicle-inner');
-            if (inner) {
-                const scale = targetIconSize / BASE_ICON_SIZE;
-                inner.style.setProperty('--marker-scale', scale);
-            }
-        }
-    }
-    if (callback) callback();
-	if (resumePanFrames > 0) resumePanFrames--;
-    smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+  resumePanFrames = 0;
+  resumeRotateLockFrames = 0;
+
+  // flyTo throttle
+  lastFlyToTime = 0;
+  lastAppliedPanLat = null;
+  lastAppliedPanLon = null;
+  firstFollowFlyDone = false;
+  flyToInProgress = false;
+  flyToEndTime = 0;
+
+  // curve model
+  curveMomentum = 0;
+  inCurve = false;
+
+  // heading smoothing
+  lastHeading = null;
+
+  // marker smoothing
+  if (full) {
+    smoothedLat = null;
+    smoothedLon = null;
+  }
+
+  // history buffer
+  posHistory.length = 0;
+
+  // PATCH: reset marker angle memory
+  lastMarkerAngle = 0;
 }
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+	const R = 6371000;
+	const dLat = deg2rad(lat2 - lat1);
+	const dLon = deg2rad(lon2 - lon1);
+	const a =
+		Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+		Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+		Math.sin(dLon / 2) * Math.sin(dLon / 2);
+	return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function bearingDeg(lat1, lon1, lat2, lon2) {
+	const φ1 = deg2rad(lat1), φ2 = deg2rad(lat2);
+	const Δλ = deg2rad(lon2 - lon1);
+	const y = Math.sin(Δλ) * Math.cos(φ2);
+	const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+	return (rad2deg(Math.atan2(y, x)) + 360) % 360;
+}
+
+// คำนวณจุดนำหน้า (look-ahead) ตาม heading + ระยะเมตร
+function projectAhead(lat, lng, headingDeg, distanceMeters) {
+	const R = 6371000;
+	const δ = distanceMeters / R;
+	const θ = deg2rad(headingDeg);
+
+	const φ1 = deg2rad(lat);
+	const λ1 = deg2rad(lng);
+
+	const sinφ1 = Math.sin(φ1), cosφ1 = Math.cos(φ1);
+	const sinδ = Math.sin(δ), cosδ = Math.cos(δ);
+
+	const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * Math.cos(θ);
+	const φ2 = Math.asin(sinφ2);
+
+	const y = Math.sin(θ) * sinδ * cosφ1;
+	const x = cosδ - sinφ1 * sinφ2;
+	const λ2 = λ1 + Math.atan2(y, x);
+
+	return clampLatLng(rad2deg(φ2), rad2deg(λ2));
+}
+
+function pushHistory(lat, lon, t) {
+  if (!isFinite(lat) || !isFinite(lon)) return;
+  posHistory.push({ lat, lon, t });
+  while (posHistory.length > HISTORY_MAX) posHistory.shift();
+}
+
+function getMotionHeadingFromHistory() {
+  if (posHistory.length < 3) return { heading: null, turnRate: 0, confidence: 0 };
+
+  const p0 = posHistory[posHistory.length - 3];
+  const p1 = posHistory[posHistory.length - 2];
+  const p2 = posHistory[posHistory.length - 1];
+
+  const d01 = haversineMeters(p0.lat, p0.lon, p1.lat, p1.lon);
+  const d12 = haversineMeters(p1.lat, p1.lon, p2.lat, p2.lon);
+
+  // ใช้ MIN_MOVE_FOR_MOTION_M (สำคัญมาก)
+  if (d01 < MIN_MOVE_FOR_MOTION_M || d12 < MIN_MOVE_FOR_MOTION_M) {
+    return { heading: null, turnRate: 0, confidence: 0 };
+  }
+
+  const h01 = bearingDeg(p0.lat, p0.lon, p1.lat, p1.lon);
+  const h12 = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
+
+  const delta = normalizeAngleDifference(h12, h01);
+  const absTurn = Math.abs(delta);
+
+  // confidence: ระยะยิ่งมาก ยิ่งเชื่อถือ
+  const confidence = clamp((Math.min(d01, d12) - MIN_MOVE_FOR_MOTION_M) / 8.0, 0, 1);
+
+  return { heading: h12, turnRate: absTurn, confidence };
+}
+
+
+function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
+  const gpsOk = isFinite(gpsHeading);
+  const motionOk = isFinite(motionHeading);
+
+  if (!gpsOk && !motionOk) return null;
+  if (!gpsOk) return motionHeading;
+  if (!motionOk) return gpsHeading;
+
+  // เมือง/ความเร็วต่ำ: motion ชนะ (เพราะ gps heading สั่น)
+  // ความเร็วสูง: ผสมให้ gps ช่วยนิ่ง
+  const speedW = clamp(speedKmh / 70, 0, 1);
+
+  // motionConfidence ช่วยกันตอนแทบไม่ขยับ
+  let wMotion = lerp(0.85, 0.55, speedW) * clamp(motionConfidence + 0.15, 0, 1);
+  wMotion = clamp(wMotion, 0.35, 0.90);
+
+  return lerpAngle(gpsHeading, motionHeading, wMotion);
+}
+
+function dynamicLookAhead(speedKmh, curveStrength01) {
+  // เมือง: 5-12m, นอกเมือง: 20-45m
+  // เข้าโค้ง: ลด lookAhead กัน overshoot (วงเวียน/โค้งแคบ)
+  const base = lerp(6, 42, clamp(speedKmh / 120, 0, 1));
+  const reduceOnCurve = 1 - 0.65 * clamp(curveStrength01, 0, 1);
+
+  return base * reduceOnCurve;
+}
+
+function computeCurveStrength(turnRateDeg, speedKmh) {
+  // turnRate จาก history (3 จุด) จะไวมาก
+  // ปรับให้ความเร็วต่ำก็จับโค้งได้ แต่ไม่ไวเกินจน jitter
+  const t = clamp((turnRateDeg - 4) / 18, 0, 1);  // 0..1
+  const s = clamp(speedKmh / 60, 0.25, 1);        // ช่วยตอนวิ่งช้า
+  return clamp(t * s, 0, 1);
+}
+function computeRotationFollowFactor(speedKmh, curveStrength01) {
+  const speedW = clamp(speedKmh / 90, 0, 1);
+  const base = lerp(0.86, 0.74, speedW);
+  const boost = 0.16 * curveStrength01;
+  return clamp(base + boost, 0.74, 0.97);
+}
+function isUTurn(turnRateDeg, speedKmh) {
+  // กลับรถ/วงเวียนบางแบบ: turnRate ใหญ่
+  // ความเร็วต่ำกลับรถจะชัดมาก
+  const th = speedKmh < 15 ? 55 : 70;
+  return turnRateDeg > th;
+}
+function isHardTurn(turnRateDeg) {
+  return turnRateDeg > 16;
+}
+
+// =====================
+// MAIN LOOP
+// =====================
+function smoothTransformStep(now) {
+  if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
+    smoothTransformAnimFrame = null;
+    return;
+  }
+
+  const elapsed = now - (smoothTransformTarget.lastFrameTime || now);
+  const minInterval = 1000 / AUTO_FOLLOW_FPS;
+  if (elapsed < minInterval) {
+    smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+    return;
+  }
+  if (flyToInProgress && now >= flyToEndTime) {
+  flyToInProgress = false;
+}
+  smoothTransformTarget.lastFrameTime = now;
+
+  const {
+    lat: targetLat,
+    lon: targetLon,
+    heading: targetHeading,
+    speedKmh: targetSpeed,
+    zoom: targetZoom,
+    iconSize: targetIconSize,
+    callback
+  } = smoothTransformTarget;
+
+  // =====================
+  // 1) Marker position smoothing
+  // =====================
+  if (smoothedLat === null) {
+    smoothedLat = targetLat;
+    smoothedLon = targetLon;
+  }
+
+  const speedFactor = clamp(targetSpeed / 60, 0, 1);
+  const posSmooth = lerp(0.18, 0.42, speedFactor); // ไวขึ้นนิด ให้ตามถนนจริง
+  smoothedLat = lerp(smoothedLat, targetLat, posSmooth);
+  smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
+  vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
+
+  // =====================
+  // 2) History (curve prediction)
+  // =====================
+  // เก็บ history เฉพาะเมื่อขยับจริง ลด jitter เมือง
+  if (posHistory.length === 0) {
+    pushHistory(targetLat, targetLon, now);
+  } else {
+    const last = posHistory[posHistory.length - 1];
+    const moved = haversineMeters(last.lat, last.lon, targetLat, targetLon);
+    if (moved >= MIN_MOVE_FOR_HISTORY_M) {
+      pushHistory(targetLat, targetLon, now);
+    }
+  }
+
+  const motion = getMotionHeadingFromHistory();
+  const gpsHeading = isFinite(targetHeading) ? ((targetHeading + 360) % 360) : null;
+
+  // ปรับ motion confidence: ถ้าขยับน้อยมาก ให้ confidence = 0
+  const motionOk = isFinite(motion.heading) && motion.confidence > 0.05;
+
+  // =====================
+  // 3) Heading fusion (GPS + Motion)
+  // =====================
+  let baseHeading = mixHeading(gpsHeading, motionOk ? motion.heading : null, motionOk ? motion.confidence : 0, targetSpeed);
+
+  // fallback สุดท้าย
+  if (baseHeading === null && lastHeading !== null) baseHeading = lastHeading;
+if (baseHeading !== null && targetSpeed < 12) {
+  // ใช้เข็มทิศช่วยเฉพาะตอน motion ไม่มั่นใจ (เมือง/ช้า)
+  const useDevice = (!motionOk || motion.confidence < 0.35);
+  if (useDevice) baseHeading = getSmoothedDeviceHeading(baseHeading);
+}
+
+// PATCH: เก็บ heading ล่าสุดของระบบไว้เป็น fallback
+if (baseHeading !== null) lastHeading = baseHeading;
+
+
+  // =====================
+  // 4) Curve model (momentum)
+  // =====================
+  const curveStrength01 = computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
+
+  if (curveStrength01 > 0.14) {
+    inCurve = true;
+    curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
+  } else {
+    curveMomentum *= 0.87;
+    if (curveMomentum < 1.1) inCurve = false;
+  }
+
+  const curveBoost01 = clamp(curveMomentum / 24, 0, 1);
+  const curveMix01 = Math.max(curveStrength01, curveBoost01);
+// =====================
+// 5) Smooth pan (stable + look-ahead)  [WORKING FIX v2]
+// =====================
+if (autoFollow) {
+  // init lastMapCenter
+  if (!lastMapCenter || !isFinite(lastMapCenter.lat) || !isFinite(lastMapCenter.lng)) {
+    const c = map.getCenter();
+    lastMapCenter = { lat: c.lat, lng: c.lng };
+  }
+
+  // ---- lookAhead distance ----
+  let lookAhead = dynamicLookAhead(targetSpeed, curveMix01);
+  if (targetSpeed > 95) lookAhead *= 1.10;
+
+  // ---- choose pan target ----
+  let panLat = targetLat;
+  let panLon = targetLon;
+
+  // ช่วงเริ่ม/เพิ่ง resume/ช้ามาก → เกาะตำแหน่งจริงก่อน
+  const forceRealPos =
+    (resumePanFrames > 0) ||
+    (followWarmupFrames > 0) ||
+    (targetSpeed < 6);
+
+  if (forceRealPos) {
+    panLat = smoothedLat;
+    panLon = smoothedLon;
+  } else {
+    if (baseHeading !== null) {
+      const ahead = projectAhead(targetLat, targetLon, baseHeading, lookAhead);
+      panLat = ahead[0];
+      panLon = ahead[1];
+    }
+  }
+
+  // ---- thresholds ----
+  const panMoveM = haversineMeters(lastMapCenter.lat, lastMapCenter.lng, panLat, panLon);
+
+  let panTriggerM;
+if (targetSpeed < 6) panTriggerM = 1.2;
+else if (targetSpeed < 15) panTriggerM = 1.6;
+
+  else if (targetSpeed < 50) panTriggerM = 3.5;
+  else panTriggerM = 4.5;
+
+  const zoomChanged = Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD;
+
+  // ---- throttle ----
+  const canFlyByTime = (now - lastFlyToTime) >= FLYTO_MIN_INTERVAL_MS;
+
+  const canFlyByAnim = !flyToInProgress;
+
+  // กันยิงไปจุดเดิม (ลด jitter)
+  const sameAsLast =
+    lastAppliedPanLat !== null &&
+    lastAppliedPanLon !== null &&
+    haversineMeters(lastAppliedPanLat, lastAppliedPanLon, panLat, panLon) < 0.35;
+
+  // ---- shouldMove ----
+  let shouldMove = (panMoveM > panTriggerM) || zoomChanged;
+
+  // บังคับครั้งแรกให้มี flyTo แน่นอน (กันนิ่ง)
+  if (!firstFollowFlyDone) shouldMove = true;
+
+  if (shouldMove && canFlyByTime && canFlyByAnim && !sameAsLast) {
+    const sp = clamp(targetSpeed / 100, 0, 1);
+
+    // duration
+    let panDuration = lerp(0.12, 0.20, sp);
+    panDuration *= (1 - 0.28 * curveMix01); // เข้าโค้งไวขึ้น
+    if (forceRealPos) panDuration *= 1.10;  // start/stop/resume นิ่มขึ้น
+    panDuration = clamp(panDuration, 0.10, 0.26);
+
+    // ease
+    const panEase = lerp(0.50, 0.35, sp);
+
+    // ---- execute flyTo ----
+    flyToInProgress = true;
+    flyToEndTime = now + (panDuration * 1000) + 80; // +80 กัน event มาเร็วเกิน
+
+// PATCH: low speed use panTo (lighter), high speed use flyTo (smooth)
+if (targetSpeed < 12) {
+  map.panTo([panLat, panLon], { animate: true, duration: 0.12 });
+
+  if (Math.abs(map.getZoom() - targetZoom) > ZOOM_THRESHOLD) {
+    map.setZoom(targetZoom, { animate: false });
+  }
+
+  // ปลดสถานะ flyTo เอง เพราะเราไม่ได้ flyTo จริง
+  flyToInProgress = false;
+  flyToEndTime = 0;
+} else {
+  map.flyTo([panLat, panLon], targetZoom, {
+    animate: true,
+    duration: panDuration,
+    easeLinearity: panEase
+  });
+
+  if (map && map._loaded && typeof map._scheduleFlyUnlock === "function") {
+    map._scheduleFlyUnlock((panDuration * 1000) + 450);
+  }
+}
+
+    lastFlyToTime = now;
+
+    // เก็บค่าที่สั่งไปทันที
+    lastMapCenter = { lat: panLat, lng: panLon };
+    lastZoom = targetZoom;
+
+    lastAppliedPanLat = panLat;
+    lastAppliedPanLon = panLon;
+
+    firstFollowFlyDone = true;
+  }
+}
+// =====================
+// 6) Map rotation (stable + u-turn ready)  [PATCHED v3 - WRAPPER ONLY]
+// =====================
+const rotWrapper = ensureRotationWrapper(map);
+if (autoRotate && rotWrapper && baseHeading !== null) {
+  const mapHeading = (baseHeading + 360) % 360;
+  const desiredRotation = (-mapHeading + 360) % 360;
+
+  if (lastMapRotation === null) {
+    lastMapRotation = desiredRotation;
+    frozenMapRotation = desiredRotation;
+    lastMapHeading = mapHeading;
+  }
+
+  // รวม turn จาก motion (ไวมาก) + เฟรมปัจจุบัน
+  const headingDelta = (lastMapHeading === null)
+    ? 0
+    : normalizeAngleDifference(mapHeading, lastMapHeading);
+
+  lastMapHeading = mapHeading;
+
+  const absTurnFrame = Math.abs(headingDelta);
+  const combinedTurn = Math.max(absTurnFrame, (motionOk ? motion.turnRate : 0) * 0.95);
+
+  const uTurnish = isUTurn(combinedTurn, targetSpeed);
+  const hardTurn = isHardTurn(combinedTurn);
+
+  // -------------------------
+  // STOP/RESUME logic
+  // -------------------------
+if (targetSpeed <= ROTATE_STOP_SPEED) {
+  // หยุด/คลาน: ค้างมุมเดิมนิ่งสนิท
+  if (!rotationFrozen) {
+    rotationFrozen = true;
+
+    // PATCH: ถ้า lastMapRotation ยังไม่พร้อม ให้ freeze ที่ desiredRotation ไปเลย
+    frozenMapRotation = (lastMapRotation !== null) ? lastMapRotation : desiredRotation;
+    lastMapRotation = frozenMapRotation;
+  }
+
+  resumeCooldown = 0;
+  resumeRotateLockFrames = 0;
+
+  curveMomentum *= 0.70;
+  inCurve = false;
+  smoothFactor = DEFAULT_SMOOTH;
+
+} else if (rotationFrozen && targetSpeed > ROTATE_RESUME_SPEED) {
+  rotationFrozen = false;
+  resumeCooldown = 0;
+
+  resumeRotateLockFrames = 1;
+  resumePanFrames = 2;
+
+  curveMomentum = 0;
+
+  // PATCH: sync กันมุมกระตุก 1 เฟรม
+  lastMapHeading = mapHeading;
+  if (frozenMapRotation !== null) lastMapRotation = frozenMapRotation;
+}
+
+
+  // -------------------------
+  // FOLLOW rotation
+  // -------------------------
+  if (!rotationFrozen) {
+    const deltaToDesired = normalizeAngleDifference(desiredRotation, lastMapRotation);
+
+    const straightLike = combinedTurn < STRAIGHT_STABLE_DEG;
+    if (straightLike && Math.abs(deltaToDesired) < ROTATION_DEADBAND_DEG) {
+      // stay stable
+    } else {
+      const jump = Math.abs(deltaToDesired);
+      if (jump > UTURN_SNAP_DEG) {
+        lastMapRotation = desiredRotation;
+      } else {
+        const followFactor = computeRotationFollowFactor(targetSpeed, curveMix01);
+
+        if (resumeRotateLockFrames === 0) {
+          if (uTurnish) {
+            lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.999);
+          } else if (hardTurn) {
+            lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.92);
+          } else {
+            lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
+          }
+        }
+      }
+    }
+  }
+
+  const appliedRotation =
+    rotationFrozen && frozenMapRotation !== null
+      ? frozenMapRotation
+      : lastMapRotation;
+
+  // PATCH: rotate เฉพาะ wrapper เท่านั้น ห้ามไปแตะ map-pane transform
+  rotWrapper.style.transform = `rotate(${appliedRotation}deg)`;
+
+  isMapRotated = true;
+}
+
+  // =====================
+  // 7) Marker rotation (fast + safe)
+  // =====================
+  const markerHeading = isFinite(baseHeading)
+    ? baseHeading
+    : (isFinite(targetHeading) ? ((targetHeading + 360) % 360) : lastMarkerAngle);
+
+  if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
+    if (targetSpeed < ROTATE_STOP_SPEED) {
+      vehicleMarker.setRotationAngle(lastMarkerAngle);
+    } else {
+const markerSmooth = clamp(
+  computeRotationFollowFactor(targetSpeed, curveMix01) + 0.14,
+  0.80,
+  0.995
+);
+
+      lastMarkerAngle = lerpAngle(lastMarkerAngle, markerHeading, markerSmooth);
+      vehicleMarker.setRotationAngle(lastMarkerAngle);
+    }
+  }
+
+  // =====================
+  // 8) Icon size smooth update
+  // =====================
+  if (Math.abs(lastIconSize - targetIconSize) >= ICON_SIZE_THRESHOLD) {
+    lastIconSize = targetIconSize;
+    if (vehicleMarker && vehicleMarker._icon) {
+      const inner = vehicleMarker._icon.querySelector(".vehicle-inner");
+      if (inner) {
+        const scale = targetIconSize / BASE_ICON_SIZE;
+        inner.style.setProperty("--marker-scale", scale);
+      }
+    }
+  }
+
+  if (callback) callback();
+if (resumePanFrames > 0) resumePanFrames--;
+if (resumeRotateLockFrames > 0) resumeRotateLockFrames--;
+if (followWarmupFrames > 0) followWarmupFrames--;
+
+  smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
+}
+// -----------------------------
+// PATCH: hard clear map rotation (wrapper-safe)
+// -----------------------------
+function hardClearMapRotation(targetMap = map) {
+  if (!targetMap) return;
+
+  const container = targetMap.getContainer?.();
+  if (!container) return;
+
+  const wrapper = container.querySelector(".leaflet-rotate-wrapper");
+  if (wrapper) wrapper.style.transform = "";
+}
+
+// -----------------------------
+// PATCH: remove rotation wrapper safely (FIX: wrapper wraps .leaflet-pane)
+// -----------------------------
+function removeRotationWrapper(targetMap = map) {
+  if (!targetMap) return;
+
+  const container = targetMap.getContainer?.();
+  if (!container) return;
+
+  const wrapper = container.querySelector(".leaflet-rotate-wrapper");
+  if (!wrapper) return;
+
+  // FIX: wrapper ครอบ .leaflet-pane ไม่ใช่ .leaflet-map-pane
+  const paneRoot = wrapper.querySelector(".leaflet-pane");
+  if (paneRoot) {
+    const parent = wrapper.parentNode;
+    // ย้ายกลับไปไว้ตำแหน่งเดิม (ก่อน wrapper)
+    parent.insertBefore(paneRoot, wrapper);
+  }
+
+  try { wrapper.remove(); } catch (e) {}
+}
+
 // -----------------------------
 // Reset Map Rotation
 // -----------------------------
 function resetMapRotation(callback = null) {
-    const pane = getRotationElement(map);
-    if (pane) pane.style.transform = "";
-    lastMapRotation = 0;
-	isMapRotated = false;
-    if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
-        vehicleMarker.setRotationAngle(lastGpsHeading || 0);
-    }
-    if (callback) callback();
+  hardClearMapRotation(map);
+
+  // reset follow/rotation state
+  resetFollowRotationState(false);
+
+  isMapRotated = false;
+
+  if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
+    vehicleMarker.setRotationAngle(lastGpsHeading || 0);
+  }
+
+  if (callback) callback();
 }
+
+
 // -----------------------------
 // RELIABLE HEADING
 // -----------------------------
@@ -2636,35 +3163,118 @@ function initMap(lat, lon) {
     routeLayer = L.layerGroup().addTo(map);
     vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon, interactive: false }).addTo(map);
 
-    map.whenReady(() => {
-        setMapPaneTransformOriginToCenter(map);
-        lastMapCenter = map.getCenter();
-        const pane = getRotationElement(map);
-        if (pane) pane.style.transform = `rotate(0deg)`;
-        lastMapRotation = 0;
-		disableMapInteraction();
-        const reliableHeading = getReliableHeading(lat, lon, 0, 0);
-        updateRoute(lat, lon, 0, reliableHeading);
-		startDeviceOrientationTracking();
-    });
+map.whenReady(() => {
+  // PATCH: ต้องสร้าง wrapper ก่อน แล้วค่อยตั้ง origin
+  ensureRotationWrapper(map);
+  setMapPaneTransformOriginToCenter(map);
+
+  const c = map.getCenter();
+  lastMapCenter = { lat: c.lat, lng: c.lng };
+  lastZoom = BASE_ZOOM;
+isMapReady = true;
+  // reset state ทุกครั้งหลัง map ready
+  resetFollowRotationState(true);
+
+  // bind unlock events
+  bindFlyToUnlockEvents(map);
+
+  // เคลียร์ rotate ให้ชัวร์ (wrapper-safe)
+  hardClearMapRotation(map);
+
+  disableMapInteraction();
+  startDeviceOrientationTracking();
+
+  // warmup
+  followWarmupFrames = 8;
+  resumePanFrames = 3;
+  resumeRotateLockFrames = 2;
+});
+
+
+
 }
-function destroyMap() {
-	if (!map) return;
-	const pane = getRotationElement(map);
-    if (pane) {
-        pane.style.transform = '';
-        pane.style.transformOrigin = '';
+// -----------------------------
+// PATCH: flyTo animation unlock (SAFE + removable)
+// -----------------------------
+function bindFlyToUnlockEvents(targetMap) {
+  if (!targetMap) return;
+
+  if (targetMap._flyUnlockBound) return;
+  targetMap._flyUnlockBound = true;
+
+  const unlock = () => {
+    flyToInProgress = false;
+    flyToEndTime = 0;
+
+    if (targetMap._flyUnlockTimeout) {
+      clearTimeout(targetMap._flyUnlockTimeout);
+      targetMap._flyUnlockTimeout = null;
     }
-	if (smoothTransformAnimFrame) {
-		cancelAnimationFrame(smoothTransformAnimFrame);
-		smoothTransformAnimFrame = null;
-	}
-	try { map.off(); map.eachLayer(l => l.off()); map.remove(); } catch (e) {}
-	map = null; routeLayer = null; vehicleMarker = null;
-	pathCoordinates = []; routeBatchLayers = [];
-	lastMapRotation = 0; lastMarkerAngle = 0; lastIconSize = 32;
-	lastMapCenter = null;
-	isMapRotated = false;
+  };
+
+  // keep handler refs for off()
+  targetMap._flyUnlockHandler = unlock;
+
+  targetMap.on("moveend", unlock);
+  targetMap.on("zoomend", unlock);
+
+  targetMap._scheduleFlyUnlock = (ms = 500) => {
+    if (targetMap._flyUnlockTimeout) clearTimeout(targetMap._flyUnlockTimeout);
+    targetMap._flyUnlockTimeout = setTimeout(unlock, ms);
+  };
+}
+
+function destroyMap() {
+  if (!map) return;
+
+  // clear rotation visuals
+  hardClearMapRotation(map);
+  removeRotationWrapper(map);
+
+  // clear pending invalidate timer
+  if (map._invalidateTimeout) {
+    clearTimeout(map._invalidateTimeout);
+    map._invalidateTimeout = null;
+  }
+
+  // clear fly unlock timeout
+  if (map._flyUnlockTimeout) {
+    clearTimeout(map._flyUnlockTimeout);
+    map._flyUnlockTimeout = null;
+  }
+
+  // stop smooth loop
+  if (smoothTransformAnimFrame) {
+    cancelAnimationFrame(smoothTransformAnimFrame);
+    smoothTransformAnimFrame = null;
+  }
+
+  // unbind fly unlock events explicitly (DO NOT map.off() all)
+  try {
+    if (map._flyUnlockHandler) {
+      map.off("moveend", map._flyUnlockHandler);
+      map.off("zoomend", map._flyUnlockHandler);
+      map._flyUnlockHandler = null;
+    }
+  } catch (e) {}
+
+  try { map.remove(); } catch (e) {}
+
+  // reset refs
+  map = null;
+  routeLayer = null;
+  vehicleMarker = null;
+
+  // reset state
+  pathCoordinates = [];
+  routeBatchLayers = [];
+  lastMapCenter = null;
+  isMapReady = false;
+
+  resetFollowRotationState(true);
+  isMapRotated = false;
+  lastMarkerAngle = 0;
+  lastIconSize = BASE_ICON_SIZE;
 }
 
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
@@ -2686,8 +3296,6 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     lastGpsLng = lon;
     lastGpsSpeedKmh = speedKmh;
     lastGpsHeading = isFinite(headingDegInput) ? headingDegInput : lastGpsHeading;
-
-    const reliableHeading = getReliableHeading(lat, lon, speedKmh, headingDegInput ?? lastGpsHeading);
     const now = Date.now();
     const lastCoord = pathCoordinates[pathCoordinates.length - 1];
 	if (!lastCoord || getDistanceFromLatLonInKm(lastCoord[0], lastCoord[1], lat, lon) >= MIN_DIST_KM) {
@@ -2697,12 +3305,15 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
 		}
 		addRealtimePolylineSegment(lat, lon, speedKmh);
 	}
-    if (autoFollow) {
-        applySmoothTransform(lat, lon, reliableHeading, speedKmh, null);
-    } else {
-        vehicleMarker.setLatLng([lat, lon]);
-        vehicleMarker.setRotationAngle(reliableHeading);
-    }
+const rawHeading = isFinite(headingDegInput) ? headingDegInput : lastGpsHeading;
+if (autoFollow) {
+  applySmoothTransform(lat, lon, rawHeading, speedKmh, null);
+} else {
+  const reliableHeading = getReliableHeading(lat, lon, speedKmh, rawHeading);
+  vehicleMarker.setLatLng([lat, lon]);
+  vehicleMarker.setRotationAngle(reliableHeading);
+}
+
 }
 // =============================
 // DRAW HISTORY ROUTE (UNCHANGED)
@@ -2736,37 +3347,60 @@ function drawHistoryRoute(pathCoords) {
     const lngDiff = Math.abs(bounds.getNorthEast().lng - bounds.getSouthWest().lng);
     const padX = Math.min(300, Math.max(60, lngDiff * 500));
     const padY = Math.min(300, Math.max(60, latDiff * 500));
-    const fitBoundsCallback = () => {
-        const safeZoom = clamp(BASE_ZOOM, 0, 22); // <-- clamp
-        map.fitBounds(latlngsAll, { padding: [padY, padX], maxZoom: safeZoom });
-    };
+ const fitBoundsCallback = () => {
+  const safeZoom = clamp(BASE_ZOOM, 0, 22);
+
+  // PATCH: ต้องใช้ bounds ที่สร้างไว้จริง
+  map.fitBounds(bounds, {
+    padding: [padY, padX],
+    maxZoom: safeZoom
+  });
+};
 
     if (isMapRotated && !autoFollow) resetMapRotation(fitBoundsCallback);
     else fitBoundsCallback();
     safeInvalidateMap(map, 300);
 }
 
-window.addEventListener('resize', () => {
-	if (!map) return;
-	setMapPaneTransformOriginToCenter(map);
-	safeInvalidateMap(map, 100);
-});
-
 function forceRecenterToVehicle() {
-    if (!map || lastGpsLat == null || lastGpsLng == null) return;
-    lastMapCenter = { lat: lastGpsLat, lng: lastGpsLng };
-    lastZoom = map.getZoom();
-    map.setView(
-        [lastGpsLat, lastGpsLng],
-        clamp(calculateTargetZoom(lastGpsSpeedKmh || 0), 0, 22),
-        { animate: false }
-    );
-    if (smoothTransformAnimFrame) {
-        cancelAnimationFrame(smoothTransformAnimFrame);
-        smoothTransformAnimFrame = null;
-    }
-    applySmoothTransform(lastGpsLat, lastGpsLng, lastGpsHeading ?? 0, lastGpsSpeedKmh || 0);
+  if (!map || lastGpsLat == null || lastGpsLng == null) return;
+
+  // PATCH: reset state ให้เป็นศูนย์กลางเดียว
+  resetFollowRotationState(false);
+
+  // warmup หลัง recenter
+  followWarmupFrames = 8;
+  resumePanFrames = 3;
+  resumeRotateLockFrames = 2;
+
+  // sync smoothed pos
+  smoothedLat = lastGpsLat;
+  smoothedLon = lastGpsLng;
+
+  // zoom เป้าหมาย
+  lastZoom = clamp(calculateTargetZoom(lastGpsSpeedKmh || 0), 0, 22);
+
+  // ตั้ง center ให้ระบบรู้ว่า "ล่าสุดอยู่ตรงนี้"
+  lastMapCenter = { lat: lastGpsLat, lng: lastGpsLng };
+
+  // setView แบบไม่ animate ก่อน แล้วค่อยให้ smoothTransform ทำงาน
+  map.setView([lastGpsLat, lastGpsLng], lastZoom, { animate: false });
+
+  // restart animation loop
+  if (smoothTransformAnimFrame) {
+    cancelAnimationFrame(smoothTransformAnimFrame);
+    smoothTransformAnimFrame = null;
+  }
+
+  applySmoothTransform(
+    lastGpsLat,
+    lastGpsLng,
+    (isFinite(lastGpsHeading) ? lastGpsHeading : 0),
+    (isFinite(lastGpsSpeedKmh) ? lastGpsSpeedKmh : 0),
+    null
+  );
 }
+
 // ============================
 // 🔹 GPS FOLLOW BUTTON (FIXED)
 // ============================
@@ -2803,6 +3437,7 @@ function startTracking() {
 	if (!plateInput.value.trim()) { alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม'); plateInput.focus(); return; }
 	if (!navigator.geolocation) { alert('อุปกรณ์ของคุณไม่รองรับการระบุตำแหน่ง'); return; }
   // --- Reset state ---
+  clearWatchId();
 	autoFollow = true;
 	autoRotate = true;
 	disableMapInteraction();
@@ -2849,16 +3484,23 @@ function startTracking() {
 			const { latitude, longitude, heading } = pos.coords;
 			const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 			const headingDeg = (typeof heading === 'number' && isFinite(heading) && heading >= 0) ? heading : 0;
-			if (!map) {
-				initMap(latitude, longitude); 
-				map.whenReady(() => { 
-					setMapPaneTransformOriginToCenter(map); 
-					const safeCenter = clampLatLng(latitude, longitude); 
-					map.setView([latitude, longitude], BASE_ZOOM, { animate: false }); 
-					const reliableHeading = getReliableHeading(latitude, longitude, 0, headingDeg); 
-					updateRoute(latitude, longitude, 0, reliableHeading); 
-				});
-			}
+if (!map) {
+  initMap(latitude, longitude);
+}
+
+lastGpsLat = latitude;
+lastGpsLng = longitude;
+lastGpsHeading = headingDeg;
+lastGpsSpeedKmh = 0;
+
+smoothedLat = latitude;
+smoothedLon = longitude;
+setTimeout(() => {
+  if (!map) return;
+  forceRecenterToVehicle();
+}, 250);
+
+
 			prevPos = { latitude, longitude };
 			prevTimestamp = pos.timestamp;
 			tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
@@ -2909,6 +3551,7 @@ function startTracking() {
 				if (latitude == null || longitude == null) return;
 				if (accuracy > 30) return;
      // --- คำนวณ speedKmh ตัวเดียว ---
+	 let speedKmh = 0;
 				if (pos.coords.speed !== null && pos.coords.speed !== undefined && pos.coords.speed > 0) {
 					speedKmh = pos.coords.speed * 3.6; // m/s -> km/h
 				} else if (prevPos && prevTimestamp) {
@@ -2917,16 +3560,14 @@ function startTracking() {
 						speedKmh = timeSec > 0 ? (dist / timeSec) * 3600 : 0;
 				}
       // กรอง speed ต่ำกว่า 3 km/h
-				if (speedKmh < 2) speedKmh = 0;
+				if (speedKmh < 3) speedKmh = 0;
 					prevTimestamp = pos.timestamp;
 					
       // --- Update display + map ---
 				updateSpeed(speedKmh);
-				const reliableHeading = getReliableHeading(latitude, longitude, speedKmh, heading);
-				updateRoute(latitude, longitude, speedKmh, reliableHeading);
-	  
+				updateRoute(latitude, longitude, speedKmh, heading);
     // --- Idle / Energy ---
-				if (speedKmh < 2) {
+				if (speedKmh < 3) {
 					idleStartTime = idleStartTime || Date.now();
 				} else {
 							if (idleStartTime) {
@@ -3044,17 +3685,21 @@ function stopTracking() {
 		})
 	.filter(Boolean);
 
-	if (isMapRotated) {
-		resetMapRotation(() => {
-			map.setZoom(BASE_ZOOM, { animate: false });
-			drawHistoryRoute(pathCoords);
-			enableMapInteraction();
-		});
-	} else {
-		map.setZoom(BASE_ZOOM, { animate: false });
-		drawHistoryRoute(pathCoords);
-		enableMapInteraction();
-	}
+if (map && map._loaded) {
+  if (isMapRotated) {
+    resetMapRotation(() => {
+      if (!map || !map._loaded) return;
+      map.setZoom(BASE_ZOOM, { animate: false });
+      drawHistoryRoute(pathCoords);
+      enableMapInteraction();
+    });
+  } else {
+    map.setZoom(BASE_ZOOM, { animate: false });
+    drawHistoryRoute(pathCoords);
+    enableMapInteraction();
+  }
+}
+
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
@@ -3088,32 +3733,65 @@ function stopTracking() {
 	endCoordSpan.textContent = tripLog[tripLog.length - 1]?.coord || "-";
 	startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
 	endTimeSpan.textContent = new Date(finalTrip.endTime).toLocaleString();
-	lastMapRotation = 0;
-	lastMarkerAngle = 0;
-	isMapRotated = false; 
-	prevPos = null;
-	tripStartTime = null;
-	totalDistance = 0;
-	idleStartTime = null;
-	autoFollow = false;
-	positions = [];
-	loadHistory();
+// PATCH: clear visuals + state once (clean)
+
+
+resetFollowRotationState(true);
+
+isMapRotated = false;
+lastMarkerAngle = 0;
+
+prevPos = null;
+tripStartTime = null;
+totalDistance = 0;
+idleStartTime = null;
+
+
+positions = [];
+loadHistory();
 }
-	startBtn.onclick = startTracking;
-	stopBtn.onclick = stopTracking;
-	document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
-	document.getElementById("showAllBtn").onclick = () => loadHistory();
-	loadHistory();
-	window.addEventListener('orientationchange', () => {
-		if (map) safeInvalidateMap(map, 800);
-	});
-	window.addEventListener('beforeunload', () => {
-		if (window._mapModalClickHandler) {
-			window.removeEventListener('click', window._mapModalClickHandler);
-		}
-	});
+
+(function bindUIOnce() {
+  if (window._uiBoundOnce) return;
+  window._uiBoundOnce = true;
+
+  startBtn.onclick = startTracking;
+  stopBtn.onclick = stopTracking;
+
+  document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
+  document.getElementById("showAllBtn").onclick = () => loadHistory();
+
+  loadHistory();
+})();
+// ==============================
+// PATCH: bind resize/orientation ONCE (global scope)
+// ==============================
+(function bindResizeOnce() {
+  if (window._mapResizeBound) return;
+  window._mapResizeBound = true;
+
+  window.addEventListener("resize", () => {
+    if (!map || !map._loaded) return;
+    ensureRotationWrapper(map);
+    setMapPaneTransformOriginToCenter(map);
+    safeInvalidateMap(map, 120);
+  }, { passive: true });
+
+  window.addEventListener("orientationchange", () => {
+    if (!map || !map._loaded) return;
+    ensureRotationWrapper(map);
+    setMapPaneTransformOriginToCenter(map);
+    safeInvalidateMap(map, 800);
+  }, { passive: true });
 })();
 
+
+window.addEventListener("beforeunload", () => {
+  if (window._mapModalClickHandler) {
+    window.removeEventListener("click", window._mapModalClickHandler);
+  }
+});
+})();
 // ✅ เวอร์ชันใหม่ (ป้องกัน NotFoundError และ rebuild อัตโนมัติ)
 function saveTripToIndexedDB(tripData) {
 	return new Promise((resolve, reject) => {
