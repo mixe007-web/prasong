@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 11.12</h2>
+<h2>Travelogue Version 11.13</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2286,6 +2286,11 @@ function normalizeAngleDifference(a, b) {
 	if (diff < -180) diff += 360;
 	return diff;
 }
+function normalizeAngle(deg) {
+  deg = deg % 360;
+  if (deg < 0) deg += 360;
+  return deg;
+}
 function calculateTargetZoom(speedKmh) {
 	if (speedKmh < 40) return 17;
 	if (speedKmh < 70) return 16;
@@ -2491,6 +2496,11 @@ let lastAppliedPanLon = null;
 let firstFollowFlyDone = false;
 let flyToInProgress = false;
 let flyToEndTime = 0;
+// PATCH: resume smooth lock
+let resumeSmoothFrames = 0;
+let resumeFromRotation = null; 
+let frozenHeading = null;
+let resumeNoSnapFrames = 0;
 // --- history buffer for curve prediction ---
 const FLYTO_MIN_INTERVAL_MS = 70;     // กัน flyTo รัวเกินจน pan ช้า
 const MIN_MOVE_FOR_MOTION_M = 1.2;    // กัน motion heading จาก noise เมือง
@@ -2503,7 +2513,7 @@ const DEFAULT_SMOOTH = 0.3;
 
 const RESUME_COOLDOWN_FRAMES = 8;
 const ROTATE_STOP_SPEED = 3;
-const ROTATE_RESUME_SPEED = 3.05;
+const ROTATE_RESUME_SPEED = 3.5;
 const ROTATION_DEADBAND_DEG = 1.6;   // กันหมุนสั่นๆ ตอนวิ่งตรง (1.2 - 2.5)
 const STRAIGHT_STABLE_DEG = 4.0;     // ถ้าเลี้ยวน้อยกว่า 4° ถือว่าเกือบตรง
 const UTURN_SNAP_DEG = 120;          // ถ้าหมุนกระโดดเกินนี้ ให้ snap ทันที
@@ -2522,6 +2532,8 @@ function resetFollowRotationState(full = false) {
   frozenMapRotation = null;
   rotationFrozen = false;
   lastMapHeading = null;
+  frozenHeading = null;
+
   resumeCooldown = 0;
 
   resumePanFrames = 0;
@@ -2844,41 +2856,36 @@ else if (targetSpeed < 15) panTriggerM = 1.6;
   if (shouldMove && canFlyByTime && canFlyByAnim && !sameAsLast) {
     const sp = clamp(targetSpeed / 100, 0, 1);
 
-    // duration
-    let panDuration = lerp(0.12, 0.20, sp);
-    panDuration *= (1 - 0.28 * curveMix01); // เข้าโค้งไวขึ้น
-    if (forceRealPos) panDuration *= 1.10;  // start/stop/resume นิ่มขึ้น
-    panDuration = clamp(panDuration, 0.10, 0.26);
+// duration
+let panDuration = lerp(0.12, 0.20, sp);
+panDuration *= (1 - 0.28 * curveMix01); // เข้าโค้งไวขึ้น
+if (forceRealPos) panDuration *= 1.10;  // start/stop/resume นิ่มขึ้น
+panDuration = clamp(panDuration, 0.10, 0.26);
 
-    // ease
-    const panEase = lerp(0.50, 0.35, sp);
+// ease (ต้องเป็น let)
+let panEase = lerp(0.50, 0.35, sp);
 
-    // ---- execute flyTo ----
-    flyToInProgress = true;
-    flyToEndTime = now + (panDuration * 1000) + 80; // +80 กัน event มาเร็วเกิน
+// ---- execute flyTo ----
+flyToInProgress = true;
+flyToEndTime = now + (panDuration * 1000) + 80;
 
-// PATCH: low speed use panTo (lighter), high speed use flyTo (smooth)
-if (targetSpeed < 12) {
-  map.panTo([panLat, panLon], { animate: true, duration: 0.12 });
-
-  if (Math.abs(map.getZoom() - targetZoom) > ZOOM_THRESHOLD) {
-    map.setZoom(targetZoom, { animate: false });
-  }
-
-  // ปลดสถานะ flyTo เอง เพราะเราไม่ได้ flyTo จริง
-  flyToInProgress = false;
-  flyToEndTime = 0;
-} else {
-  map.flyTo([panLat, panLon], targetZoom, {
-    animate: true,
-    duration: panDuration,
-    easeLinearity: panEase
-  });
-
-  if (map && map._loaded && typeof map._scheduleFlyUnlock === "function") {
-    map._scheduleFlyUnlock((panDuration * 1000) + 450);
-  }
+// PATCH: low speed make it softer (flyTo only)
+if (targetSpeed < 10) {
+  panDuration = Math.max(panDuration, 0.18);
+  panEase = 0.55;
 }
+
+map.flyTo([panLat, panLon], targetZoom, {
+  animate: true,
+  duration: panDuration,
+  easeLinearity: panEase
+});
+
+if (map && map._loaded && typeof map._scheduleFlyUnlock === "function") {
+  map._scheduleFlyUnlock((panDuration * 1000) + 450);
+}
+
+
 
     lastFlyToTime = now;
 
@@ -2897,8 +2904,13 @@ if (targetSpeed < 12) {
 // =====================
 const rotWrapper = ensureRotationWrapper(map);
 if (autoRotate && rotWrapper && baseHeading !== null) {
-  const mapHeading = (baseHeading + 360) % 360;
-  const desiredRotation = (-mapHeading + 360) % 360;
+const liveHeading = (baseHeading + 360) % 360;
+const mapHeading =
+  rotationFrozen && frozenHeading !== null
+    ? frozenHeading
+    : liveHeading;
+
+const desiredRotation = (-mapHeading + 360) % 360;
 
   if (lastMapRotation === null) {
     lastMapRotation = desiredRotation;
@@ -2927,9 +2939,20 @@ if (targetSpeed <= ROTATE_STOP_SPEED) {
   if (!rotationFrozen) {
     rotationFrozen = true;
 
-    // PATCH: ถ้า lastMapRotation ยังไม่พร้อม ให้ freeze ที่ desiredRotation ไปเลย
+    // freeze ที่มุมล่าสุดจริง (ไม่ใช่ desiredRotation)
     frozenMapRotation = (lastMapRotation !== null) ? lastMapRotation : desiredRotation;
     lastMapRotation = frozenMapRotation;
+
+    // freeze heading เพื่อไม่ให้ desiredRotation วิ่งตาม noise ตอนรถหยุด
+    frozenHeading = liveHeading;
+
+    // สำคัญ: sync heading memory กัน delta เฟรมถัดไปกระชาก
+    lastMapHeading = frozenHeading;
+
+    // reset resume smoothing state
+    resumeSmoothFrames = 0;
+    resumeFromRotation = frozenMapRotation;
+    resumeNoSnapFrames = 0;
   }
 
   resumeCooldown = 0;
@@ -2938,50 +2961,101 @@ if (targetSpeed <= ROTATE_STOP_SPEED) {
   curveMomentum *= 0.70;
   inCurve = false;
   smoothFactor = DEFAULT_SMOOTH;
-
-} else if (rotationFrozen && targetSpeed > ROTATE_RESUME_SPEED) {
+}
+ else if (rotationFrozen && targetSpeed > ROTATE_RESUME_SPEED) {
+  // เริ่มขยับแล้ว → ปลด freeze แต่ต้อง "ไล่มุม" ต่อเนื่อง
   rotationFrozen = false;
-  resumeCooldown = 0;
+frozenHeading = null;
+  // PATCH: เริ่มจากมุมที่ค้างอยู่จริง
+  resumeFromRotation = (frozenMapRotation !== null) ? frozenMapRotation : lastMapRotation;
 
-  resumeRotateLockFrames = 1;
+  // กัน snap / กัน motion กระโดดช่วงแรก
+  resumeSmoothFrames = 12;          // ~10 เฟรม (ปรับได้ 8-14)
+  resumeNoSnapFrames = 18;
+  resumeRotateLockFrames = 0;       // เราจะใช้ resumeSmoothFrames คุมแทน
   resumePanFrames = 2;
 
   curveMomentum = 0;
 
-  // PATCH: sync กันมุมกระตุก 1 เฟรม
+  // sync heading เพื่อไม่ให้ headingDelta เฟรมแรกพุ่ง
   lastMapHeading = mapHeading;
-  if (frozenMapRotation !== null) lastMapRotation = frozenMapRotation;
+
+  // ให้ lastMapRotation เริ่มจากมุมที่ freeze จริง
+  if (resumeFromRotation !== null) lastMapRotation = resumeFromRotation;
 }
 
 
   // -------------------------
   // FOLLOW rotation
   // -------------------------
-  if (!rotationFrozen) {
-    const deltaToDesired = normalizeAngleDifference(desiredRotation, lastMapRotation);
+if (!rotationFrozen) {
+  const deltaToDesired = normalizeAngleDifference(desiredRotation, lastMapRotation);
 
+  // =========================
+  // PATCH: resume smoothing phase (NO SNAP)
+  // =========================
+if (resumeSmoothFrames > 0) {
+  resumeSmoothFrames--;
+
+  const sp = clamp(targetSpeed / 40, 0, 1);
+  const t = lerp(0.10, 0.22, sp);
+
+  if (!isFinite(lastMapRotation) || !isFinite(desiredRotation)) {
+    lastMapRotation = desiredRotation;
+  } else {
+    const delta = normalizeAngleDifference(desiredRotation, lastMapRotation);
+
+    // cap ต่อเฟรม ป้องกัน jump
+    const capDeg = targetSpeed < 6
+  ? 8
+  : lerp(12, 25, sp);
+// ช้า cap ต่ำ / เร็ว cap สูง
+    const capped = clamp(delta, -capDeg, capDeg);
+
+    lastMapRotation = normalizeAngle(lastMapRotation + capped * t);
+  }
+
+  // ช่วง resume ห้าม snap แน่นอน
+  if (resumeNoSnapFrames < 6) resumeNoSnapFrames = 6;
+}
+
+ else {
+    // =========================
+    // NORMAL follow logic
+    // =========================
     const straightLike = combinedTurn < STRAIGHT_STABLE_DEG;
+
     if (straightLike && Math.abs(deltaToDesired) < ROTATION_DEADBAND_DEG) {
       // stay stable
     } else {
       const jump = Math.abs(deltaToDesired);
-      if (jump > UTURN_SNAP_DEG) {
+
+      // PATCH: snap เฉพาะตอน "เร็วจริง"
+    const allowSnap =
+  targetSpeed > 28 &&
+  resumeNoSnapFrames === 0 &&
+  motionOk &&
+  motion.confidence > 0.45;
+
+
+
+      if (allowSnap && jump > UTURN_SNAP_DEG) {
         lastMapRotation = desiredRotation;
       } else {
         const followFactor = computeRotationFollowFactor(targetSpeed, curveMix01);
 
-        if (resumeRotateLockFrames === 0) {
-          if (uTurnish) {
-            lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.999);
-          } else if (hardTurn) {
-            lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.92);
-          } else {
-            lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
-          }
+        if (uTurnish) {
+          lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.999);
+        } else if (hardTurn) {
+          lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.92);
+        } else {
+          lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
         }
       }
     }
   }
+}
+
 
   const appliedRotation =
     rotationFrozen && frozenMapRotation !== null
@@ -3033,6 +3107,7 @@ const markerSmooth = clamp(
   if (callback) callback();
 if (resumePanFrames > 0) resumePanFrames--;
 if (resumeRotateLockFrames > 0) resumeRotateLockFrames--;
+if (resumeNoSnapFrames > 0) resumeNoSnapFrames--;
 if (followWarmupFrames > 0) followWarmupFrames--;
 
   smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
