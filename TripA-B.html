@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Travelogue Version 12.13</h2>
+<h2>Travelogue Version 13.13</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2461,6 +2461,7 @@ let resumeFromRotation = null;
 let frozenHeading = null;
 let resumeNoSnapFrames = 0;
 let resumeIgnoreTurnFrames = 0;
+const LOW_SPEED_HEADING_LOCK = 8;
 const FLYTO_MIN_INTERVAL_MS = 70;
 const MIN_MOVE_FOR_MOTION_M = 1.2;
 const MIN_MOVE_FOR_HISTORY_M = 0.8;
@@ -2596,6 +2597,11 @@ function isHardTurn(turnRateDeg) {
 // MAIN LOOP
 // =====================
 function smoothTransformStep(now) {
+if (!isTracking) {
+  smoothTransformAnimFrame = null;
+  return;
+}
+
 	if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
 		smoothTransformAnimFrame = null;
 		return;
@@ -2643,11 +2649,26 @@ function smoothTransformStep(now) {
 	const gpsHeading = isFinite(targetHeading) ? ((targetHeading + 360) % 360) : null;
 	const motionOk = isFinite(motion.heading) && motion.confidence > 0.05;
 	// 3) Heading fusion (GPS + Motion)
-	let baseHeading = mixHeading(gpsHeading, motionOk ? motion.heading : null, motionOk ? motion.confidence : 0, targetSpeed);
-	if (baseHeading === null && lastHeading !== null) baseHeading = lastHeading;
-	if (baseHeading !== null && targetSpeed < 12) {
-		const useDevice = (!motionOk || motion.confidence < 0.35);
+	let baseHeading = mixHeading(
+		gpsHeading,
+		motionOk ? motion.heading : null,
+		motionOk ? motion.confidence : 0,
+		targetSpeed
+	);
+	if (targetSpeed > ROTATE_STOP_SPEED && targetSpeed < LOW_SPEED_HEADING_LOCK) {
+		if (lastReliableHeading !== null) {
+			baseHeading = lastReliableHeading;
+		}
+	}
+	if (baseHeading === null && lastHeading !== null) {
+		baseHeading = lastHeading;
+	}
+	if (baseHeading !== null && targetSpeed < 6) {
+		const useDevice = (!motionOk || motion.confidence < 0.25);
 		if (useDevice) baseHeading = getSmoothedDeviceHeading(baseHeading);
+	}
+	if (baseHeading !== null && targetSpeed >= LOW_SPEED_HEADING_LOCK) {
+		lastReliableHeading = baseHeading;
 	}
 	if (baseHeading !== null) lastHeading = baseHeading;
 	if (targetSpeed <= ROTATE_STOP_SPEED && lastHeading !== null) {
@@ -2818,7 +2839,10 @@ function smoothTransformStep(now) {
 					if (allowSnap && jump > UTURN_SNAP_DEG) {
 						lastMapRotation = desiredRotation;
 					} else {
-						const followFactor = computeRotationFollowFactor(targetSpeed, curveMix01);
+						let followFactor = computeRotationFollowFactor(targetSpeed, curveMix01);
+						if (targetSpeed < 10) {
+							followFactor = Math.min(followFactor, lerp(0.48, 0.65, targetSpeed / 10));
+						}
 						if (resumeSmoothFrames > 0) {
 							lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
 						} else {
@@ -3186,11 +3210,48 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
         });
     }
 });
+function resetTrackingVisualState() {
+  resetFollowRotationState(true);
+
+  autoFollow = true;
+  autoRotate = true;
+  isMapRotated = false;
+  smoothedLat = null;
+  smoothedLon = null;
+  lastMapCenter = null;
+  lastZoom = 0;
+
+  if (smoothTransformTarget) {
+    smoothTransformTarget.lat = null;
+    smoothTransformTarget.lon = null;
+    smoothTransformTarget.heading = null;
+    smoothTransformTarget.speedKmh = 0;
+    smoothTransformTarget.lastFrameTime = null;
+  }
+
+  const rotWrapper = document.querySelector(".leaflet-rotate-wrapper");
+  if (rotWrapper) rotWrapper.style.transform = "";
+
+  if (vehicleMarker?.setRotationAngle) {
+    vehicleMarker.setRotationAngle(0);
+  }
+  lastIconSize = BASE_ICON_SIZE;
+}
+
+function clearTrackingMapObjects() {
+  if (routeLayer && map) {
+    routeLayer.clearLayers();
+  }
+  pathCoordinates = [];
+  posHistory.length = 0;
+}
 
 function startTracking() {
 	if (isTrackingStarted || isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
 	if (!plateInput.value.trim()) { alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม'); plateInput.focus(); return; }
 	if (!navigator.geolocation) { alert('อุปกรณ์ของคุณไม่รองรับการระบุตำแหน่ง'); return; }
+	resetTrackingVisualState();
+	clearTrackingMapObjects();
 	// --- Reset state ---
 	clearWatchId();
 	autoFollow = true;
@@ -3375,13 +3436,10 @@ function startTracking() {
 		{ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
 	);
 }
-
 function stopTracking() {
 	if (!isTracking) return;
 	if (smoothTransformAnimFrame) { cancelAnimationFrame(smoothTransformAnimFrame); smoothTransformAnimFrame = null; }
-	smoothTransformTarget.lat = null;
-	smoothTransformTarget.lon = null;
-	smoothTransformTarget.heading = null;
+	smoothTransformTarget.lastFrameTime = null;
 	smoothTransformTarget.speedKmh = 0;
 
 	if (elapsedTimeInterval !== null) {
