@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:08.88</h2>
+<h2>Trip Version:07.77</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2768,11 +2768,24 @@ function smoothTransformStep(now) {
 		firstFollowFlyDone = true;
 	}
 	// 6) Map rotation
-	if (!cachedRotWrapper) {
-		cachedRotWrapper = ensureRotationWrapper(map);
-	}
-	const rotWrapper = cachedRotWrapper;
-	if (autoRotate && rotWrapper && baseHeading !== null && canRotate) {
+let wrapperRebuilt = false;
+if (!cachedRotWrapper || !cachedRotWrapper.isConnected) {
+	cachedRotWrapper = ensureRotationWrapper(map);
+	wrapperRebuilt = true;
+}
+const rotWrapper = cachedRotWrapper;
+ if (wrapperRebuilt) {
+	lastAppliedRotation = null;
+	lastMapRotation = null;
+	lastMapHeading = null;
+	rotationVelocity = 0;
+	zeroDeltaFrames = 0;
+	rotationFrozen = false;
+	frozenHeading = null;
+	frozenMapRotation = null;
+	resumeSmoothFrames = 0;
+ }
+	if (autoRotate && rotWrapper && canRotate) {
 		lastRotateFrameTime = now;
 		const liveHeading = (baseHeading + 360) % 360;
 		const mapHeading = (rotationFrozen && frozenHeading !== null) ? frozenHeading : liveHeading;
@@ -2855,9 +2868,7 @@ function smoothTransformStep(now) {
 						rotationVelocity = clamp(rotationVelocity, -1.0, 1.0);
 					}
 					if (rotationVelocity !== 0) {
-							lastMapRotation = normalizeAngle(
-							lastMapRotation + rotationVelocity
-						);
+							lastMapRotation = normalizeAngle(lastMapRotation + rotationVelocity);
 					}
 				}
 				if (resumeNoSnapFrames < 10) resumeNoSnapFrames = 10;
@@ -2875,8 +2886,7 @@ function smoothTransformStep(now) {
 							rotationVelocity *= ultraStraight ? 0.75 : 0.85;
 							lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.08);
 						}
-					}
-					else {
+					} else {
 						const jump = Math.abs(deltaToDesired);
 						const allowSnap =
 							targetSpeed > 28 &&
