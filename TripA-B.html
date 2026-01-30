@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:07.77</h2>
+<h2>Trip Version:08.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2182,7 +2182,6 @@ let lastGpsSpeedKmh = 0;
 let autoFollow = true;
 let autoRotate = true;
 let lastIconSize = 32;
-let followWarmupFrames = 0;
 const BASE_ZOOM = 17;
 const BASE_ICON_SIZE = 32;
 const POLYLINE_BATCH_SIZE = 200;
@@ -2391,7 +2390,14 @@ let lastMapHeading = null;
 let curveMomentum = 0;
 let inCurve = false;
 let resumePanFrames = 0;
+let lastAppliedPanLat = null;
+let lastAppliedPanLon = null;
+let lastReliableHeading = null;
+let lastMapCenter = null;
+let lastZoom = null;
+let followWarmupFrames = 0;
 let firstFollowFlyDone = false;
+let flyToEndTime = 0;
 let resumeSmoothFrames = 0;
 let resumeFromRotation = null; 
 let frozenHeading = null;
@@ -2399,39 +2405,23 @@ let resumeNoSnapFrames = 0;
 let resumeIgnoreTurnFrames = 0;
 let appliedMapLat = null;
 let appliedMapLon = null;
-let rotationVelocity = 0;
 let lastLookAhead = null;
-let lastFollow = null;
-let zeroDeltaFrames = 0;
-let prevFrameHeading = null;
-let frameBearingCache = null;
-let frameMoveDistCache = null;
-let framePanDistCache = null;
-let frameViewMoveCache = null;
-let lastAppliedRotation = null;
-let cachedRotWrapper = null;
-let straightLikeFrames = 0;
-let straightPanStable = false;
-let straightRotateStable = false;
-let lastZoom = null;
-let lastPanFrameTime = 0;
-let lastRotateFrameTime = 0;
-let lastReliableHeading = null;
-let lastMapCenter = null;
+
 const LOW_SPEED_HEADING_LOCK = 8;
+const FLYTO_MIN_INTERVAL_MS = 70;
 const MIN_MOVE_FOR_MOTION_M = 1.2;
 const MIN_MOVE_FOR_HISTORY_M = 0.8;
+const RESUME_MAX_STEP_DEG = 18;
 const posHistory = [];
 const HISTORY_MAX = 4;
+const RESUME_COOLDOWN_FRAMES = 8;
 const ROTATE_STOP_SPEED = 2;
 const ROTATE_RESUME_SPEED = 3;
 const ROTATION_DEADBAND_DEG = 1.6;
 const STRAIGHT_STABLE_DEG = 4.0;
 const UTURN_SNAP_DEG = 120;
-const AUTO_FOLLOW_FPS = 30;
 const ZOOM_THRESHOLD = 0.1;
 const ICON_SIZE_THRESHOLD = 0.05;
-
 // ===== helpers (local) =====
 function resetFollowRotationState(full = false) {
 	lastMapRotation = null;
@@ -2440,26 +2430,13 @@ function resetFollowRotationState(full = false) {
 	lastMapHeading = null;
 	frozenHeading = null;
 	resumePanFrames = 0;
+	lastAppliedPanLat = null;
+	lastAppliedPanLon = null;
 	firstFollowFlyDone = false;
+	flyToEndTime = 0;
 	curveMomentum = 0;
 	inCurve = false;
 	lastHeading = null;
-	lastFollow = null;
-	lastLookAhead = null;
-	appliedMapLat = null;
-	appliedMapLon = null;
-	lastMapCenter = null;
-	prevFrameHeading = null;
-	lastAppliedRotation = null;
-	rotationVelocity = 0;
-	zeroDeltaFrames = 0;
-	straightLikeFrames = 0;
-	straightPanStable = false;
-	straightRotateStable = false;
-	frameBearingCache = null;
-	frameMoveDistCache = null;
-	framePanDistCache = null;
-	frameViewMoveCache = null
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
@@ -2515,8 +2492,7 @@ function getMotionHeadingFromHistory() {
 		return { heading: null, turnRate: 0, confidence: 0 };
 	}
 	const h01 = bearingDeg(p0.lat, p0.lon, p1.lat, p1.lon);
-	const h12 = frameBearingCache ??
-	(frameBearingCache = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon));
+	const h12 = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
 	const delta = normalizeAngleDifference(h12, h01);
 	const absTurn = Math.abs(delta);
 	const confidence = clamp((Math.min(d01, d12) - MIN_MOVE_FOR_MOTION_M) / 8.0, 0, 1);
@@ -2539,8 +2515,8 @@ function dynamicLookAhead(speedKmh, curveStrength01) {
 	return base * reduceOnCurve;
 }
 function computeCurveStrength(turnRateDeg, speedKmh) {
-	const t = clamp((turnRateDeg - 4) / 18, 0, 1);
-	const s = clamp(speedKmh / 60, 0.25, 1);
+	const t = clamp((turnRateDeg - 4) / 18, 0, 1);  // 0..1
+	const s = clamp(speedKmh / 60, 0.25, 1);        // ช่วยตอนวิ่งช้า
 	return clamp(t * s, 0, 1);
 }
 function computeRotationFollowFactor(speedKmh, curveStrength01) {
@@ -2556,20 +2532,19 @@ function isUTurn(turnRateDeg, speedKmh) {
 function isHardTurn(turnRateDeg) {
 	return turnRateDeg > 16;
 }
-function computeFrameHeadingDelta(current, last) {
-	if (!isFinite(current) || !isFinite(last)) return 0;
-	return normalizeAngleDifference(current, last);
-}
+// =====================
 // MAIN LOOP
+// =====================
 function smoothTransformStep(now) {
-	if (!isTracking) {
-		smoothTransformAnimFrame = null;
-		return;
-	}
+if (!isTracking) {
+  smoothTransformAnimFrame = null;
+  return;
+}
 	if (!map || !vehicleMarker || smoothTransformTarget.lat === null) {
 		smoothTransformAnimFrame = null;
 		return;
 	}
+	smoothTransformTarget.lastFrameTime = now;
 	const {
 		lat: targetLat,
 		lon: targetLon,
@@ -2579,25 +2554,13 @@ function smoothTransformStep(now) {
 		iconSize: targetIconSize,
 		callback
 	} = smoothTransformTarget;
-	const panFPS = straightPanStable ? (targetSpeed > 25 ? 18 : 22) : AUTO_FOLLOW_FPS;
-	const panInterval = 1000 / panFPS;
-	const canPan = (now - lastPanFrameTime) >= panInterval;
-	const rotateFPS = straightRotateStable ? 30 : 45;
-	const rotateInterval = 1000 / rotateFPS;
-	const canRotate = (now - lastRotateFrameTime) >= rotateInterval;
-	if (canRotate) frameBearingCache = null;
-	if (canPan) frameMoveDistCache = null;
-	if (canPan) {
-		framePanDistCache = null;
-		frameViewMoveCache = null;
-	}
 	// 1) Marker position smoothing
 	if (smoothedLat === null) {
 		smoothedLat = targetLat;
 		smoothedLon = targetLon;
 	}
 	const speedFactor = clamp(targetSpeed / 60, 0, 1);
-	const posSmooth = lerp(0.18, 0.42, speedFactor);
+	const posSmooth = lerp(0.18, 0.42, speedFactor); // ไวขึ้นนิด ให้ตามถนนจริง
 	smoothedLat = lerp(smoothedLat, targetLat, posSmooth);
 	smoothedLon = lerp(smoothedLon, targetLon, posSmooth);
 	vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
@@ -2606,22 +2569,28 @@ function smoothTransformStep(now) {
 		pushHistory(targetLat, targetLon, now);
 	} else {
 		const last = posHistory[posHistory.length - 1];
-		const moved = frameMoveDistCache ?? (frameMoveDistCache = haversineMeters(last.lat, last.lon, targetLat, targetLon));
+		const moved = haversineMeters(last.lat, last.lon, targetLat, targetLon);
 		if (moved >= MIN_MOVE_FOR_HISTORY_M) {
-			pushHistory(targetLat, targetLon, now);
+		pushHistory(targetLat, targetLon, now);
 		}
 	}
 	const motion = getMotionHeadingFromHistory();
 	const gpsHeading = isFinite(targetHeading) ? ((targetHeading + 360) % 360) : null;
 	const motionOk = isFinite(motion.heading) && motion.confidence > 0.05;
 	// 3) Heading fusion (GPS + Motion)
-	let baseHeading = mixHeading(gpsHeading, motionOk ? motion.heading : null, motionOk ? motion.confidence : 0, targetSpeed);
-	if (targetSpeed > ROTATE_STOP_SPEED && targetSpeed < LOW_SPEED_HEADING_LOCK) {
-		if (lastReliableHeading !== null && baseHeading !== null) {
-			const w = clamp((targetSpeed - ROTATE_STOP_SPEED) / (LOW_SPEED_HEADING_LOCK - ROTATE_STOP_SPEED), 0, 1);
-			baseHeading = lerpAngle(lastReliableHeading, baseHeading, w);
-		}
-	}
+	let baseHeading = mixHeading(
+		gpsHeading,
+		motionOk ? motion.heading : null,
+		motionOk ? motion.confidence : 0,
+		targetSpeed
+	);
+if (targetSpeed > ROTATE_STOP_SPEED && targetSpeed < LOW_SPEED_HEADING_LOCK) {
+  if (lastReliableHeading !== null && baseHeading !== null) {
+    const w = clamp((targetSpeed - ROTATE_STOP_SPEED) / (LOW_SPEED_HEADING_LOCK - ROTATE_STOP_SPEED), 0, 1);
+    baseHeading = lerpAngle(lastReliableHeading, baseHeading, w);
+  }
+}
+
 	if (baseHeading === null && lastHeading !== null) {
 		baseHeading = lastHeading;
 	}
@@ -2629,24 +2598,27 @@ function smoothTransformStep(now) {
 		const useDevice = (!motionOk || motion.confidence < 0.25);
 		if (useDevice) baseHeading = getSmoothedDeviceHeading(baseHeading);
 	}
-	if (targetSpeed < 6 && motion.confidence < 0.3 && lastHeading !== null &&
-		Math.abs(normalizeAngleDifference(baseHeading, lastHeading)) < 1.2
-	) {
-		baseHeading = lastHeading;
-	}
+	if (
+  targetSpeed < 6 &&
+  motion.confidence < 0.3 &&
+  lastHeading !== null &&
+  Math.abs(normalizeAngleDifference(baseHeading, lastHeading)) < 1.2
+) {
+  baseHeading = lastHeading;
+}
+
 	if (baseHeading !== null && targetSpeed >= LOW_SPEED_HEADING_LOCK) {
 		lastReliableHeading = baseHeading;
 	}
-	if (baseHeading !== null) {
-		lastHeading = baseHeading;
-	}
-	if (
-		targetSpeed <= ROTATE_STOP_SPEED &&
-		lastHeading !== null &&
-		motion.confidence < 0.15
-	) {
-		baseHeading = lastHeading;
-	}
+	if (baseHeading !== null) lastHeading = baseHeading;
+if (
+  targetSpeed <= ROTATE_STOP_SPEED &&
+  lastHeading !== null &&
+  motion.confidence < 0.15
+) {
+  baseHeading = lastHeading;
+}
+
 	// 4) Curve model
 	const curveStrength01 = computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
 	if (curveStrength01 > 0.14) {
@@ -2658,135 +2630,79 @@ function smoothTransformStep(now) {
 	}
 	const curveBoost01 = clamp(curveMomentum / 24, 0, 1);
 	const curveMix01 = Math.max(curveStrength01, curveBoost01);
-	// 4.1 shared for pan + rotate (SAFE & unified)
-	const motionTurn = motionOk ? motion.turnRate : 0;
-	const combinedTurn = targetSpeed < 8 ? motionTurn * 0.6 : motionTurn;
-	const frameHeadingDelta = computeFrameHeadingDelta(baseHeading, prevFrameHeading);
-	const straightLike =
-		combinedTurn < STRAIGHT_STABLE_DEG &&
-		curveMix01 < 0.12 &&
-		targetSpeed > ROTATE_RESUME_SPEED &&
-		motion.confidence > 0.25 &&
-		Math.abs(frameHeadingDelta) < 2.2 &&
-		!(inCurve && curveMomentum > 4);
-	const ultraStraight =
-		straightLike &&
-		combinedTurn < 0.9 &&
-		curveMix01 < 0.06 &&
-		motion.confidence > 0.35 &&
-		Math.abs(frameHeadingDelta) < 1.0;
-	if (straightLike) {
-		straightLikeFrames = Math.min((straightLikeFrames || 0) + 1, 6);
-	} else {
-		straightLikeFrames = Math.max((straightLikeFrames || 0) - 1, 0);
-	}
-	straightPanStable = straightLikeFrames >= 2;
-	straightRotateStable =
-	ultraStraight &&
-	straightLikeFrames >= 3 &&
-	Math.abs(frameHeadingDelta) < 1.2;
-	// 5) Smooth pan
-	if (autoFollow && canPan) {
-		lastPanFrameTime = now;
-		if (
-			appliedMapLat === null ||
-			appliedMapLon === null ||
-			!isFinite(appliedMapLat) ||
-			!isFinite(appliedMapLon)
-		) {
-			const c = map.getCenter();
-			appliedMapLat = c.lat;
-			appliedMapLon = c.lng;
-			lastMapCenter = { lat: c.lat, lng: c.lng };
-		}
-		if (!isFinite(lastZoom) || lastZoom === 0) {
-			lastZoom = map.getZoom();
-		}
-		let lookAhead = dynamicLookAhead(targetSpeed, curveMix01);
-		lookAhead = lerp(lastLookAhead || lookAhead, lookAhead, 0.25);
-		lastLookAhead = lookAhead;
-		if (targetSpeed > 95) lookAhead *= 1.10;
-		let panLat = targetLat;
-		let panLon = targetLon;
-		const forceRealPos = (resumePanFrames > 0) || (followWarmupFrames > 0) || (targetSpeed < 6);
-		if (forceRealPos) {
-			panLat = smoothedLat;
-			panLon = smoothedLon;
-		} else if (baseHeading !== null) {
-			const ahead = projectAhead(targetLat, targetLon, baseHeading, lookAhead);
-			panLat = ahead[0];
-			panLon = ahead[1];
-		}
-		const panMoveM =
-			framePanDistCache ??
-			(framePanDistCache = haversineMeters(
-			lastMapCenter.lat,
-			lastMapCenter.lng,
-			panLat,
-			panLon
-		));
-		let panTriggerM;
-		if (targetSpeed < 6) panTriggerM = 1.2;
-			else if (targetSpeed < 15) panTriggerM = 1.6;
-			else if (targetSpeed < 50) panTriggerM = 3.5;
-			else panTriggerM = 4.5;
-			const zoomChanged = Math.abs(lastZoom - targetZoom) > ZOOM_THRESHOLD;
-			let shouldMove = (panMoveM > panTriggerM) || zoomChanged;
-			if (!firstFollowFlyDone) shouldMove = true;
-			let follow = lerp(0.08, 0.22, clamp(targetSpeed / 90, 0, 1));
-			if (curveMix01 > 0.2) follow *= 1.15;
-			if (ultraStraight && panMoveM < panTriggerM) {
-				follow *= 0.55;
-			}
-		if (!shouldMove && firstFollowFlyDone) {
-			follow *= 0.35;
-		}
-		if (targetSpeed < 3) follow *= 0.5;
-		follow = clamp(follow, 0.05, targetSpeed > 90 ? 0.38 : 0.30);
-		follow = lerp(lastFollow || follow, follow, 0.25);
-		lastFollow = follow;
-		appliedMapLat = lerp(appliedMapLat, panLat, follow);
-		appliedMapLon = lerp(appliedMapLon, panLon, follow);
-		const dLat = Math.abs(appliedMapLat - lastMapCenter.lat);
-		const dLon = Math.abs(appliedMapLon - lastMapCenter.lng);
-		let viewMoveM = 0;
-		if ((!straightRotateStable || follow > 0.12) && (dLat > 1e-6 || dLon > 1e-6)) {
-			viewMoveM =
-				frameViewMoveCache ??
-				(frameViewMoveCache = haversineMeters(
-				lastMapCenter.lat,
-				lastMapCenter.lng,
-				appliedMapLat,
-				appliedMapLon
-			));
-		}
-		if (viewMoveM > 0.15 || zoomChanged) {
-			map.setView([appliedMapLat, appliedMapLon], targetZoom, { animate: false });
-			lastMapCenter = { lat: appliedMapLat, lng: appliedMapLon };
-			lastZoom = targetZoom;
-		}
-		firstFollowFlyDone = true;
-	}
-	// 6) Map rotation
-let wrapperRebuilt = false;
-if (!cachedRotWrapper || !cachedRotWrapper.isConnected) {
-	cachedRotWrapper = ensureRotationWrapper(map);
-	wrapperRebuilt = true;
-}
-const rotWrapper = cachedRotWrapper;
- if (wrapperRebuilt) {
-	lastAppliedRotation = null;
-	lastMapRotation = null;
-	lastMapHeading = null;
-	rotationVelocity = 0;
-	zeroDeltaFrames = 0;
-	rotationFrozen = false;
-	frozenHeading = null;
-	frozenMapRotation = null;
-	resumeSmoothFrames = 0;
+// 5) Smooth pan
+if (autoFollow) {
+  if (
+    appliedMapLat === null ||
+    appliedMapLon === null ||
+    !isFinite(appliedMapLat) ||
+    !isFinite(appliedMapLon)
+  ) {
+    const c = map.getCenter();
+    appliedMapLat = c.lat;
+    appliedMapLon = c.lng;
+    lastMapCenter = { lat: c.lat, lng: c.lng };
+  }
+  if (!isFinite(lastZoom) || lastZoom === 0) {
+    lastZoom = map.getZoom();
+  }
+  let lookAhead = dynamicLookAhead(targetSpeed, curveMix01);
+  if (
+   curveMix01 < 0.08 &&
+   targetSpeed > 20 &&
+   lastLookAhead !== null
+ ) {
+   lookAhead = lastLookAhead;
  }
-	if (autoRotate && rotWrapper && canRotate) {
-		lastRotateFrameTime = now;
+
+ lastLookAhead = lookAhead;
+  if (targetSpeed > 95) lookAhead *= 1.10;
+  let panLat = targetLat;
+  let panLon = targetLon;
+  const forceRealPos =
+    (resumePanFrames > 0) ||
+    (followWarmupFrames > 0) ||
+    (targetSpeed < 6);
+  if (forceRealPos) {
+    panLat = smoothedLat;
+    panLon = smoothedLon;
+  } else if (baseHeading !== null) {
+    const ahead = projectAhead(targetLat, targetLon, baseHeading, lookAhead);
+    panLat = ahead[0];
+    panLon = ahead[1];
+  }
+  const panMoveM = haversineMeters(
+    lastMapCenter.lat,
+    lastMapCenter.lng,
+    panLat,
+    panLon
+  );
+// FOLLOW FACTOR = ความลื่น
+let follow = lerp(0.06, 0.20, clamp(targetSpeed / 90, 0, 1));
+if (forceRealPos) follow *= 0.6;
+if (curveMix01 > 0.2) follow *= 1.1;
+ if (curveMix01 < 0.08 && targetSpeed > 30) {
+   follow = Math.min(follow, 0.16);
+ }
+follow = clamp(follow, 0.08, 0.25);
+
+// lerp ทุก frame (ไม่มี if)
+appliedMapLat = lerp(appliedMapLat, panLat, follow);
+appliedMapLon = lerp(appliedMapLon, panLon, follow);
+
+map.setView(
+  [appliedMapLat, appliedMapLon],
+  targetZoom,
+  { animate: false }
+);
+
+lastMapCenter = { lat: appliedMapLat, lng: appliedMapLon };
+lastZoom = targetZoom;
+firstFollowFlyDone = true;
+}
+	// 6) Map rotation
+	const rotWrapper = ensureRotationWrapper(map);
+	if (autoRotate && rotWrapper && baseHeading !== null) {
 		const liveHeading = (baseHeading + 360) % 360;
 		const mapHeading = (rotationFrozen && frozenHeading !== null) ? frozenHeading : liveHeading;
 		const desiredRotation = (-mapHeading + 360) % 360;
@@ -2796,18 +2712,26 @@ const rotWrapper = cachedRotWrapper;
 			lastMapHeading = mapHeading;
 		}
 		let headingDelta = (lastMapHeading === null)
-			? 0
-			: normalizeAngleDifference(mapHeading, lastMapHeading);
-		if (targetSpeed < 6 && Math.abs(headingDelta) < 2.0 && motion.confidence < 0.4) {
-			headingDelta = 0;
-		}
+		? 0
+		: normalizeAngleDifference(mapHeading, lastMapHeading);
+		if (
+  targetSpeed < 6 &&
+  Math.abs(headingDelta) < 2.0 &&
+  motion.confidence < 0.4
+) {
+  headingDelta = 0;
+}
 		if (resumeIgnoreTurnFrames > 0) headingDelta = 0;
 		lastMapHeading = mapHeading;
+		const absTurnFrame = Math.abs(headingDelta);
+		const motionTurn = (motionOk ? motion.turnRate : 0);
+const combinedTurn =
+  targetSpeed < 10
+    ? motionTurn
+    : Math.max(absTurnFrame, motionTurn * 0.95);
+
 		const uTurnish = isUTurn(combinedTurn, targetSpeed);
 		const hardTurn = isHardTurn(combinedTurn);
-		if (uTurnish || hardTurn) {
-			rotationVelocity = 0;
-		}
 		if (targetSpeed <= ROTATE_STOP_SPEED && motion.confidence < 0.15) {
 			if (!rotationFrozen) {
 				rotationFrozen = true;
@@ -2820,149 +2744,119 @@ const rotWrapper = cachedRotWrapper;
 				resumeFromRotation = frozenMapRotation;
 				resumeNoSnapFrames = 0;
 				resumeIgnoreTurnFrames = 0;
-				rotationVelocity = 0;
-			} 
+			}
 			curveMomentum *= 0.70;
 			inCurve = false;
 		} else if (rotationFrozen && targetSpeed > ROTATE_RESUME_SPEED) {
 			rotationFrozen = false;
 			frozenHeading = null;
-			resumeFromRotation = frozenMapRotation ?? lastMapRotation;
-			lastMapRotation = resumeFromRotation;
-			lastMapHeading = (-lastMapRotation + 360) % 360;
-			resumeSmoothFrames = 12;
-			resumeNoSnapFrames = 18;
-			resumeIgnoreTurnFrames = 6;
+			resumeFromRotation = (frozenMapRotation !== null) ? frozenMapRotation : lastMapRotation;
+			if (resumeFromRotation !== null) lastMapRotation = resumeFromRotation;
+			resumeSmoothFrames = 12;      // 8-14 ได้
+			resumeNoSnapFrames = 18;      // กัน snap ช่วงแรก
+			resumeIgnoreTurnFrames = 6;   // PATCH: กัน combinedTurn spike 5-8 เฟรมพอ
 			resumePanFrames = 2;
 			curveMomentum = 0;
-			zeroDeltaFrames = 0;
-			rotationVelocity = 0;
+			lastMapHeading = liveHeading;
 		}
 		if (!rotationFrozen) {
 			const deltaToDesired = normalizeAngleDifference(desiredRotation, lastMapRotation);
 			if (resumeSmoothFrames > 0) {
 				resumeSmoothFrames--;
+				const sp = clamp(targetSpeed / 40, 0, 1);
+				const t = lerp(0.12, 0.26, sp);
 				if (!isFinite(lastMapRotation) || !isFinite(desiredRotation)) {
 					lastMapRotation = desiredRotation;
 				} else {
-					let delta = normalizeAngleDifference(desiredRotation, lastMapRotation);
-					const zeroDeltaThreshold = targetSpeed > 80 ? 0.9 : targetSpeed > 40 ? 0.5 : 0.35;
-					if (!straightRotateStable) {
-						zeroDeltaFrames = 0;
-					}
-					if (straightRotateStable && Math.abs(delta) < zeroDeltaThreshold) {
-						zeroDeltaFrames++;
-					} else if (zeroDeltaFrames > 0) {
-						zeroDeltaFrames--;
-					}
-					if (zeroDeltaFrames >= 3) {
-						delta = rotationVelocity * 0.2;
-					}
-					if (ultraStraight) {
-						const decay = targetSpeed > 80 ? 0.92 : targetSpeed > 40 ? 0.88 : 0.84; rotationVelocity *= decay;
-					}
-					rotationVelocity = lerp( rotationVelocity, delta,
-						clamp(computeRotationFollowFactor(targetSpeed, curveMix01), 0.15, 0.45)
-					);
-					if (ultraStraight) {
-						rotationVelocity = clamp(rotationVelocity, -1.0, 1.0);
-					}
-					if (rotationVelocity !== 0) {
-							lastMapRotation = normalizeAngle(lastMapRotation + rotationVelocity);
-					}
+					const delta = normalizeAngleDifference(desiredRotation, lastMapRotation);
+					const capDeg = Math.min(RESUME_MAX_STEP_DEG, lerp(10, 22, sp));
+					const step = clamp(delta, -capDeg, capDeg);
+					lastMapRotation = normalizeAngle(lastMapRotation + step * t);
 				}
 				if (resumeNoSnapFrames < 10) resumeNoSnapFrames = 10;
-			} else {
+			} else { 
+				const straightLike = combinedTurn < STRAIGHT_STABLE_DEG;
 				const freezeMapRotation =
-				targetSpeed < 5 &&
-				motion.confidence < 0.3 &&
-				Math.abs(deltaToDesired) < 1.0;
-				if (!freezeMapRotation) {
-					if (straightLike && Math.abs(deltaToDesired) < ROTATION_DEADBAND_DEG) {
-						if (zeroDeltaFrames >= 3) {
-							rotationVelocity = 0;
-							lastMapRotation = desiredRotation;
-						} else {
-							rotationVelocity *= ultraStraight ? 0.75 : 0.85;
-							lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.08);
-						}
+  targetSpeed < 5 &&
+  motion.confidence < 0.3 &&
+  Math.abs(deltaToDesired) < 1.0;
+
+if (!freezeMapRotation) {
+				if (straightLike && Math.abs(deltaToDesired) < ROTATION_DEADBAND_DEG) {
+				} else {
+					const jump = Math.abs(deltaToDesired);
+					const allowSnap =
+						targetSpeed > 28 &&
+						resumeNoSnapFrames === 0 &&
+						resumeSmoothFrames === 0 &&
+						motionOk &&
+						motion.confidence > 0.45;
+					if (allowSnap && jump > UTURN_SNAP_DEG) {
+						lastMapRotation = desiredRotation;
 					} else {
-						const jump = Math.abs(deltaToDesired);
-						const allowSnap =
-							targetSpeed > 28 &&
-							resumeNoSnapFrames === 0 &&
-							resumeSmoothFrames === 0 &&
-							motionOk &&
-							motion.confidence > 0.45;
-						if (allowSnap && jump > UTURN_SNAP_DEG) {
-							lastMapRotation = desiredRotation;
+						let followFactor = computeRotationFollowFactor(targetSpeed, curveMix01);
+						if (targetSpeed < 10) {
+  followFactor = lerp(0.35, 0.55, targetSpeed / 10);
+}
+if (
+  targetSpeed < 6 &&
+  curveMix01 < 0.08 &&
+  motion.confidence < 0.35
+) {
+  followFactor *= 0.6;
+}
+						if (resumeSmoothFrames > 0) {
+							lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
 						} else {
-							let followFactor = computeRotationFollowFactor(targetSpeed, curveMix01);
-							if (targetSpeed < 10) {
-								followFactor = lerp(0.35, 0.55, targetSpeed / 10);
-							}
-							if ( targetSpeed < 6 && curveMix01 < 0.08 && motion.confidence < 0.35) {
-								followFactor *= 0.6;
-							}
-							if (resumeSmoothFrames > 0) {
-								lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
+							if (uTurnish) {
+								lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.999);
+							} else if (hardTurn) {
+								lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.92);
 							} else {
-								if (uTurnish) {
-									lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.999);
-								} else if (hardTurn) {
-									lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, 0.92);
-								} else {
-									lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
-								}
+								lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, followFactor);
 							}
 						}
 					}
 				}
+				}
 			}
 		}
-		let rotDelta = Math.abs(lastMapRotation - desiredRotation);
-		if (rotDelta > 180) rotDelta = 360 - rotDelta;
-		if (ultraStraight && rotDelta < 0.05) {
-			zeroDeltaFrames = Math.max(zeroDeltaFrames, 3);
-			lastMapRotation = desiredRotation;
-			rotationVelocity = 0;
-		}
-		const appliedRotation = rotationFrozen && frozenMapRotation !== null ? frozenMapRotation : lastMapRotation;
-		let d = Math.abs(appliedRotation - lastAppliedRotation);
-		if (d > 180) d = 360 - d;
-			if (lastAppliedRotation === null || d > 0.05) {
-				rotWrapper.style.transform = `rotate(${appliedRotation}deg)`;
-				lastAppliedRotation = appliedRotation;
-			}
+rotWrapper.style.transform = `rotate(${lastMapRotation}deg)`;
+
 		isMapRotated = true;
 	}
 	// 7) Marker rotation (fast + safe)
-	const markerHeading = isFinite(baseHeading) ? baseHeading : (isFinite(targetHeading) ? ((targetHeading + 360) % 360) : lastMarkerAngle);
+	const markerHeading = isFinite(baseHeading)
+		? baseHeading
+		: (isFinite(targetHeading) ? ((targetHeading + 360) % 360) : lastMarkerAngle);
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
 		if (targetSpeed < ROTATE_STOP_SPEED) {
 			vehicleMarker.setRotationAngle(lastMarkerAngle);
 		} else {
-			const freezeMarker =
-				targetSpeed < 4 &&
-				motion.confidence < 0.3 &&
-				Math.abs(normalizeAngleDifference(markerHeading, lastMarkerAngle)) < 1.0;
-			if (!freezeMarker) {
-				let markerSmooth = clamp(computeRotationFollowFactor(targetSpeed, curveMix01) + 0.14, 0.80, 0.995);
-				if (targetSpeed < 6 && curveMix01 < 0.08 && motion.confidence < 0.35) {
-					markerSmooth *= 0.65;
-				}
-				const rawMarkerDelta = markerHeading - lastMarkerAngle;
-				const markerDelta =
-					Math.abs(rawMarkerDelta) < 3
-					? Math.abs(rawMarkerDelta)
-					: Math.abs(normalizeAngleDifference(markerHeading, lastMarkerAngle));
-				if (markerDelta < 0.3) {
-					lastMarkerAngle = markerHeading;
-				} else {
-					lastMarkerAngle = lerpAngle(lastMarkerAngle, markerHeading, markerSmooth);
-				}
-				vehicleMarker.setRotationAngle(lastMarkerAngle);
-			}
+const freezeMarker =
+  targetSpeed < 4 &&
+  motion.confidence < 0.3 &&
+  Math.abs(normalizeAngleDifference(markerHeading, lastMarkerAngle)) < 1.0;
+
+if (!freezeMarker) {
+  let markerSmooth = clamp(
+    computeRotationFollowFactor(targetSpeed, curveMix01) + 0.14,
+    0.80,
+    0.995
+  );
+
+  if (
+    targetSpeed < 6 &&
+    curveMix01 < 0.08 &&
+    motion.confidence < 0.35
+  ) {
+    markerSmooth *= 0.65;
+  }
+
+  lastMarkerAngle = lerpAngle(lastMarkerAngle, markerHeading, markerSmooth);
+  vehicleMarker.setRotationAngle(lastMarkerAngle);
+}
+
 		}
 	}
 	// 8) Icon size smooth update
@@ -2981,7 +2875,6 @@ const rotWrapper = cachedRotWrapper;
 	if (resumeNoSnapFrames > 0) resumeNoSnapFrames--;
 	if (resumeIgnoreTurnFrames > 0) resumeIgnoreTurnFrames--;
 	if (followWarmupFrames > 0) followWarmupFrames--;
-	if (isFinite(baseHeading)) {prevFrameHeading = baseHeading;}
 	smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
 // PATCH: hard clear map rotation
