@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:08.88</h2>
+<h2>Trip Version:09.88</h2>
 <div>
 	<div>
 		<label for="plateNumber">บันทึกการเดินทาง: </label>
@@ -2630,6 +2630,14 @@ if (
 	}
 	const curveBoost01 = clamp(curveMomentum / 24, 0, 1);
 	const curveMix01 = Math.max(curveStrength01, curveBoost01);
+	if (
+  targetSpeed > 12 &&
+  curveMix01 < 0.03 &&          // ทางตรงจริง
+  lastHeading !== null &&
+  Math.abs(normalizeAngleDifference(baseHeading, lastHeading)) < 2.0
+) {
+  baseHeading = lastHeading;
+}
 // 5) Smooth pan
 if (autoFollow) {
   if (
