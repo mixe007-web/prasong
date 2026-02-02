@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:09.69</h2>
+<h2>Trip Version:09.79</h2>
 <div>
 	<div>
 		<label for="plateNumber">การเดินทาง: </label>
@@ -2619,7 +2619,7 @@ lowSpeedStraightLock =
 		if (targetSpeed > 95) lookAhead *= 1.10;
 		let panLat = targetLat;
 		let panLon = targetLon;
-		const forceRealPos = (targetSpeed < 6);
+		const forceRealPos = (targetSpeed < 4);
 		if (forceRealPos) {
 			panLat = smoothedLat;
 			panLon = smoothedLon;
@@ -2630,7 +2630,9 @@ lowSpeedStraightLock =
 		}
 		const panMoveM = haversineMeters(lastMapCenter.lat, lastMapCenter.lng, panLat, panLon);
 		let follow = lerp(0.06, 0.20, clamp(targetSpeed / 90, 0, 1));
-		if (forceRealPos) follow *= 0.6;
+		if (forceRealPos) {
+  follow = Math.max(follow * 0.6, 0.10);
+}
 		if (curveMix01 > 0.2) follow *= 1.1;
 		if (curveMix01 < 0.08 && targetSpeed > 30) {
 			follow = Math.min(follow, 0.16);
