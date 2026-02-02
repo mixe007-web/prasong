@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:09.79</h2>
+<h2>Trip Version:09.89</h2>
 <div>
 	<div>
 		<label for="plateNumber">การเดินทาง: </label>
@@ -827,9 +827,8 @@ button:disabled {
 		<p>เวลาที่สิ้นสุด และ พิกัดสิ้นสุด: <span id="endTime">-</span> , <span id="endCoord">-</span></p>
 	
 	<h3 style="display: flex; align-items: center; justify-content: space-between;">
-		<span>ประวัติ</span>
 		<button id="toggleTripHistory" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
-			&#9776; ▼
+			ประวัติ ▼
 		</button>
 	</h3>
 	<div id="tripHistorySection" style="display: none;">
@@ -1799,7 +1798,7 @@ let isHistoryVisible = false;
 toggleBtn.addEventListener("click", () => {
     isHistoryVisible = !isHistoryVisible;
     historySection.style.display = isHistoryVisible ? "block" : "none";
-    toggleBtn.innerHTML = isHistoryVisible ? "&#9776; ▼" : "&#9776; ▲";
+    toggleBtn.innerHTML = isHistoryVisible ? "ประวัติ ▼" : "ประวัติ ▲";
 });
   
 let prevSpeed = 0;
@@ -2199,9 +2198,9 @@ function calculateTargetZoom(speedKmh) {
 	return 14;
 }
 function calculateIconSize(speedKmh) {
-	if (speedKmh < 50) return 32;
-	if (speedKmh < 90) return 26;
-	if (speedKmh < 110) return 20;
+	if (speedKmh < 70) return 32;
+	if (speedKmh < 100) return 26;
+	if (speedKmh < 120) return 20;
 	return 16;
 }
 function getRotationElement(targetMap = map) {
