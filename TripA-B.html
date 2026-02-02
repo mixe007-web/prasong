@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:09.39</h2>
+<h2>Trip Version:09.69</h2>
 <div>
 	<div>
 		<label for="plateNumber">การเดินทาง: </label>
@@ -810,11 +810,10 @@ button:disabled {
 		</div>
 	</div>
 	<h3 style="display:flex; justify-content:space-between; align-items:center;">
-	<span>ข้อมูล Trip</span>
 	<button id="toggleTripInfoBtn"
 		style="background:#28a745;color:#fff;border:none;
 		padding:5px 10px;border-radius:5px;cursor:pointer;">
-		แสดง ▼
+		ข้อมูล Trip ▼
 	</button>
 </h3>
 	<div id="tripInfoSection" style="display:none;">
@@ -2025,10 +2024,10 @@ document.getElementById("toggleTripInfoBtn").addEventListener("click", function 
 
 	if (section.style.display === "none") {
 		section.style.display = "block";
-		this.innerHTML = "ซ่อน ▲";
+		this.innerHTML = "ข้อมูล Trip ▲";
 	} else {
 		section.style.display = "none";
-		this.innerHTML = "แสดง ▼";
+		this.innerHTML = "ข้อมูล Trip ▼";
 	}
 });
 // 🚗 SHOW HISTORY MAP (MODAL) — FINAL FIXED VERSION
@@ -2321,8 +2320,6 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 	smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
 	smoothTransformTarget.callback = callback || null;
 	if (!smoothTransformAnimFrame) {
-		followWarmupFrames = 6;
-		resumePanFrames = 2;
 		smoothTransformTarget.lastFrameTime = performance.now();
 		smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 	}
@@ -2336,13 +2333,11 @@ let lastHeading = null;
 let lastMapHeading = null;
 let curveMomentum = 0;
 let inCurve = false;
-let resumePanFrames = 0;
 let lastAppliedPanLat = null;
 let lastAppliedPanLon = null;
 let lastReliableHeading = null;
 let lastMapCenter = null;
 let lastZoom = null;
-let followWarmupFrames = 0;
 let frozenHeading = null;
 let appliedMapLat = null;
 let appliedMapLon = null;
@@ -2369,7 +2364,6 @@ function resetFollowRotationState(full = false) {
 	frozenMapRotation = null;
 	lastMapHeading = null;
 	frozenHeading = null;
-	resumePanFrames = 0;
 	lastAppliedPanLat = null;
 	lastAppliedPanLon = null;
 	curveMomentum = 0;
@@ -2558,6 +2552,19 @@ function smoothTransformStep(now) {
 	if (targetSpeed <= ROTATE_STOP_SPEED && lastHeading !== null && motion.confidence < 0.15) {
 		baseHeading = lastHeading;
 	}
+	// 🔒 HARD LOCK สำหรับความเร็วต่ำมาก
+if (targetSpeed <= 8 && lastReliableHeading !== null) {
+  const diff = baseHeading !== null
+    ? Math.abs(normalizeAngleDifference(baseHeading, lastReliableHeading))
+    : 0;
+
+  // ถ้ายังไม่ได้เลี้ยวจริง → ห้ามเปลี่ยน heading
+  if (motion.confidence < 0.6 && diff < 6) {
+    baseHeading = lastReliableHeading;
+    lowSpeedStraightLock = true;
+  }
+}
+
 	// 4) Curve model
 	const curveStrength01 = computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
 	if (curveStrength01 > 0.14) {
@@ -2574,12 +2581,15 @@ function smoothTransformStep(now) {
 	) {
 		baseHeading = lastHeading;
 	}
-	lowSpeedStraightLock =
-		targetSpeed <= 10 &&
-		curveMix01 < 0.05 &&
-		motion.confidence < 0.35 &&
-		lastReliableHeading !== null &&
-		Math.abs(normalizeAngleDifference(baseHeading, lastReliableHeading)) < 3.0;
+	lowSpeedStraightLock = false;
+lowSpeedStraightLock =
+  lowSpeedStraightLock || (
+    targetSpeed <= 10 &&
+    curveMix01 < 0.05 &&
+    motion.confidence < 0.35 &&
+    lastReliableHeading !== null &&
+    Math.abs(normalizeAngleDifference(baseHeading, lastReliableHeading)) < 3.0
+  );
 
 	// 5) Smooth pan
 	if (autoFollow) {
@@ -2609,7 +2619,7 @@ function smoothTransformStep(now) {
 		if (targetSpeed > 95) lookAhead *= 1.10;
 		let panLat = targetLat;
 		let panLon = targetLon;
-		const forceRealPos = (resumePanFrames > 0) || (followWarmupFrames > 0) || (targetSpeed < 6);
+		const forceRealPos = (targetSpeed < 6);
 		if (forceRealPos) {
 			panLat = smoothedLat;
 			panLon = smoothedLon;
@@ -2679,7 +2689,8 @@ function smoothTransformStep(now) {
 			if (targetSpeed <= ROTATE_STOP_SPEED) {
 				frozenMapRotation = lastMapRotation;
 			}
-			if (targetSpeed > ROTATE_RESUME_SPEED) {
+			if (targetSpeed >= ROTATE_RESUME_SPEED && !lowSpeedStraightLock) {
+			frozenMapRotation = null;
 				const follow = clamp(computeRotationFollowFactor(targetSpeed, curveMix01),
 					0.05,
 					0.9
@@ -2738,8 +2749,6 @@ if (Math.abs(appliedIconSize - lastIconSize) >= 0.005) {
 }
 
 	if (callback) callback();
-	if (resumePanFrames > 0) resumePanFrames--;
-	if (followWarmupFrames > 0) followWarmupFrames--;
 	smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
 // PATCH: hard clear map rotation
@@ -2841,8 +2850,6 @@ function initMap(lat, lon) {
 	hardClearMapRotation(map);
 	disableMapInteraction();
 	startDeviceOrientationTracking();
-	followWarmupFrames = 8;
-	resumePanFrames = 3;
 	});
 }
 // PATCH: flyTo animation unlock (SAFE + removable)
@@ -2978,8 +2985,6 @@ function drawHistoryRoute(pathCoords) {
 function forceRecenterToVehicle() {
 	if (!map || lastGpsLat == null || lastGpsLng == null) return;
 	resetFollowRotationState(false);
-	followWarmupFrames = 8;
-	resumePanFrames = 3;
 	smoothedLat = lastGpsLat;
 	smoothedLon = lastGpsLng;
 	lastZoom = clamp(calculateTargetZoom(lastGpsSpeedKmh || 0), 0, 22);
