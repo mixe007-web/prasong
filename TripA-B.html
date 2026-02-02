@@ -716,7 +716,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:09.25</h2>
+<h2>Trip Version:09.39</h2>
 <div>
 	<div>
 		<label for="plateNumber">การเดินทาง: </label>
@@ -1379,6 +1379,7 @@ function updateEfficiency() {
 	const g = Math.round(lower.color.g + (upper.color.g - lower.color.g) * t);
 	const b = Math.round(lower.color.b + (upper.color.b - lower.color.b) * t);
 	bar.style.backgroundColor = `rgb(${r},${g},${b})`;
+	bar.style.color = "black";
 	// ความกว้าง bar ใช้ MAX_EFF = 6.02
 	const widthPercent = Math.min((efficiencyPerPercent / MAX_EFF) * 100, 100);
 	bar.style.width = widthPercent + "%";
@@ -2199,7 +2200,7 @@ function calculateTargetZoom(speedKmh) {
 	return 14;
 }
 function calculateIconSize(speedKmh) {
-	if (speedKmh < 60) return 32;
+	if (speedKmh < 50) return 32;
 	if (speedKmh < 90) return 26;
 	if (speedKmh < 110) return 20;
 	return 16;
@@ -2237,9 +2238,9 @@ function setMapPaneTransformOriginToCenter(targetMap = map) {
 function getSpeedColor(s) {
 	if (s < 10) return '#630202';
 	if (s < 20) return '#FF0000';
-	if (s < 40) return '#FFA500';
-	if (s < 60) return '#FFFF00';
-	return '#00FF00';
+	if (s < 40) return '#D99A11';
+	if (s < 60) return '#D6D615';
+	return '#18C418';
 }
 // 🔹 DEVICE ORIENTATION
 window.deviceOrientationHeading = null;
@@ -2374,10 +2375,10 @@ function resetFollowRotationState(full = false) {
 	curveMomentum = 0;
 	inCurve = false;
 	lastHeading = null;
-	  appliedZoom = null;
-  appliedIconSize = null;
-  lastZoom = null;
-  lastLookAhead = null;
+	appliedZoom = null;
+	appliedIconSize = null;
+	lastZoom = null;
+	lastLookAhead = null;
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
