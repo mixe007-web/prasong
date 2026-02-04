@@ -111,7 +111,7 @@ button:disabled {
 	text-overflow: ellipsis;
 	font-weight: bold;
 	color: #00bcd4; /* ตัวอักษรสีฟ้าอ่อน */
-	font-size: clamp(20px, 3vw, 30px);
+	font-size: clamp(26px, 4vw, 38px);
 	text-align: center;
 	margin: 0;
 }
@@ -259,13 +259,13 @@ button:disabled {
 	color: red !important;
 }
 .speed-low {
-	color: green !important;font-size: 36px;
+	color: green !important;
 }
 .speed-medium {
-	color: orange !important;font-size: 36px;
+	color: orange !important;
 }
 .speed-high {
-	color: red !important;font-size: 36px;
+	color: red !important;
 }
 .efficiency-good {
 	color: green !important;font-weight: bold;
@@ -296,9 +296,9 @@ button:disabled {
 	#uiContainer {
 		padding: 15px;
 	}
-	#digitalSpeed {
-		font-size: clamp(16px, 4vw, 24px);
-	}
+#digitalSpeed {
+	font-size: clamp(20px, 3.6vw, 34px);
+}
 	.battery-bar {
 		height: 50%;
 	}
@@ -365,17 +365,16 @@ button:disabled {
     --marker-rotate: 0deg;
     --marker-scale: 1;
     transform: rotate(var(--marker-rotate)) scale(var(--marker-scale));
+	will-change: transform;
 }
 
 .vehicle-inner img {
     width: 100%;
     height: 100%;
-    object-fit: contain; /* ป้องกัน image บิด/ยืด */
+    object-fit: contain;
     display: block;
-    pointer-events: none; /* ป้องกัน interaction image */
+    pointer-events: none;
 }
-
-
 #map-container {
 	position: relative;
 	width: 100%;
@@ -716,41 +715,41 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:06.66</h2>
+<h2>Trip Version:07.77</h2>
 <div>
 	<div>
-		<label for="plateNumber">การเดินทาง: </label>
+		<label for="plateNumber">Traveling to</label>
 		<input type="text" id="plateNumber" placeholder="เที่ยวสาว" />
 	</div>
-	<h3>เริ่มระยะทาง NEDC/km</h3>
+	<h3>Current Distance(NEDC/km)</h3>
 	<div>
-		<label>ช่วงที่ 1:</label>
+		<label>Part 1:</label>
 		<input type="number" id="inputKm1" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment1"> <span id="wltpSegment1"> </span> </label><br>
 	</div>
 	<div>
-		<label>ช่วงที่ 2:</label>
+		<label>Part 2:</label>
 		<input type="number" id="inputKm2" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment2"> <span id="wltpSegment2"></span> </label><br>
 	</div>
 	<div>
-		<label>ช่วงที่ 3:</label>
+		<label>Part 3:</label>
 		<input type="number" id="inputKm3" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment3"> <span id="wltpSegment3"></span> </label><br>
 	</div>
 	<div style="margin-top:10px;">
-		<button id="startBtn">เริ่ม Trip </button>
-		<button id="stopBtn" disabled>หยุด Trip</button>
 		<button id="tripRecorderBtn">Trip Recorder</button>
+		<button id="startBtn">Trip Start </button>
+		<button id="stopBtn" disabled>Stop Trip</button>
 	</div>
 <!-- ================= Trip Recorder Panel ================= -->
 	<div id="tripRecorderPanel">
 		<h2>Trip Recorder</h2>
 		<div style="text-align: center; margin-bottom: 10px;">
-			<button id="backToMainBtn">กลับไป Trip A-B</button>
+			<button id="backToMainBtn"> <= Trip A-B</button>
 		</div>
 		<div class="trips-container" id="trips"></div>
-		<h3>ประวัติ</h3>
+		<h3>History</h3>
 		<div style="text-align: center; margin-bottom: 10px;">
-			<button id="tripToggleBtn">ดูทั้งหมด</button>
-			<button id="tripDeleteAllBtn">ลบทั้งหมด</button>
+			<button id="tripToggleBtn">History All</button>
+			<button id="tripDeleteAllBtn">Delete all history</button>
 		</div>
 		<div id="tripHistory"></div>
 	</div>
@@ -763,9 +762,9 @@ button:disabled {
 				</button>
 			</div>
 			<div>
-				<div class="label">speed</div>
+				<div class="label">Speed</div>
 				<div id="digitalSpeed">0 km/h</div>
-				<div class="label">พลังงานใช้เฉลี่ย</div>
+				<div class="label">Average Energy Consumption</div>
 				<div id="energyPer100km">0.00 kWh/100km</div><div id="avgEfficiencyPerPercent">Avg: 0.000 km / 1%</div>
 				<div id="energySOCGroup" style="display: flex; justify-content: space-between; align-items: center;">
 					<div class="info-box small-box">
@@ -813,7 +812,7 @@ button:disabled {
 	<button id="toggleTripInfoBtn"
 		style="background:#28a745;color:#fff;border:none;
 		padding:5px 10px;border-radius:5px;cursor:pointer;">
-		ข้อมูล Trip ▼
+		Current Trip Information ▼
 	</button>
 </h3>
 	<div id="tripInfoSection" style="display:none;">
@@ -828,14 +827,14 @@ button:disabled {
 	
 	<h3 style="display: flex; align-items: center; justify-content: space-between;">
 		<button id="toggleTripHistory" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
-			ประวัติ ▼
+			History
 		</button>
 	</h3>
 	<div id="tripHistorySection" style="display: none;">
 		<div>
-			<button id="showLast2Btn">ประวัติ Trip</button>
-			<button id="showAllBtn">ประวัติ Trip/ทั้งหมด</button>
-			<button onclick="clearAllTrips()">ลบประวัติทั้งหมด</button>
+			<button id="showLast2Btn">History ▲</button>
+			<button id="showAllBtn">History All</button>
+			<button onclick="clearAllTrips()">Delete all History</button>
 		</div>
 		<div id="historyContainer" class="scrollable" style="margin-top:10px;"></div>
 	</div>
@@ -1153,7 +1152,7 @@ tripHistoryDiv.addEventListener('click', e=>{
 });
 tripToggleBtn.addEventListener('click',()=>{
 	showAll=!showAll;
-	tripToggleBtn.innerText = showAll?'ดูน้อยลง':'ดูทั้งหมด';
+	tripToggleBtn.innerText = showAll?'History ▼':'History ▲';
 	updateHistory();
 });
 tripDeleteAllBtn.addEventListener('click',()=>{
@@ -1215,13 +1214,14 @@ updateHistory();
   const startTimeSpan = document.getElementById("startTime");
   const endTimeSpan = document.getElementById("endTime");
   const energyScalingFactorspeed = 1;
-function getEnergyPerKmFromSpeed(speedKmh) {
+	function getEnergyPerKmFromSpeed(speedKmh) {
 	const table = [
 		{ speed: 0, energy: 0.13 },
 		{ speed: 5, energy: 0.135 },
 		{ speed: 10, energy: 0.14 },
-		{ speed: 15, energy: 0.145 },
-		{ speed: 20, energy: 0.15 }, 
+		{ speed: 15, energy: 0.135 },
+		{ speed: 20, energy: 0.1122 },
+		{ speed: 30, energy: 0.11 }, 		
 		{ speed: 40, energy: 0.1139 },
 		{ speed: 50, energy: 0.1177 },
 		{ speed: 60, energy: 0.1242 },
@@ -1280,13 +1280,13 @@ let currentEfficiency = 7.5;
 let lastUpdateTime = Date.now();
 function getEfficiencyPerPercent(speedKmh) {
 	const points = [
-		{ speed: 0, efficiency: 5.98 },
-		{ speed: 10, efficiency: 5.93 },
+		{ speed: 0, efficiency: 5.90 },
+		{ speed: 10, efficiency: 5.87 },
 		{ speed: 20, efficiency: 5.88 },
 		{ speed: 30, efficiency: 5.83 },
 		{ speed: 40, efficiency: 5.77 },
 		{ speed: 50, efficiency: 5.58 },
-		{ speed: 60, efficiency: 5.30 },
+		{ speed: 60, efficiency: 5.45 },
 		{ speed: 70, efficiency: 5.13 },
 		{ speed: 80, efficiency: 4.81 },
 		{ speed: 90, efficiency: 4.53 },
@@ -1437,23 +1437,33 @@ function stopAvgEfficiencyTracking() {
     avgEffInterval = null;
     return lastAvgEfficiency || 0;
 }
-// Hook กับ updateEfficiency เดิม
 const originalUpdateEfficiency = updateEfficiency;
 updateEfficiency = function() {
 	originalUpdateEfficiency();
 	try { updateAvgEfficiencyPerPercent(); } catch(e) {}
 };
+//-- speed
 let displayedSpeed = 0;
 let lastUIUpdate = 0;
+function interpolateSpeed(target, current, dt) {
+    if (target < 2) {
+        return current * Math.exp(-dt * 16);
+    }
+    if (target > current) {
+        return current + (target - current) * (1 - Math.exp(-dt * 9));
+    } else {
+        return current + (target - current) * (1 - Math.exp(-dt * 18));
+    }
+}
 const digitalSpeed = document.getElementById("digitalSpeed");
-// ===== Animation loop : Speed follows real-time exactly =====
+let lastTimestamp = null;
 function animateDigitalSpeed(timestamp) {
-    // ไล่ตาม speed จริงทันที
-    displayedSpeed = speed;
-    // ---------- ZERO LOCK ----------
-    if (speed === 0) displayedSpeed = 0;
-    // ---------- UI UPDATE 60 FPS ----------
-    if (!lastUIUpdate || timestamp - lastUIUpdate >= 20) { // ~60 FPS
+    if (!lastTimestamp) lastTimestamp = timestamp;
+    const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.1);
+    lastTimestamp = timestamp;
+    displayedSpeed = interpolateSpeed(speed, displayedSpeed, dt);
+    if (displayedSpeed < 0.05) displayedSpeed = 0;
+    if (!lastUIUpdate || timestamp - lastUIUpdate >= 20) {
         if (digitalSpeed) {
             digitalSpeed.textContent = `${displayedSpeed.toFixed(1)} km/h`;
             digitalSpeed.classList.remove('speed-low', 'speed-medium', 'speed-high');
@@ -1465,11 +1475,8 @@ function animateDigitalSpeed(timestamp) {
     }
     requestAnimationFrame(animateDigitalSpeed);
 }
-
-// เริ่ม loop
 requestAnimationFrame(animateDigitalSpeed);
-
-// --- updateSpeed() ใช้งานได้เหมือนเดิม ---
+// --- updateSpeed()
 function updateSpeed(newSpeed) {
     if (isNaN(newSpeed) || newSpeed < 0) newSpeed = 0;
     speed = newSpeed;
@@ -1548,14 +1555,13 @@ const historyContainer = document.getElementById("historyContainer");
 const TARGET_DISTANCE_KM = 10;
 function getDynamicMinDist(speedKmh) {
     const EXPECTED_INTERVAL_SEC = 1.5;   // คาดว่า watchPosition ~1–2s
-    const NOISE_FACTOR = 0.8;             // GPS noise compensation
-    const MIN_DIS_KM = 0.0003;           // 0.3 m  (กัน jitter ตอนช้า)
+    const NOISE_FACTOR = 0.9;             // GPS noise compensation
+    const MIN_DIS_KM = 0.0004;           // 0.3 m  (กัน jitter ตอนช้า)
     const MAX_DIS_KM = 0.020;            // 20 m   (กัน jump ตอนเร็ว)
 
     if (!isFinite(speedKmh) || speedKmh <= 0) {
         return MIN_DIS_KM;
     }
-
     const speedMs = speedKmh / 3.6;
     let minDistKm = (speedMs * EXPECTED_INTERVAL_SEC * NOISE_FACTOR) / 1000;
     if (minDistKm < MIN_DIS_KM) minDistKm = MIN_DIS_KM;
@@ -1793,15 +1799,13 @@ let isHistoryVisible = false;
 toggleBtn.addEventListener("click", () => {
     isHistoryVisible = !isHistoryVisible;
     historySection.style.display = isHistoryVisible ? "block" : "none";
-    toggleBtn.innerHTML = isHistoryVisible ? "ประวัติ ▼" : "ประวัติ ▲";
+    toggleBtn.innerHTML = isHistoryVisible ? "History ▼" : "History";
 });
-  
 let prevSpeed = 0;
 let prevSpeedTime = Date.now();
 let totalRegenEnergyWh = 0;
 let lastRegenTime = 0;
 let prevAlt = null;
-
 function getDynamicRegenEfficiency(speedKmh, deltaAlt) {
 	const baseEff = 0.7;
 	const minEff = 0.1;
@@ -1832,16 +1836,16 @@ function updatePosition(lat, lon, alt, speedKmh) {
 		let deltaAlt = alt - prevAlt;
 		if (deltaAlt < -1 && speedKmh > 20) {
 			const now = Date.now();
-				if (now - lastRegenTime > 500) {
-					const socPercentElem = document.getElementById("socPercent");
-						if (socPercentElem) {
-							const socPercent = parseFloat(socPercentElem.textContent.replace('%', ''));
-								if (socPercent <= 96) {
-									applyRegenBySlope(deltaAlt, speedKmh);
-									lastRegenTime = now;
-								}
-						}
+			if (now - lastRegenTime > 500) {
+				const socPercentElem = document.getElementById("socPercent");
+				if (socPercentElem) {
+					const socPercent = parseFloat(socPercentElem.textContent.replace('%', ''));
+					if (socPercent <= 96) {
+						applyRegenBySlope(deltaAlt, speedKmh);
+						lastRegenTime = now;
+					}
 				}
+			}
 		} else if (deltaAlt > 1 && speedKmh > 10) {
 			applyExtraEnergyByUphill(deltaAlt, speedKmh);
 		}
@@ -2018,10 +2022,10 @@ document.getElementById("toggleTripInfoBtn").addEventListener("click", function 
 
 	if (section.style.display === "none") {
 		section.style.display = "block";
-		this.innerHTML = "ข้อมูล Trip ▲";
+		this.innerHTML = "Current trip information ▲";
 	} else {
 		section.style.display = "none";
-		this.innerHTML = "ข้อมูล Trip ▼";
+		this.innerHTML = "Current trip information ▼";
 	}
 });
 // 🚗 SHOW HISTORY MAP (MODAL) — FINAL FIXED VERSION
@@ -2057,7 +2061,7 @@ function showLeafletMapFromTrip(trip) {
 	if (mapContainer._leaflet_id) mapContainer._leaflet_id = null;
 	const m = L.map('leafletMap', { center: [13.7563, 100.5018], zoom: BASE_ZOOM });
 	window.replayMap = m;
-	L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+	L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
 		attribution: '&copy; OpenStreetMap contributors, &copy; CARTO', noWrap: true
 	}).addTo(m);
 	const entries = trip.path
@@ -2186,16 +2190,14 @@ function normalizeAngle(deg) {
 	return deg;
 }
 function calculateTargetZoom(speedKmh) {
-	if (speedKmh < 40) return 17;
 	if (speedKmh < 70) return 16;
-	if (speedKmh < 100) return 15;
+	if (speedKmh < 110) return 15;
 	return 14;
 }
 function calculateIconSize(speedKmh) {
 	if (speedKmh < 70) return 32;
-	if (speedKmh < 100) return 26;
-	if (speedKmh < 120) return 20;
-	return 16;
+	if (speedKmh < 110) return 26;
+	return 20;
 }
 function getSpeedColor(s) {
 	if (s < 10) return '#630202';
@@ -2337,28 +2339,30 @@ let appliedZoom = null;
 let appliedIconSize = null;
 let lastIconSize = null;
 let lastViewApplyTime = 0;
+let lastAppliedTransform = "";
 const LOW_SPEED_HEADING_LOCK = 8;
 const FLYTO_MIN_INTERVAL_MS = 70;
 const MIN_MOVE_FOR_MOTION_M = 2.2;
 const MIN_MOVE_FOR_HISTORY_M = 0.8;
 const posHistory = [];
 const HISTORY_MAX = 4;
-const ROTATE_STOP_SPEED = 3;
+const ROTATE_STOP_SPEED = 6;
 const ZOOM_THRESHOLD = 0.25;
-const NAVI_CENTER_OFFSET_RATIO = 0.20;
+const NAVI_CENTER_OFFSET_RATIO = 0.15;
 const VIEW_APPLY_INTERVAL = 33;
-// =====  NAVI_CENTER_OFFSET_RATIO 20%
+// =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, offsetRatio = 0) {
 	if (!wrapper) return;
 	const container = wrapper.closest('.leaflet-container');
 	if (!container) return;
-	const size = {
-		x: container.clientWidth,
-		y: container.clientHeight
-	};
-	const offsetY = size.y * offsetRatio;
-	wrapper.style.transform =
-		`translate3d(0px, ${offsetY}px, 0px) rotate(${rotationDeg}deg)`;
+	const mapInstance = container._leaflet_map;
+	if (mapInstance && mapInstance._tilesToLoad > 0) return;
+	const offsetY = Math.round(container.clientHeight * offsetRatio);
+	const transform =
+		`translate3d(0px, ${offsetY}px, 0px) rotate(${rotationDeg.toFixed(3)}deg)`;
+	if (transform === lastAppliedTransform) return;
+	lastAppliedTransform = transform;
+	wrapper.style.transform = transform;
 }
 // ===== helpers (local) =====
 function resetFollowRotationState(full = false) {
@@ -2370,6 +2374,8 @@ function resetFollowRotationState(full = false) {
 	inCurve = false;
 	lastHeading = null;
 	lastLookAhead = null;
+	lowSpeedStraightLock = false;
+	lastAppliedTransform = "";
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
@@ -2535,10 +2541,6 @@ function smoothTransformStep(now) {
 	if (baseHeading === null && lastHeading !== null) {
 		baseHeading = lastHeading;
 	}
-	if (baseHeading !== null && targetSpeed < 6 &&!lowSpeedStraightLock) {
-		const useDevice = (!motionOk || motion.confidence < 0.25);
-		if (useDevice) baseHeading = getSmoothedDeviceHeading(baseHeading);
-	}
 	if (targetSpeed < 6 && motion.confidence < 0.3 && lastHeading !== null &&
 		Math.abs(normalizeAngleDifference(baseHeading, lastHeading)) < 1.2
 	) {
@@ -2550,13 +2552,6 @@ function smoothTransformStep(now) {
 		lastReliableHeading = baseHeading;
 	}
 	if (baseHeading !== null) lastHeading = baseHeading;
-	if (targetSpeed <= ROTATE_STOP_SPEED) {
-		baseHeading = lastHeading ?? lastReliableHeading;
-	}
-	if (targetSpeed <= ROTATE_STOP_SPEED) {
-  lowSpeedStraightLock = false;
-}
-
 	// 4) Curve model
 	const curveStrength01 = computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
 	if (curveStrength01 > 0.14) {
@@ -2568,14 +2563,21 @@ function smoothTransformStep(now) {
 	}
 	const curveBoost01 = clamp(curveMomentum / 24, 0, 1);
 	const curveMix01 = Math.max(curveStrength01, curveBoost01);
+	if (targetSpeed <= ROTATE_STOP_SPEED && curveMix01 < 0.10) {
+		baseHeading = lastReliableHeading;
+	}
+	if (baseHeading !== null && targetSpeed >= 6 && !lowSpeedStraightLock && curveMix01 > 0.05) {
+		const useDevice = (!motionOk || motion.confidence < 0.25);
+		if (useDevice) baseHeading = getSmoothedDeviceHeading(baseHeading);
+	}
 	if (targetSpeed >= 12 && curveMix01 < 0.05 && lastReliableHeading !== null &&
 		Math.abs(normalizeAngleDifference(baseHeading, lastReliableHeading)) < 2.0
 	) {
 		baseHeading = lastReliableHeading;
 	}
 	if (isUTurn(motion.turnRate, targetSpeed)) {
-  lastReliableHeading = baseHeading;
-}
+		lastReliableHeading = baseHeading;
+	}
 	let nextLowSpeedLock = false;
 	if (targetSpeed <= 10 && lastReliableHeading !== null && motion.confidence < 0.6 && curveMix01 < 0.1 &&
 		Math.abs(normalizeAngleDifference(
@@ -2587,6 +2589,7 @@ function smoothTransformStep(now) {
 		nextLowSpeedLock = true;
 	}
 	lowSpeedStraightLock = nextLowSpeedLock;
+	if (curveMix01 > 0.12) lowSpeedStraightLock = false;
 	// 5) Smooth pan
 	if (autoFollow) {
 		if (
@@ -2639,7 +2642,9 @@ function smoothTransformStep(now) {
 		follow = clamp(follow, 0.08, 0.25);
 		appliedMapLat = lerp(appliedMapLat, panLat, follow);
 		appliedMapLon = lerp(appliedMapLon, panLon, follow);
-		const allowZoomUpdate = targetSpeed > 8;
+		const desiredRotation = baseHeading !== null ? (-baseHeading + 360) % 360 : lastMapRotation;
+		const allowZoomUpdate = targetSpeed > 8 && curveMix01 < 0.05 && lastMapRotation !== null &&
+			Math.abs(normalizeAngleDifference(lastMapRotation, desiredRotation)) < 1.5;
 		if (allowZoomUpdate) {
 			if (appliedZoom === null) {
 				appliedZoom = targetZoom;
@@ -2665,32 +2670,31 @@ function smoothTransformStep(now) {
 	}
 	// 6) Map rotation
 	const rotWrapper = ensureRotationWrapper(map);
-	if (autoRotate && rotWrapper && baseHeading !== null) {
-		const desiredRotation = (-baseHeading + 360) % 360;
-		if (lastMapRotation === null || !isFinite(lastMapRotation)) {
-			lastMapRotation = desiredRotation;
-		}
-const shouldFreezeRotation =
-  (targetSpeed <= ROTATE_STOP_SPEED) ||
-  (lowSpeedStraightLock && curveMix01 < 0.10) ||
-  (isUTurn(motion.turnRate, targetSpeed) && targetSpeed < 8);
-		if (shouldFreezeRotation) {
-			if (frozenMapRotation === null) {
-				frozenMapRotation = lastMapRotation;
+	if (rotWrapper) {
+		const offsetRatio = autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0;
+		if (autoRotate && baseHeading !== null) {
+			const desiredRotation = (-baseHeading + 360) % 360;
+			if (lastMapRotation === null || !isFinite(lastMapRotation)) {
+				lastMapRotation = desiredRotation;
 			}
-			lastMapRotation = frozenMapRotation;
-		} else {
-			frozenMapRotation = null;
-			const follow = clamp(computeRotationFollowFactor(targetSpeed, curveMix01), 0.05, 0.9);
+			const shouldFreezeRotation = (targetSpeed <= ROTATE_STOP_SPEED) || (lowSpeedStraightLock && curveMix01 < 0.10) ||
+				(isUTurn(motion.turnRate, targetSpeed) && targetSpeed < 8);
+			if (shouldFreezeRotation) {
+				if (frozenMapRotation === null) {
+					frozenMapRotation = lastMapRotation;
+				}
+				lastMapRotation = frozenMapRotation;
+			} else {
+				frozenMapRotation = null;
+				let follow = computeRotationFollowFactor(targetSpeed, curveMix01);
+				if (curveMix01 < 0.05 && targetSpeed > 20) {
+					follow = Math.max(follow, 0.88);
+				}
+				follow = clamp(follow, 0.05, 0.95);
 				lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, follow);
+			}
 		}
-const offsetRatio = autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0;
-applyMapTransform(
-  rotWrapper,
-  lastMapRotation ?? 0,
-  offsetRatio
-);
-
+		applyMapTransform(rotWrapper, lastMapRotation ?? 0, offsetRatio);
 		isMapRotated = true;
 	}
 	// 7) Marker rotation (fast + safe)
@@ -2817,7 +2821,7 @@ function initMap(lat, lon) {
         attributionControl: false,
         worldCopyJump: true
     });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png").addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
     routeLayer = L.layerGroup().addTo(map);
     vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon, interactive: false }).addTo(map);
 	map.whenReady(() => {
