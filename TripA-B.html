@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:07.77</h2>
+<h2>Trip Version:07.78</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1219,10 +1219,9 @@ updateHistory();
 		{ speed: 0, energy: 0.13 },
 		{ speed: 5, energy: 0.135 },
 		{ speed: 10, energy: 0.14 },
-		{ speed: 15, energy: 0.135 },
-		{ speed: 20, energy: 0.1122 },
-		{ speed: 30, energy: 0.11 }, 		
-		{ speed: 40, energy: 0.1139 },
+		{ speed: 15, energy: 0.145 },
+		{ speed: 20, energy: 0.148 }, 
+		{ speed: 40, energy: 0.112 },
 		{ speed: 50, energy: 0.1177 },
 		{ speed: 60, energy: 0.1242 },
 		{ speed: 70, energy: 0.1285 },
@@ -1280,13 +1279,13 @@ let currentEfficiency = 7.5;
 let lastUpdateTime = Date.now();
 function getEfficiencyPerPercent(speedKmh) {
 	const points = [
-		{ speed: 0, efficiency: 5.90 },
-		{ speed: 10, efficiency: 5.87 },
+		{ speed: 0, efficiency: 5.98 },
+		{ speed: 10, efficiency: 5.93 },
 		{ speed: 20, efficiency: 5.88 },
 		{ speed: 30, efficiency: 5.83 },
 		{ speed: 40, efficiency: 5.77 },
 		{ speed: 50, efficiency: 5.58 },
-		{ speed: 60, efficiency: 5.45 },
+		{ speed: 60, efficiency: 5.30 },
 		{ speed: 70, efficiency: 5.13 },
 		{ speed: 80, efficiency: 4.81 },
 		{ speed: 90, efficiency: 4.53 },
@@ -2355,8 +2354,6 @@ function applyMapTransform(wrapper, rotationDeg, offsetRatio = 0) {
 	if (!wrapper) return;
 	const container = wrapper.closest('.leaflet-container');
 	if (!container) return;
-	const mapInstance = container._leaflet_map;
-	if (mapInstance && mapInstance._tilesToLoad > 0) return;
 	const offsetY = Math.round(container.clientHeight * offsetRatio);
 	const transform =
 		`translate3d(0px, ${offsetY}px, 0px) rotate(${rotationDeg.toFixed(3)}deg)`;
@@ -2546,26 +2543,54 @@ function smoothTransformStep(now) {
 	) {
 		baseHeading = lastHeading;
 	}
-	if (baseHeading !== null && targetSpeed >= 8 && motion.confidence > 0.6 &&
-		Math.abs(normalizeAngleDifference(baseHeading, lastReliableHeading ?? baseHeading)) < 6
-	) {
-		lastReliableHeading = baseHeading;
-	}
+
 	if (baseHeading !== null) lastHeading = baseHeading;
 	// 4) Curve model
-	const curveStrength01 = computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
-	if (curveStrength01 > 0.14) {
-		inCurve = true;
-		curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
-	} else {
-		curveMomentum *= 0.78;
-		if (curveMomentum < 1.1) inCurve = false;
-	}
-	const curveBoost01 = clamp(curveMomentum / 24, 0, 1);
-	const curveMix01 = Math.max(curveStrength01, curveBoost01);
-	if (targetSpeed <= ROTATE_STOP_SPEED && curveMix01 < 0.10) {
-		baseHeading = lastReliableHeading;
-	}
+const curveStrength01 = computeCurveStrength(
+	motionOk ? motion.turnRate : 0,
+	targetSpeed
+);
+
+if (curveStrength01 > 0.14) {
+	inCurve = true;
+	curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
+} else {
+	curveMomentum *= 0.78;
+	if (curveMomentum < 1.1) inCurve = false;
+}
+
+const curveBoost01 = clamp(curveMomentum / 24, 0, 1);
+const curveMix01 = Math.max(curveStrength01, curveBoost01);
+
+const lowSpeed = targetSpeed <= 10;
+
+// heading intent = ใช้แค่ปลด lock
+const headingIntent =
+	lastReliableHeading !== null &&
+	baseHeading !== null &&
+	Math.abs(
+		normalizeAngleDifference(baseHeading, lastReliableHeading)
+	) > (targetSpeed <= 8 ? 10 : 6);
+
+// ✅ turning = curve จริง หรือ u-turn เท่านั้น
+const isTurning =
+	curveMix01 > 0.12 ||
+	isUTurn(motion.turnRate, targetSpeed);
+if (
+	baseHeading !== null &&
+	isTurning &&
+	motion.confidence > 0.35
+) {
+	lastReliableHeading = baseHeading;
+}
+if (
+	targetSpeed <= ROTATE_STOP_SPEED &&
+	curveMix01 < 0.10 &&
+	!isTurning // 🔑 สำคัญ
+) {
+	baseHeading = lastReliableHeading;
+}
+
 	if (baseHeading !== null && targetSpeed >= 6 && !lowSpeedStraightLock && curveMix01 > 0.05) {
 		const useDevice = (!motionOk || motion.confidence < 0.25);
 		if (useDevice) baseHeading = getSmoothedDeviceHeading(baseHeading);
@@ -2575,21 +2600,44 @@ function smoothTransformStep(now) {
 	) {
 		baseHeading = lastReliableHeading;
 	}
-	if (isUTurn(motion.turnRate, targetSpeed)) {
-		lastReliableHeading = baseHeading;
-	}
-	let nextLowSpeedLock = false;
-	if (targetSpeed <= 10 && lastReliableHeading !== null && motion.confidence < 0.6 && curveMix01 < 0.1 &&
-		Math.abs(normalizeAngleDifference(
+if (
+	baseHeading !== null &&
+	isTurning &&
+	motion.confidence > 0.6 &&
+	targetSpeed > 6 &&
+	curveStrength01 > 0.14
+) {
+	lastReliableHeading = baseHeading;
+}
+
+let nextLowSpeedLock = false;
+if (
+	targetSpeed <= 10 &&
+	lastReliableHeading !== null &&
+	!isTurning &&
+	motion.confidence < 0.6 &&
+	Math.abs(
+		normalizeAngleDifference(
 			baseHeading ?? lastReliableHeading,
 			lastReliableHeading
-		)) < (targetSpeed <= 8 ? 6 : 3)
-	) {
-		baseHeading = lastReliableHeading;
-		nextLowSpeedLock = true;
-	}
-	lowSpeedStraightLock = nextLowSpeedLock;
-	if (curveMix01 > 0.12) lowSpeedStraightLock = false;
+		)
+	) < (targetSpeed <= 8 ? 6 : 3)
+) {
+	baseHeading = lastReliableHeading;
+	nextLowSpeedLock = true;
+}
+
+lowSpeedStraightLock = nextLowSpeedLock;
+if (isTurning) lowSpeedStraightLock = false;
+if (
+	lowSpeed &&
+	!isTurning &&
+	lastReliableHeading !== null &&
+	!headingIntent // 🔑 เพิ่มแค่นี้
+) {
+	baseHeading = lastReliableHeading;
+}
+
 	// 5) Smooth pan
 	if (autoFollow) {
 		if (
@@ -2621,11 +2669,17 @@ function smoothTransformStep(now) {
 		if (forceRealPos) {
 			panLat = smoothedLat;
 			panLon = smoothedLon;
-		} else if (baseHeading !== null) {
-			const ahead = projectAhead(targetLat, targetLon, baseHeading, lookAhead);
-			panLat = ahead[0];
-			panLon = ahead[1];
-		}
+	} else if (baseHeading !== null && isTurning) {
+	// ใช้ lookAhead เฉพาะตอนเลี้ยวจริง
+	const ahead = projectAhead(targetLat, targetLon, baseHeading, lookAhead);
+	panLat = ahead[0];
+	panLon = ahead[1];
+} else {
+	// ทางตรง → ยึดตำแหน่งจริง
+	panLat = smoothedLat;
+	panLon = smoothedLon;
+}
+
 		const panMoveM = haversineMeters(appliedMapLat, appliedMapLon, panLat, panLon);
 		if (panMoveM < 0.8) {
 			panLat = appliedMapLat;
@@ -2668,35 +2722,46 @@ function smoothTransformStep(now) {
 			lastViewApplyTime = now;
 		}
 	}
-	// 6) Map rotation
-	const rotWrapper = ensureRotationWrapper(map);
-	if (rotWrapper) {
-		const offsetRatio = autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0;
-		if (autoRotate && baseHeading !== null) {
-			const desiredRotation = (-baseHeading + 360) % 360;
-			if (lastMapRotation === null || !isFinite(lastMapRotation)) {
-				lastMapRotation = desiredRotation;
-			}
-			const shouldFreezeRotation = (targetSpeed <= ROTATE_STOP_SPEED) || (lowSpeedStraightLock && curveMix01 < 0.10) ||
-				(isUTurn(motion.turnRate, targetSpeed) && targetSpeed < 8);
-			if (shouldFreezeRotation) {
-				if (frozenMapRotation === null) {
-					frozenMapRotation = lastMapRotation;
-				}
-				lastMapRotation = frozenMapRotation;
-			} else {
-				frozenMapRotation = null;
-				let follow = computeRotationFollowFactor(targetSpeed, curveMix01);
-				if (curveMix01 < 0.05 && targetSpeed > 20) {
-					follow = Math.max(follow, 0.88);
-				}
-				follow = clamp(follow, 0.05, 0.95);
-				lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, follow);
-			}
+// 6) Map rotation
+const rotWrapper = ensureRotationWrapper(map);
+if (rotWrapper) {
+
+	// default = คง rotation เดิม
+	let rotationToApply = lastMapRotation ?? 0;
+
+	if (
+		autoRotate &&
+		baseHeading !== null &&
+		(
+			targetSpeed > 10 ||
+			(targetSpeed <= 10 && isTurning)
+		)
+	) {
+		const desiredRotation = (-baseHeading + 360) % 360;
+
+		if (lastMapRotation === null || !isFinite(lastMapRotation)) {
+			lastMapRotation = desiredRotation;
 		}
-		applyMapTransform(rotWrapper, lastMapRotation ?? 0, offsetRatio);
-		isMapRotated = true;
+
+		let follow = computeRotationFollowFactor(targetSpeed, curveMix01);
+		if (targetSpeed <= 10) follow = Math.min(follow, 0.28);
+		follow = clamp(follow, 0.05, 0.9);
+
+		lastMapRotation = lerpAngle(
+			lastMapRotation,
+			desiredRotation,
+			follow
+		);
+
+		rotationToApply = lastMapRotation;
 	}
+
+	// ✅ offset ต้อง apply เสมอเมื่อ autoFollow
+	const offsetRatio = autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0;
+	applyMapTransform(rotWrapper, rotationToApply, offsetRatio);
+
+	isMapRotated = true;
+}
 	// 7) Marker rotation (fast + safe)
 	const markerHeading = isFinite(baseHeading)
 		? baseHeading
