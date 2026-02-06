@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:06.99</h2>
+<h2>Trip Version:07.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1534,13 +1534,11 @@ function updateTripTime() {
 	if (!tripStartTime) return; 
 	const now = Date.now();
 	elapsedTime = Math.floor((now - tripStartTime) / 1000);  
-
 	const elapsedTimeHours = Math.floor(elapsedTime / 3600).toString().padStart(2, '0');
 	const elapsedTimeMinutes = Math.floor((elapsedTime % 3600) / 60).toString().padStart(2, '0');
 	const elapsedTimeSeconds = (elapsedTime % 60).toString().padStart(2, '0');
 	const elapsedTimeSpan = document.getElementById("elapsedTime");
 	elapsedTimeSpan.textContent = `${elapsedTimeHours}:${elapsedTimeMinutes}:${elapsedTimeSeconds}`;
- 
 	if (elapsedTime > 0 && !isAvgSpeedCalculated) {
 		const avgSpeed = cumulativeDistance / (elapsedTime / 3600); 
 		const avgSpeedSpan = document.getElementById("avgSpeed");
@@ -1548,7 +1546,6 @@ function updateTripTime() {
 		isAvgSpeedCalculated = true;
 	}
 }
-  
 const historyContainer = document.getElementById("historyContainer");
 const TARGET_DISTANCE_KM = 10;
 function getDynamicMinDist(speedKmh) {
@@ -1567,14 +1564,12 @@ function getDynamicMinDist(speedKmh) {
 
     let minDistKm =
         (effectiveSpeed * EXPECTED_INTERVAL_SEC * NOISE_FACTOR) / 1000;
-
     return Math.min(
         MAX_DIS_KM,
         Math.max(MIN_DIS_KM, minDistKm)
     );
 }
 let positions = [];
-
 function checkIfStopped(lat, lon, speedKmh = 0) {
     positions.push({ lat, lon });
     if (positions.length > 10) positions.shift();
@@ -1604,7 +1599,6 @@ function checkIfStopped(lat, lon, speedKmh = 0) {
     const MAX_STOP_DIST_KM = 0.030;   // 30 m กัน speed สูงผิดพลาด
 
     let stopThresholdKm = baseMinDist * STOP_FACTOR;
-
     if (stopThresholdKm < MIN_STOP_DIST_KM) {
         stopThresholdKm = MIN_STOP_DIST_KM;
     }
@@ -2027,10 +2021,10 @@ document.getElementById("toggleTripInfoBtn").addEventListener("click", function 
 
 	if (section.style.display === "none") {
 		section.style.display = "block";
-		this.innerHTML = "Current trip information ▲";
+		this.innerHTML = "Trip information ▲";
 	} else {
 		section.style.display = "none";
-		this.innerHTML = "Current trip information ▼";
+		this.innerHTML = "Trip information ▼";
 	}
 });
 // 🚗 SHOW HISTORY MAP (MODAL) — FINAL FIXED VERSION
