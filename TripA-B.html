@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:04.99</h2>
+<h2>Trip Version:06.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2344,7 +2344,6 @@ let lastLookAhead = null;
 let appliedZoom = null;
 let appliedIconSize = null;
 let lastIconSize = null;
-let lastViewApplyTime = 0;
 let lastAppliedTransform = "";
 const LOW_SPEED_HEADING_LOCK = 8;
 const FLYTO_MIN_INTERVAL_MS = 70;
@@ -2355,7 +2354,6 @@ const HISTORY_MAX = 4;
 const ROTATE_STOP_SPEED = 3;
 const ZOOM_THRESHOLD = 0.25;
 const NAVI_CENTER_OFFSET_RATIO = 0.15;
-const VIEW_APPLY_INTERVAL = 33;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, offsetRatio = 0) {
 	if (!wrapper) return;
@@ -2533,34 +2531,52 @@ function smoothTransformStep(now) {
 	const gpsHeading = isFinite(targetHeading) ? ((targetHeading + 360) % 360) : null;
 	const motionOk = isFinite(motion.heading) && motion.confidence >= 0.45 && targetSpeed >= 3;
 	// 3) Heading fusion (GPS + Motion)
-	let baseHeading = mixHeading(
-		gpsHeading,
-		motionOk ? motion.heading : null,
-		motionOk ? motion.confidence : 0,
-		targetSpeed
-	);
-	if (targetSpeed > ROTATE_STOP_SPEED && targetSpeed < LOW_SPEED_HEADING_LOCK) {
-		if (lastReliableHeading !== null) {
-			baseHeading = lastReliableHeading;
-		}
+	let baseHeading = null;
+	if (targetSpeed >= 10) {
+		baseHeading = mixHeading(
+			gpsHeading,
+			motionOk ? motion.heading : null,
+			motionOk ? motion.confidence : 0,
+			targetSpeed
+		);
+	} else {
+		baseHeading = (motionOk && motion.turnRate > 12)
+			? motion.heading
+			: (isFinite(gpsHeading) ? gpsHeading : lastHeading);
 	}
+if (
+    targetSpeed > ROTATE_STOP_SPEED &&
+    targetSpeed < LOW_SPEED_HEADING_LOCK &&
+    motionOk &&
+    motion.turnRate < 12
+) {
+    if (lastReliableHeading !== null) {
+        baseHeading = lastReliableHeading;
+    }
+}
+
+
 	if (baseHeading === null && lastHeading !== null) {
 		baseHeading = lastHeading;
 	}
 	if (baseHeading !== null) lastHeading = baseHeading;
 	// 4) Curve model
+	const isTurning = motionOk && (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
 	const curveStrength01 = computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
-	if (curveStrength01 > 0.14) {
-		inCurve = true;
-		curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
-	} else {
+if (targetSpeed >= 10 && curveStrength01 > 0.14) {
+    inCurve = true;
+    curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
+} else if (targetSpeed < 10 && !isTurning) {
+    curveMomentum = 0;
+    inCurve = false;
+} else {
 		curveMomentum *= 0.78;
 		if (curveMomentum < 1.1) inCurve = false;
 	}
 	const curveBoost01 = clamp(curveMomentum / 24, 0, 1);
 	const curveMix01 = Math.max(curveStrength01, curveBoost01);
 	const lowSpeed = targetSpeed <= 10;
-	const isTurning = motionOk && (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
+	
 	if (isTurning && baseHeading !== null) {
 		lastReliableHeading = baseHeading;
 	}
@@ -2569,10 +2585,14 @@ function smoothTransformStep(now) {
 		if (useDevice) baseHeading = getSmoothedDeviceHeading(baseHeading);
 	}
 	// 5) Smooth pan
-	const allowMapRotate = autoRotate && baseHeading !== null && (
-		targetSpeed > ROTATE_STOP_SPEED || isTurning ||
-		(curveMix01 > 0.12 && targetSpeed >= 4)
-	);
+const allowMapRotate =
+    autoRotate &&
+    baseHeading !== null &&
+    (
+        targetSpeed >= 6 ||
+        (isTurning && motion.turnRate > 10)
+    );
+
 	if (autoFollow) {
 		if (appliedMapLat === null || appliedMapLon === null || !isFinite(appliedMapLat) || !isFinite(appliedMapLon)) {
 			const c = map.getCenter(); appliedMapLat = c.lat; appliedMapLon = c.lng;
@@ -2586,22 +2606,26 @@ function smoothTransformStep(now) {
 		}
 		lastLookAhead = lookAhead;
 		if (targetSpeed > 95) lookAhead *= 1.10;
-		let panLat = targetLat;
-		let panLon = targetLon;
-		const forceRealPos = (targetSpeed < 3.2);
-		if (forceRealPos) {
-			panLat = smoothedLat;
-			panLon = smoothedLon;
-		} else if (baseHeading !== null && isTurning) {
-			const ahead = projectAhead(targetLat, targetLon, baseHeading, lookAhead);
-			panLat = ahead[0];
-			panLon = ahead[1];
-		} else {
-			panLat = smoothedLat;
-			panLon = smoothedLon;
-		}
-		const panMoveM = haversineMeters(appliedMapLat, appliedMapLon, panLat, panLon);
-		if (panMoveM < 0.8) {panLat = appliedMapLat; panLon = appliedMapLon;}
+let panLat = targetLat;
+let panLon = targetLon;
+const forceRealPos = (targetSpeed < 3.2);
+if (forceRealPos) {
+	panLat = lerp(panLat, smoothedLat, 0.6);
+	panLon = lerp(panLon, smoothedLon, 0.6);
+} else if (baseHeading !== null && isTurning) {
+	const ahead = projectAhead(targetLat, targetLon, baseHeading, lookAhead);
+	panLat = ahead[0];
+	panLon = ahead[1];
+} else {
+	panLat = smoothedLat;
+	panLon = smoothedLon;
+}
+const panMoveM = haversineMeters(appliedMapLat, appliedMapLon, panLat, panLon);
+if (panMoveM < 0.4 && targetSpeed < 3) {
+	panLat = lerp(appliedMapLat, panLat, 0.25);
+	panLon = lerp(appliedMapLon, panLon, 0.25);
+}
+
 		let follow = lerp(0.06, 0.20, clamp(targetSpeed / 90, 0, 1));
 		if (forceRealPos){follow = Math.max(follow * 0.6, 0.10);}
 		if (curveMix01 > 0.2) follow *= 1.1;
@@ -2618,17 +2642,17 @@ function smoothTransformStep(now) {
 			if (dz > ZOOM_THRESHOLD) {appliedZoom = lerp(appliedZoom, targetZoom, 0.18);}
 		}
 		const zoomToApply = appliedZoom ?? targetZoom;
-		const panChanged = lastAppliedPanLat === null ||
-			Math.abs(appliedMapLat - lastAppliedPanLat) > 1e-7 ||
-			Math.abs(appliedMapLon - lastAppliedPanLon) > 1e-7;
+const panChanged = lastAppliedPanLat === null ||
+	Math.abs(appliedMapLat - lastAppliedPanLat) > 3e-7 ||
+	Math.abs(appliedMapLon - lastAppliedPanLon) > 3e-7;
 		const zoomChanged = lastZoom === null || Math.abs(zoomToApply - lastZoom) > 0.001;
-		if ((panChanged || zoomChanged) && (now - lastViewApplyTime > VIEW_APPLY_INTERVAL)) {
-			map.setView([appliedMapLat, appliedMapLon], zoomToApply, { animate: false });
-			lastAppliedPanLat = appliedMapLat;
-			lastAppliedPanLon = appliedMapLon;
-			lastZoom = zoomToApply;
-			lastViewApplyTime = now;
-		}
+if (panChanged || zoomChanged) {
+	map.setView([appliedMapLat, appliedMapLon], zoomToApply, { animate: false });
+	lastAppliedPanLat = appliedMapLat;
+	lastAppliedPanLon = appliedMapLon;
+	lastZoom = zoomToApply;
+}
+
 	}
 	// 6) Map rotation
 	const rotWrapper = ensureRotationWrapper(map);
@@ -2640,21 +2664,30 @@ function smoothTransformStep(now) {
 				lastMapRotation = desiredRotation;
 			}
 			let follow = computeRotationFollowFactor(targetSpeed, curveStrength01);
-			if (lowSpeed && curveMix01 < 0.1) follow = Math.min(follow, 0.22);
+			if (isUTurn(motion.turnRate, targetSpeed)) {
+				follow *= 1.25;
+			}
+			if (lowSpeed && curveMix01 < 0.1) {
+				follow = Math.min(follow, 0.22);
+			}
+
 			follow = clamp(follow, 0.05, 0.9);
-			lastMapRotation = lerpAngle (lastMapRotation, desiredRotation, follow);
+			lastMapRotation = lerpAngle(lastMapRotation, desiredRotation, follow);
 			rotationToApply = lastMapRotation;
-		}
-		const offsetRatio = autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0;
+}
+			const offsetRatio = autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0;
 			applyMapTransform(rotWrapper, rotationToApply, offsetRatio);
 			isMapRotated = true;
+		
 	}
 	// 7) Marker rotation (fast + safe)
 	const markerHeading = isFinite(baseHeading)
 		? baseHeading
 		: (isFinite(targetHeading) ? ((targetHeading + 360) % 360) : lastMarkerAngle);
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-		const allowMarkerRotate = isTurning || curveMix01 > 0.12;
+const allowMarkerRotate =
+    baseHeading !== null && targetSpeed >= 3;
+
 		if (allowMarkerRotate) {
 			let markerSmooth = clamp (computeRotationFollowFactor(targetSpeed, curveMix01) + 0.14, 0.80, 0.97);
 			if (targetSpeed < 6 && curveMix01 < 0.08 && motion.confidence < 0.35) {
