@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:01.99</h2>
+<h2>Trip Version:03.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2345,7 +2345,7 @@ const MIN_MOVE_FOR_MOTION_M = 2.2;
 const MIN_MOVE_FOR_HISTORY_M = 0.8;
 const posHistory = [];
 const HISTORY_MAX = 4;
-const ROTATE_STOP_SPEED = 6;
+const ROTATE_STOP_SPEED = 3;
 const ZOOM_THRESHOLD = 0.25;
 const NAVI_CENTER_OFFSET_RATIO = 0.15;
 const VIEW_APPLY_INTERVAL = 33;
@@ -2546,6 +2546,7 @@ const motionOk =
 	}
 	if (baseHeading !== null) lastHeading = baseHeading;
 	// 4) Curve model
+	
 	const curveStrength01 = computeCurveStrength(
 		motionOk ? motion.turnRate : 0,
 		targetSpeed
@@ -2576,6 +2577,14 @@ const motionOk =
 	}
 
 	// 5) Smooth pan
+		const allowMapRotate =
+		autoRotate &&
+		baseHeading !== null &&
+		(
+			targetSpeed > ROTATE_STOP_SPEED ||
+			isTurning ||
+		(curveMix01 > 0.12 && targetSpeed >= 4)
+	);
 	if (autoFollow) {
 		if (
 			appliedMapLat === null ||
@@ -2630,7 +2639,7 @@ const motionOk =
 		follow = clamp(follow, 0.08, 0.25);
 		appliedMapLat = lerp(appliedMapLat, panLat, follow);
 		appliedMapLon = lerp(appliedMapLon, panLon, follow);
-		const desiredRotation = baseHeading !== null ? (-baseHeading + 360) % 360 : lastMapRotation;
+		const desiredRotation = (baseHeading !== null && allowMapRotate) ? (-baseHeading + 360) % 360 : lastMapRotation;
 		const allowZoomUpdate = targetSpeed > 8 && curveMix01 < 0.05 && lastMapRotation !== null &&
 			Math.abs(normalizeAngleDifference(lastMapRotation, desiredRotation)) < 1.5;
 		if (allowZoomUpdate) {
@@ -2660,38 +2669,37 @@ const motionOk =
 const rotWrapper = ensureRotationWrapper(map);
 if (rotWrapper) {
 	let rotationToApply = lastMapRotation ?? 0;
-	if (autoRotate && baseHeading !== null && isTurning) {
+	if (allowMapRotate) {
+		const desiredRotation = (-baseHeading + 360) % 360;
 
-			const desiredRotation = (-baseHeading + 360) % 360;
-
-			if (lastMapRotation === null || !isFinite(lastMapRotation)) {
-				lastMapRotation = desiredRotation;
-			}
-
-			let follow = computeRotationFollowFactor(targetSpeed, curveStrength01);
-			if (lowSpeed) follow = Math.min(follow, 0.22);
-			follow = clamp(follow, 0.05, 0.9);
-
-			lastMapRotation = lerpAngle(
-				lastMapRotation,
-				desiredRotation,
-				follow
-			);
-
-			rotationToApply = lastMapRotation;
+		if (lastMapRotation === null || !isFinite(lastMapRotation)) {
+			lastMapRotation = desiredRotation;
 		}
-	
+
+		let follow = computeRotationFollowFactor(targetSpeed, curveStrength01);
+		if (lowSpeed && curveMix01 < 0.1) follow = Math.min(follow, 0.22);
+		follow = clamp(follow, 0.05, 0.9);
+
+		lastMapRotation = lerpAngle(
+			lastMapRotation,
+			desiredRotation,
+			follow
+		);
+
+		rotationToApply = lastMapRotation;
+	}
 
 	const offsetRatio = autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0;
 	applyMapTransform(rotWrapper, rotationToApply, offsetRatio);
 	isMapRotated = true;
 }
+
 	// 7) Marker rotation (fast + safe)
 	const markerHeading = isFinite(baseHeading)
 		? baseHeading
 		: (isFinite(targetHeading) ? ((targetHeading + 360) % 360) : lastMarkerAngle);
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-const allowMarkerRotate = isTurning;
+const allowMarkerRotate = isTurning || curveMix01 > 0.12;
 
 	if (allowMarkerRotate) {
 		let markerSmooth = clamp(
