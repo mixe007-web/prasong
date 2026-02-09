@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:12.99</h2>
+<h2>Trip Version:13.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2187,7 +2187,7 @@ function normalizeAngle(deg) {
 	return deg;
 }
 function calculateTargetZoom(speedKmh) {
-	if (speedKmh < 30) return 17;
+	if (speedKmh < 20) return 17;
 	if (speedKmh < 110) return 16;
 	if (speedKmh < 130) return 15;
 	return 14;
