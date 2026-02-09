@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:13.99</h2>
+<h2>Trip Version:15.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2472,9 +2472,9 @@ function computeCurveStrength(turnRateDeg, speedKmh) {
 }
 function computeRotationFollowFactor(speedKmh, curveStrength01) {
 	const speedW = clamp(speedKmh / 90, 0, 1);
-	const base = lerp(0.86, 0.74, speedW);
-	const boost = 0.16 * curveStrength01;
-	return clamp(base + boost, 0.74, 0.97);
+	const base = lerp(0.92, 0.80, speedW);
+	const boost = 0.22 * curveStrength01;
+	return clamp(base + boost, 0.78, 0.98);
 }
 function isUTurn(turnRateDeg, speedKmh) {
 	const th = speedKmh < 15 ? 55 : 70;
@@ -2590,7 +2590,7 @@ function smoothTransformStep(now) {
 		if (lowSpeedCurveLatch >= LOW_SPEED_CURVE_LATCH_FRAMES) {
 			baseHeading = motion.heading;
 		} else {
-			baseHeading = lastHeading;
+			baseHeading = gpsHeading ?? lastHeading;
 		}
 	}
 	if (baseHeading === null && lastHeading !== null) {
@@ -2605,6 +2605,9 @@ function smoothTransformStep(now) {
 	}
 	if (baseHeading !== null) {
 		lastHeading = baseHeading;
+	}
+	if (baseHeading === null && gpsHeading !== null && targetSpeed >= 3) {
+		baseHeading = gpsHeading;
 	}
 	// 4) Curve model
 	const curveStrength01 = computeCurveStrength (motionOk ? motion.turnRate : 0, targetSpeed);
@@ -2634,7 +2637,7 @@ function smoothTransformStep(now) {
 	const curveBoost01 = clamp(curveMomentum / 24, 0, 1);
 	const curveMix01 = Math.max(curveStrength01, curveBoost01);
 	const lowSpeed = targetSpeed <= LOW_SPEED_KMH;
-	if (baseHeading !== null && targetSpeed >= 6 && curveMix01 > 0.05) {
+	if (baseHeading !== null && targetSpeed >= 3 && curveMix01 > 0.05) {
 		if (!motionOk || motion.confidence < 0.25) {
 			baseHeading = getSmoothedDeviceHeading(baseHeading);
 		}
@@ -2660,7 +2663,6 @@ function smoothTransformStep(now) {
 			panLat = lerp(targetLat, smoothedLat, realPosMix);
 			panLon = lerp(targetLon, smoothedLon, realPosMix);
 		} else if (baseHeading !== null && isTurning) {
-			const lookAhead = dynamicLookAhead(targetSpeed, curveMix01);
 			const [aLat, aLon] = projectAhead(targetLat, targetLon, baseHeading, lookAhead);
 			panLat = aLat;
 			panLon = aLon;
@@ -2701,37 +2703,50 @@ function smoothTransformStep(now) {
 		}
 	}
 	// 6) Map rotation
+	if (targetSpeed < 1.2 && isVisualFrozen && curveStrength01 < 0.03) {
+		lastRotationHeading = null;
+	}
 	const headingDelta = lastRotationHeading !== null && baseHeading !== null
-		? Math.abs(normalizeAngleDifference(baseHeading, lastRotationHeading)) : 0;
+		? Math.abs(normalizeAngleDifference(baseHeading, lastRotationHeading))
+		: 0;
 	const holdHeading = targetSpeed < 2 && straightFrameCount >= STRAIGHT_HOLD_FRAMES &&
-		curveStrength01 < 0.04 && headingDelta < 3 && lastMapRotation !== null && lowSpeedCurveLatch === 0;
-	const shouldRotateMap = autoRotate && baseHeading !== null && !holdHeading && (
-		targetSpeed >= 3 || curveStrength01 > 0.04 || lowSpeedCurveLatch >= LOW_SPEED_CURVE_LATCH_FRAMES
+		curveStrength01 < 0.04 &&
+		headingDelta < 3 &&
+		lastMapRotation !== null &&
+		lowSpeedCurveLatch === 0;
+	const earlyLowSpeedRotate = targetSpeed >= 4 && motionOk && motion.confidence > 0.7 && motion.turnRate > 8;
+	const shouldRotateMap = autoRotate && (baseHeading !== null || lastHeading !== null) && !holdHeading && (
+		targetSpeed >= 3 ||
+		curveStrength01 > 0.04 ||
+		lowSpeedCurveLatch >= LOW_SPEED_CURVE_LATCH_FRAMES ||
+		earlyLowSpeedRotate
 	);
 	const rotWrapper = ensureRotationWrapper(map);
 	if (rotWrapper) {
 		let rotationToApply = lastMapRotation;
-		if (shouldRotateMap) {
-			lastRotationHeading = baseHeading;
-			const desiredRotation = (-baseHeading + 360) % 360;
-			let follow = computeRotationFollowFactor(
-				targetSpeed,
-				curveStrength01
-			);
-			if (curveStrength01 > 0.25) follow = Math.min(follow + 0.08, 0.97);
-				lastMapRotation = lerpAngle(
-					lastMapRotation ?? desiredRotation,
-					desiredRotation,
-					follow
-				);
+		const h = baseHeading ?? lastHeading;
+		if (shouldRotateMap && h !== null) {
+			lastRotationHeading = h;
+			const desiredRotation = (-h + 360) % 360;
+			let follow = computeRotationFollowFactor(targetSpeed, curveStrength01);
+			if (targetSpeed < 10) {
+				follow = Math.min(follow + 0.06, 0.95);
+			}
+			if (curveStrength01 > 0.55 || (motionOk && isUTurn(motion.turnRate, targetSpeed))) {
+				lastMapRotation = lerpAngle(lastMapRotation ?? desiredRotation, desiredRotation, 0.92);
+			} else {
+				lastMapRotation = (lastMapRotation === null)
+					? desiredRotation
+					: lerpAngle(lastMapRotation, desiredRotation, follow);
+			}
 			rotationToApply = lastMapRotation;
 		} else if (lastMapRotation !== null) {
 			rotationToApply = lastMapRotation;
-			lastRotationHeading = null;
 		}
 		const rotation = rotationToApply ?? lastMapRotation ?? 0;
 		const offsetRatio = autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0;
 		applyMapTransform(rotWrapper, rotation, offsetRatio);
+		isMapRotated = true;
 	}
 	// 7) Marker rotation
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
