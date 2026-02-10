@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:15.99</h2>
+<h2>Trip Version:16.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2342,20 +2342,19 @@ let visualFreezeLat = null;
 let visualFreezeLon = null;
 let lastRotationHeading = null;
 let isVisualFrozen = false;
-const LOW_SPEED_CURVE_LATCH_FRAMES = 2;
+const LOW_SPEED_CURVE_LATCH_FRAMES = 3;
 const FLYTO_MIN_INTERVAL_MS = 70;
 const MIN_MOVE_FOR_MOTION_M = 2.2;
 const MIN_MOVE_FOR_HISTORY_M = 0.8;
 const posHistory = [];
 const HISTORY_MAX = 4;
-const ROTATE_STOP_SPEED = 3;
 const ZOOM_THRESHOLD = 0.25;
 const NAVI_CENTER_OFFSET_RATIO = 0.15;
 const LOW_SPEED_KMH = 10;
 const MIN_MOTION_SPEED = 3;
 const STRAIGHT_TURN_DEG = 6;
 const STRAIGHT_HOLD_FRAMES = 4;
-
+const ROTATE_START_KMH = 3;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, offsetRatio = 0) {
 	if (!wrapper) return;
@@ -2377,7 +2376,7 @@ function resetFollowRotationState(full = false) {
 	lastAppliedPanLon = null;
 	curveMomentum = 0;
 	inCurve = false;
-	lastHeading = null;
+	if (full) lastHeading = null;
 	lastRotationHeading = null;
 	lastLookAhead = null;
 	lastAppliedTransform = "";
@@ -2483,7 +2482,6 @@ function isUTurn(turnRateDeg, speedKmh) {
 function isHardTurn(turnRateDeg) {
 	return turnRateDeg > 16;
 }
-
 // MAIN LOOP
 function smoothTransformStep(now) {
 	if (!isTracking) {
@@ -2529,6 +2527,10 @@ function smoothTransformStep(now) {
 		}
 	}
 	vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
+	isVisualFrozen =
+		visualFreezeLat !== null &&
+		visualFreezeLon !== null &&
+		targetSpeed < 3;
 	// 2) History (curve prediction)
 	if (posHistory.length === 0) {
 		visualFreezeLat = null;
@@ -2539,9 +2541,6 @@ function smoothTransformStep(now) {
 		const histLat = visualFreezeLat ?? targetLat;
 		const histLon = visualFreezeLon ?? targetLon;
 		const moved = haversineMeters(last.lat, last.lon, histLat, histLon);
-		isVisualFrozen = visualFreezeLat !== null &&
-			visualFreezeLon !== null &&
-			targetSpeed < 3;
 		if (moved >= MIN_MOVE_FOR_HISTORY_M) {
 			let allowPush = true;
 			if (targetSpeed < 6 && posHistory.length >= 2) {
@@ -2593,12 +2592,11 @@ function smoothTransformStep(now) {
 			baseHeading = gpsHeading ?? lastHeading;
 		}
 	}
-	if (baseHeading === null && lastHeading !== null) {
-		baseHeading = lastHeading;
-	}
-	if (isVisualFrozen && lastHeading !== null) {
-		if (motionOk && motion.confidence > 0.7) {
-			baseHeading = motion.heading;
+	if (baseHeading === null) {
+		if (targetSpeed >= 20) {
+			baseHeading = gpsHeading ?? lastHeading;
+		} else if (targetSpeed >= 3) {
+			baseHeading = gpsHeading ?? lastHeading;
 		} else {
 			baseHeading = lastHeading;
 		}
@@ -2606,11 +2604,11 @@ function smoothTransformStep(now) {
 	if (baseHeading !== null) {
 		lastHeading = baseHeading;
 	}
-	if (baseHeading === null && gpsHeading !== null && targetSpeed >= 3) {
-		baseHeading = gpsHeading;
-	}
 	// 4) Curve model
-	const curveStrength01 = computeCurveStrength (motionOk ? motion.turnRate : 0, targetSpeed);
+	const curveStrength01 =
+		targetSpeed < 5
+		? 0
+		: computeCurveStrength (motionOk ? motion.turnRate : 0, targetSpeed);
 	const isTurning = motionOk && (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
 	const isRealLowSpeedTurn = targetSpeed < LOW_SPEED_KMH && motionOk && motion.turnRate > 18 &&
 		curveStrength01 > 0.35 &&
@@ -2703,24 +2701,28 @@ function smoothTransformStep(now) {
 		}
 	}
 	// 6) Map rotation
-	if (targetSpeed < 1.2 && isVisualFrozen && curveStrength01 < 0.03) {
+	if (isVisualFrozen) {
 		lastRotationHeading = null;
+		straightFrameCount = 0;
 	}
 	const headingDelta = lastRotationHeading !== null && baseHeading !== null
 		? Math.abs(normalizeAngleDifference(baseHeading, lastRotationHeading))
 		: 0;
-	const holdHeading = targetSpeed < 2 && straightFrameCount >= STRAIGHT_HOLD_FRAMES &&
+	const holdHeading = targetSpeed < 2 &&
+		straightFrameCount >= STRAIGHT_HOLD_FRAMES &&
 		curveStrength01 < 0.04 &&
 		headingDelta < 3 &&
 		lastMapRotation !== null &&
 		lowSpeedCurveLatch === 0;
-	const earlyLowSpeedRotate = targetSpeed >= 4 && motionOk && motion.confidence > 0.7 && motion.turnRate > 8;
-	const shouldRotateMap = autoRotate && (baseHeading !== null || lastHeading !== null) && !holdHeading && (
-		targetSpeed >= 3 ||
-		curveStrength01 > 0.04 ||
-		lowSpeedCurveLatch >= LOW_SPEED_CURVE_LATCH_FRAMES ||
-		earlyLowSpeedRotate
-	);
+	const shouldRotateMap =
+		autoRotate &&
+		!isVisualFrozen &&
+		(baseHeading !== null || lastHeading !== null) &&
+		!holdHeading &&
+		targetSpeed >= ROTATE_START_KMH && (
+			curveStrength01 > 0.06 ||
+			lowSpeedCurveLatch >= LOW_SPEED_CURVE_LATCH_FRAMES
+		);
 	const rotWrapper = ensureRotationWrapper(map);
 	if (rotWrapper) {
 		let rotationToApply = lastMapRotation;
@@ -2750,16 +2752,20 @@ function smoothTransformStep(now) {
 	}
 	// 7) Marker rotation
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-		const allowMarkerRotate = baseHeading !== null &&(
-			targetSpeed >= 3 || lowSpeedCurveLatch >= LOW_SPEED_CURVE_LATCH_FRAMES
+		const allowMarkerRotate = !isVisualFrozen && baseHeading !== null && (
+			targetSpeed >= 3 || lowSpeedCurveLatch >= LOW_SPEED_CURVE_LATCH_FRAMES ||
+			curveStrength01 > 0.12
 		);
 		if (allowMarkerRotate) {
-			let markerSmooth = computeRotationFollowFactor(
-				targetSpeed,
-				computeCurveStrength(motion.turnRate || 0, targetSpeed)
-			) + 0.12;
-			markerSmooth = clamp(markerSmooth, 0.75, 0.95);
-			lastMarkerAngle = lerpAngle(lastMarkerAngle, baseHeading, markerSmooth);
+			let markerSmooth = computeRotationFollowFactor(targetSpeed, curveStrength01) + 0.10;
+			markerSmooth = clamp(markerSmooth, 0.72, 0.94);
+			const spikeDeg = Math.abs(
+				normalizeAngleDifference(baseHeading, lastMarkerAngle)
+			);
+			const targetMarkerHeading = spikeDeg > 50
+				? lerpAngle(lastMarkerAngle, baseHeading, 0.22)
+				: baseHeading;
+			lastMarkerAngle = lerpAngle(lastMarkerAngle, targetMarkerHeading, markerSmooth);
 			vehicleMarker.setRotationAngle(lastMarkerAngle);
 		}
 	}
@@ -3069,7 +3075,6 @@ function resetTrackingVisualState() {
 	smoothedLat = null;
 	smoothedLon = null;
 	lastZoom = 0;
-	lastFollow = null;
 	if (smoothTransformTarget) {
 		smoothTransformTarget.lat = null;
 		smoothTransformTarget.lon = null;
@@ -3108,8 +3113,8 @@ function normalizeGps(pos) {
 	if (typeof c.speed === 'number' && c.speed > 0) {
 		speedKmh = c.speed * 3.6;
 	}
-	const STOP_KMH = 3;
-	const MOVE_KMH = 6;
+	const STOP_KMH = 2;
+	const MOVE_KMH = 3;
 	if (gpsState.isStopped) {
 		if (speedKmh > MOVE_KMH) {
 			gpsState.isStopped = false;
