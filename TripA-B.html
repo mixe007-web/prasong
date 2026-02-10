@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:16.99</h2>
+<h2>Trip Version:17.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2720,9 +2720,11 @@ function smoothTransformStep(now) {
 		(baseHeading !== null || lastHeading !== null) &&
 		!holdHeading &&
 		targetSpeed >= ROTATE_START_KMH && (
+			lastMapRotation === null ||
 			curveStrength01 > 0.06 ||
 			lowSpeedCurveLatch >= LOW_SPEED_CURVE_LATCH_FRAMES
 		);
+
 	const rotWrapper = ensureRotationWrapper(map);
 	if (rotWrapper) {
 		let rotationToApply = lastMapRotation;
@@ -2813,6 +2815,9 @@ function resetMapRotation(callback = null) {
 	hardClearMapRotation(map);
 	resetFollowRotationState(false);
 	isMapRotated = false;
+	if (map) {
+		map.invalidateSize(true);
+	}
 	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
 		vehicleMarker.setRotationAngle(lastGpsHeading || 0);
 	}
@@ -3016,8 +3021,10 @@ function drawHistoryRoute(pathCoords) {
 			maxZoom: safeZoom
 		});
 	};
-    if (isMapRotated && !autoFollow) resetMapRotation(fitBoundsCallback);
-    else fitBoundsCallback();
+	resetMapRotation(() => {
+		map.invalidateSize(true);
+		fitBoundsCallback();
+	});
     safeInvalidateMap(map, 300);
 }
 function forceRecenterToVehicle() {
@@ -3372,12 +3379,10 @@ function stopTracking() {
 	.filter(Boolean);
 	if (isMapRotated) {
 		resetMapRotation(() => {
-			map.setZoom(BASE_ZOOM, { animate: false });
 			drawHistoryRoute(pathCoords);
 			enableMapInteraction();
 		});
 	} else {
-		map.setZoom(BASE_ZOOM, { animate: false });
 		drawHistoryRoute(pathCoords);
 		enableMapInteraction();
 	}
