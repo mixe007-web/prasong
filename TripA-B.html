@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:18.99</h2>
+<h2>Trip Version:19.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2355,6 +2355,7 @@ const MIN_MOTION_SPEED = 3;
 const STRAIGHT_TURN_DEG = 6;
 const STRAIGHT_HOLD_FRAMES = 4;
 const ROTATE_START_KMH = 3;
+const STOP_SPEED_KMH = ROTATE_START_KMH - 1;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, offsetRatio = 0) {
 	if (!wrapper) return;
@@ -2604,6 +2605,13 @@ function smoothTransformStep(now) {
 	if (baseHeading !== null) {
 		lastHeading = baseHeading;
 	}
+const h = baseHeading ?? lastHeading;
+
+const headingDelta =
+	lastRotationHeading === null || !isFinite(h)
+		? Infinity
+		: Math.abs(normalizeAngleDifference(h, lastRotationHeading));
+
 	// 4) Curve model
 	const curveStrength01 =
 		targetSpeed < 5
@@ -2617,16 +2625,21 @@ function smoothTransformStep(now) {
 if (
 	targetSpeed <= (ROTATE_START_KMH - 1) &&
 	lastMapRotation !== null &&
-	curveStrength01 < 0.03
+	curveStrength01 < 0.03 &&
+	headingDelta < 1.0
 ) {
 	straightFrameCount = STRAIGHT_HOLD_FRAMES;
 }
 
-	if (isStraight) {
-		straightFrameCount++;
-	} else {
+if (isStraight) {
+	straightFrameCount = Math.min(
+		straightFrameCount + 1,
+		STRAIGHT_HOLD_FRAMES + 2
+	);
+} else {
 	straightFrameCount = 0;
 }
+
 	if (targetSpeed >= LOW_SPEED_KMH && curveStrength01 > 0.14) {
 		inCurve = true;
 		curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
@@ -2709,39 +2722,31 @@ if (
 
 const rotWrapper = ensureRotationWrapper(map);
 if (rotWrapper && autoRotate) {
-
-	// --- basic conditions ---
-	const h = baseHeading ?? lastHeading;
 	const hasHeading = isFinite(h);
-		const isMoving =
-		targetSpeed >= ROTATE_START_KMH ||
-		(
-			targetSpeed > (ROTATE_START_KMH - 1) &&
-			lastMapRotation !== null
-		);
+const isMoving =
+	targetSpeed >= ROTATE_START_KMH;
 
 	// curve signal (allow rotate even at low speed if turning)
-	const hasTurnSignal =
-		(curveStrength01 > 0.06) ||
-		(lowSpeedCurveLatch > 0) ||
-		(motionOk && motion.turnRate > 15);
-
-	// hold only when really stopped + stable
-const headingDelta =
-	lastRotationHeading === null
-		? Infinity
-		: Math.abs(normalizeAngleDifference(h, lastRotationHeading));
-
-	const holdHeading =
-		targetSpeed <= (ROTATE_START_KMH - 1) &&
-		straightFrameCount >= STRAIGHT_HOLD_FRAMES &&
-		headingDelta < 1.5;
-
-	const shouldRotate =
+const hasTurnSignal =
+	(targetSpeed >= STOP_SPEED_KMH && curveStrength01 > 0.08) ||
+	(targetSpeed >= STOP_SPEED_KMH && lowSpeedCurveLatch > 0) ||
+	(targetSpeed >= LOW_SPEED_KMH && motionOk && motion.turnRate > 15) ||
+	(
+		targetSpeed >= ROTATE_START_KMH &&
+		headingDelta > 1.2
+	);
+const holdHeading =
+	lastMapRotation !== null &&
+	targetSpeed <= STOP_SPEED_KMH &&
+	straightFrameCount >= STRAIGHT_HOLD_FRAMES &&
+	headingDelta < 1.2;
+ const shouldRotate =
+	(lastMapRotation === null && (isMoving || hasTurnSignal)) ||
+	(
 		hasHeading &&
 		!holdHeading &&
-		(isMoving || hasTurnSignal);
-
+		(isMoving || hasTurnSignal)
+	);
 	// --- rotation apply ---
 	if (shouldRotate) {
 		const desiredRotation = (-h + 360) % 360;
@@ -3031,8 +3036,8 @@ function drawHistoryRoute(pathCoords) {
     const bounds = L.latLngBounds(latlngsAll);
     const latDiff = Math.abs(bounds.getNorthEast().lat - bounds.getSouthWest().lat);
     const lngDiff = Math.abs(bounds.getNorthEast().lng - bounds.getSouthWest().lng);
-    const padX = Math.min(300, Math.max(60, lngDiff * 500));
-    const padY = Math.min(300, Math.max(60, latDiff * 500));
+    const padX = Math.min(300, Math.max(80, lngDiff * 500));
+    const padY = Math.min(300, Math.max(80, latDiff * 500));
 	const fitBoundsCallback = () => {
 		const safeZoom = clamp(BASE_ZOOM, 0, 22);
 		map.fitBounds(bounds, {
