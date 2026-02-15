@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:00.09</h2>
+<h2>Trip Version:00.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2172,14 +2172,20 @@ function safeInvalidateMap(targetMap, delay = 300) {
 function deg2rad(d) { return d * Math.PI / 180; }
 function rad2deg(r) { return r * 180 / Math.PI; }
 function lerp(a, b, t) { return a + (b - a) * t; }
-function lerpAngle(a, b, baseT, speedKmh = 0) {
-    let diff = ((b - a + 540) % 360) - 180;
-    if (Math.abs(diff) < 0.15) return b;
-    const speedFactor = Math.min(speedKmh / 100, 1);
-    const turnFactor = Math.min(Math.abs(diff) / 45, 1);
-	const dynamicT = clamp(baseT * (0.6 + speedFactor * 0.6 + turnFactor * 0.8), 0, 1);
-    return (a + diff * dynamicT + 360) % 360;
+function lerpAngle(current, target, t) {
+    if (!isFinite(current)) current = 0;
+    if (!isFinite(target)) return current;
+    if (t <= 0) return normalize360(current);
+    if (t >= 1) return normalize360(target);
+    let delta = target - current;
+    delta = ((delta + 540) % 360) - 180;
+    const result = current + delta * t;
+    return normalize360(result);
 }
+function normalize360(angle) {
+    return ((angle % 360) + 360) % 360;
+}
+
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function clampLatLng(lat, lng) { return [Math.max(Math.min(lat, 85), -85), ((lng + 180) % 360 + 360) % 360 - 180]; }
 function normalizeAngleDifference(a, b) {
@@ -2561,8 +2567,8 @@ function smoothTransformStep(now) {
 		callback
 	} = smoothTransformTarget;
 	const prevFrameTime = smoothTransformTarget.lastFrameTime ?? now;
-	let dtSec = (now - prevFrameTime) / 1000;
-	dtSec = Math.min(dtSec, 0.1);
+let dtSec = (now - prevFrameTime) / 1000;
+dtSec = clamp(dtSec, 1/90, 0.1);
 	// 1) Marker position smoothing
 	if (smoothedLat === null) {
 		smoothedLat = targetLat;
@@ -2670,94 +2676,89 @@ if (h !== null && isFinite(h) && !smoothTransformTarget._stopState) {
 }
 
 	// 5) Smooth pan
-	if (autoFollow) {
-		if (appliedZoom == null) {
-			appliedZoom = map.getZoom();
-		}
-		if (appliedMapLat === null) {
-			const c = map.getCenter();
-			appliedMapLat = c.lat;
-			appliedMapLon = c.lng;
-			panVelLat = 0;
-			panVelLon = 0;
-		}
-		let panTargetLat = smoothedLat;
-		let panTargetLon = smoothedLon;
-		if (!smoothTransformTarget._stopState && baseHeading !== null) {
-const rawLookAhead = dynamicLookAhead(
-    targetSpeed,
-    curveMix01,
-    smoothTransformTarget._stopState
+if (autoFollow) {
+    if (appliedMapLat === null || appliedMapLon === null) {
+        const c = map.getCenter();
+        appliedMapLat = c.lat;
+        appliedMapLon = c.lng;
+    }
+
+    if (appliedZoom === null) {
+        appliedZoom = smoothTransformTarget.zoom;
+    }
+
+    let panTargetLat = targetLat;
+    let panTargetLon = targetLon;
+
+    if (isMoving && h !== null) {
+        const lookAheadMeters = clamp(
+            targetSpeed * 0.8,
+            5,
+            35
+        );
+
+        const ahead = projectAhead(
+            targetLat,
+            targetLon,
+            h,
+            lookAheadMeters
+        );
+
+        panTargetLat = ahead[0];
+        panTargetLon = ahead[1];
+    }
+
+    const panSmooth = smoothTransformTarget._stopState
+        ? 0.25
+        : clamp(
+            0.10 + curveMix01 * 0.08 + targetSpeed * 0.0015,
+            0.10,
+            0.22
+        );
+
+const panFactor = 1 - Math.pow(1 - panSmooth, dtSec * 60);
+
+appliedMapLat = lerp(appliedMapLat, panTargetLat, panFactor);
+appliedMapLon = lerp(appliedMapLon, panTargetLon, panFactor);
+
+    const targetZoom = smoothTransformTarget.zoom;
+    const zoomSmooth = smoothTransformTarget._stopState
+        ? 0.05
+        : lerp(0.08, 0.16, clamp(targetSpeed / 120, 0, 1));
+
+const zoomFactor = 1 - Math.pow(1 - zoomSmooth, dtSec * 60);
+appliedZoom = lerp(appliedZoom, targetZoom, zoomFactor);
+
+
+const center = map.getCenter();
+const deltaMeters = haversineMeters(
+    center.lat,
+    center.lng,
+    appliedMapLat,
+    appliedMapLon
 );
-		if (lastLookAhead === null) {
-    lastLookAhead = rawLookAhead;
+
+if (deltaMeters > 0.02) { // 2cm threshold
+    map.setView(
+        [appliedMapLat, appliedMapLon],
+        appliedZoom,
+        { animate: false }
+    );
+}
 } else {
-    lastLookAhead = lerp(lastLookAhead, rawLookAhead, 0.18);
+    const c = map.getCenter();
+    appliedMapLat = lerp(appliedMapLat, c.lat, 0.35);
+    appliedMapLon = lerp(appliedMapLon, c.lng, 0.35);
 }
-		const lookAheadMeters = lastLookAhead;
-				[panTargetLat, panTargetLon] =
-					projectAhead(
-						smoothedLat,
-						smoothedLon,
-						baseHeading,
-						lookAheadMeters
-					);
-			}
-		const targetPoint =
-			map.latLngToLayerPoint([panTargetLat, panTargetLon]);
-		const currentPoint =
-			map.latLngToLayerPoint([appliedMapLat, appliedMapLon]);
-		const dx = targetPoint.x - currentPoint.x;
-		const dy = targetPoint.y - currentPoint.y;
-		const stiffness = 8.0 + curveMix01 * 4.0;
 
-		const damping   = 3.0;
-		panVelLat += dx * stiffness * dtSec;
-		panVelLon += dy * stiffness * dtSec;
-		const decay = Math.exp(-damping * dtSec);
-		panVelLat *= decay;
-		panVelLon *= decay;
-		if (smoothTransformTarget._stopState) {
-    panVelLat = 0;
-    panVelLon = 0;
-	lastLookAhead = 0;
-}
-		const newPoint = L.point(
-			currentPoint.x + panVelLat * dtSec,
-			currentPoint.y + panVelLon * dtSec
-		);
-		const newLatLng = map.layerPointToLatLng(newPoint);
-		appliedMapLat = newLatLng.lat;
-		appliedMapLon = newLatLng.lng;
-		const targetZoom = smoothTransformTarget.zoom;
-		const ZOOM_EPSILON = 0.02;
-		const zoomSpeedFactor = clamp(smoothTransformTarget.speedKmh / 120, 0, 1);
-		const zoomSmooth = smoothTransformTarget._stopState
-			? 0.04
-			: lerp(0.08, 0.18, zoomSpeedFactor );
-		const zoomDiff = targetZoom - appliedZoom;
-		if (Math.abs(zoomDiff) > ZOOM_EPSILON) {
-			const zoomStep = zoomDiff * zoomSmooth;
-			appliedZoom += zoomStep * clamp(dtSec * 60, 0, 1);
-		} else {
-			appliedZoom = targetZoom;
-		}
-		map.setView(
-			[appliedMapLat, appliedMapLon],
-			appliedZoom,
-			{ animate: false }
-		);
 
-	}
 		// 6) Map rotation
 const rotWrapper = ensureRotationWrapper(map);
 
 if (rotWrapper && autoRotate && h !== null) {
 
-    let desiredRotation = (-h + 360) % 360;
-
+    let desiredRotation = -h;
     if (lastMapRotation === null) {
-        // กำหนดค่าเริ่มต้นเสมอ
         lastMapRotation = desiredRotation;
     }
 
@@ -2765,8 +2766,8 @@ if (rotWrapper && autoRotate && h !== null) {
 
         const rotSmooth = clamp(
             computeRotationFollowFactor(targetSpeed, curveMix01) * dtSec * 60,
-            0.08,
-            0.35
+            0.06,
+            0.28
         );
 
         lastMapRotation =
@@ -2803,10 +2804,10 @@ if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
         );
         const targetMarkerHeading =
             spikeDeg > 50
-                ? lerpAngle(lastMarkerAngle, baseHeading, 0.22, targetSpeed)
+                ? lerpAngle(lastMarkerAngle, baseHeading, 0.22)
                 : baseHeading;
         lastMarkerAngle =
-            lerpAngle(lastMarkerAngle, targetMarkerHeading, markerSmooth, targetSpeed);
+            lerpAngle(lastMarkerAngle, targetMarkerHeading, markerSmooth);
 			
         vehicleMarker.setRotationAngle(lastMarkerAngle);
     }
