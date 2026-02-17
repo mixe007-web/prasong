@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:09.99</h2>
+<h2>Trip Version:05.55</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -755,7 +755,7 @@ button:disabled {
 	</div>
 	<div id="speedometer-top">
 		<div id="speedometer">
-			<div id="map-container" style="position: relative; width: 100%; height: 400px; overflow: hidden;">
+			<div id="map-container" style="position: relative; width: 100%; height: 370px; overflow: hidden;">
 				<div id="map"></div>
 				<button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
 				<img src="https://img.icons8.com/fluency/48/place-marker.png" alt="ติดตาม GPS">
@@ -2405,7 +2405,7 @@ const MIN_MOVE_FOR_MOTION_M = 0.8;
 const MIN_MOVE_FOR_HISTORY_M = 0.8;
 const posHistory = [];
 const HISTORY_MAX = 4;
-const NAVI_CENTER_OFFSET_RATIO = 0.15;
+const NAVI_CENTER_OFFSET_RATIO = 0.18;
 const LOW_SPEED_KMH = 10;
 const MIN_MOTION_SPEED = 3;
 const STOP_LOCK_SPEED = 1.2;
@@ -2551,8 +2551,9 @@ function smoothTransformStep(now) {
         callback
     } = smoothTransformTarget;
     const prevFrameTime = smoothTransformTarget.lastFrameTime ?? now;
-    let rawDt = (now - prevFrameTime) / 1000;
-let dtSec = clamp(rawDt, 0.008, 0.033);
+let dtSec = (now - prevFrameTime) / 1000;
+dtSec = Math.min(dtSec, 0.1);
+
     ///   1) Marker Position Smoothing
     if (smoothedLat === null) {
         smoothedLat = targetLat;
@@ -2563,16 +2564,18 @@ let dtSec = clamp(rawDt, 0.008, 0.033);
 	const posT = posSmoothBase * clamp(dtSec * 60, 0, 1);
 	smoothedLat = lerp(smoothedLat, targetLat, posT);
 	smoothedLon = lerp(smoothedLon, targetLon, posT);
-	if (targetSpeed < 3 && smoothedLat !== null && smoothedLon !== null) {
-		const jumpM = haversineMeters(smoothedLat, smoothedLon, targetLat, targetLon);
-		if (jumpM < 2.5) {
-			visualFreezeLat = smoothedLat;
-			visualFreezeLon = smoothedLon;
-		} else {
-			visualFreezeLat = null;
-			visualFreezeLon = null;
-		}
-	}
+    if (targetSpeed < 3 && appliedMapLat !== null && appliedMapLon !== null) {
+        const jumpM = haversineMeters(appliedMapLat, appliedMapLon, smoothedLat, smoothedLon);
+        if (jumpM < 2.5) {
+            smoothedLat = appliedMapLat;
+            smoothedLon = appliedMapLon;
+            visualFreezeLat = appliedMapLat;
+            visualFreezeLon = appliedMapLon;
+        } else {
+            visualFreezeLat = null;
+            visualFreezeLon = null;
+        }
+    }
     vehicleMarker.setLatLng([smoothedLat, smoothedLon]);
     isVisualFrozen =
         visualFreezeLat !== null &&
@@ -2686,7 +2689,7 @@ if (autoFollow) {
     panPrediction.lastLat = gpsLat;
     panPrediction.lastLon = gpsLon;
 
-    const predictFactor = clamp(targetSpeed / 70, 0.6, 0.95);
+    const predictFactor = clamp(targetSpeed / 80, 0.2, 0.9);
 
     const followLat = gpsLat + panPrediction.velLat * predictFactor;
     const followLon = gpsLon + panPrediction.velLon * predictFactor;
@@ -2706,7 +2709,7 @@ if (autoFollow) {
         zoomVel = 0;
     }
 
-    const panSpaceZoom = targetZoom;
+    const panSpaceZoom = appliedZoom;
 
     if (appliedMapLat === null || appliedMapLon === null) {
         const c = map.getCenter();
@@ -2729,8 +2732,9 @@ if (autoFollow) {
     const errX = targetPoint.x - currentPoint.x;
     const errY = targetPoint.y - currentPoint.y;
 
-    const panK = 90;
-    const panD = 2 * Math.sqrt(panK);
+const panK = 55;
+const panD = 2 * Math.sqrt(panK);
+
 
     panVelX += errX * panK * dtSec;
     panVelY += errY * panK * dtSec;
@@ -2748,18 +2752,17 @@ if (autoFollow) {
     const currentCenter = map.getCenter();
     const currentZoom = map.getZoom();
 
-    const CENTER_GUARD = 1e-9;
-    const ZOOM_GUARD = 1e-6;
+const CENTER_GUARD = 1e-7;
+const ZOOM_GUARD = 1e-4;
 
     if (
         Math.abs(appliedMapLat - currentCenter.lat) > CENTER_GUARD ||
         Math.abs(appliedMapLon - currentCenter.lng) > CENTER_GUARD ||
         Math.abs(appliedZoom - currentZoom) > ZOOM_GUARD
     ) {
-map.setView(
+map._move(
     L.latLng(appliedMapLat, appliedMapLon),
-    appliedZoom,
-    { animate: false }
+    appliedZoom
 );
 
     }
@@ -2777,23 +2780,18 @@ if (rotWrapper && autoRotate) {
     let diff =
         ((rotationState.target - rotationState.current + 540) % 360) - 180;
 
-    const stiffness = 12.5;
-    const damping = 9.0;
-const diffAbs = Math.abs(diff);
-const gainBoost = clamp(Math.pow(diffAbs / 70, 1.2), 0, 1);
-const effectiveStiffness = stiffness * (1 + gainBoost * 0.4);
-rotationState.velocity += diff * effectiveStiffness * dtSec;
+    const stiffness = 9.0; //6.2
+    const damping = 7.5;  //8.5
+
+    rotationState.velocity += diff * stiffness * dtSec;
     rotationState.velocity *= Math.exp(-damping * dtSec);
 
     rotationState.current =
         (rotationState.current + rotationState.velocity * dtSec + 360) % 360;
-let postDiff =
-    ((rotationState.target - rotationState.current + 540) % 360) - 180;
-
-if (Math.abs(postDiff) < 0.18 && Math.abs(rotationState.velocity) < 0.003) {
-    rotationState.current = rotationState.target;
-    rotationState.velocity = 0;
-}
+    if (Math.abs(diff) < 0.12 && Math.abs(rotationState.velocity) < 0.002) {
+        rotationState.current = rotationState.target;
+        rotationState.velocity = 0;
+    }
     applyMapTransform(
         rotWrapper,
         -rotationState.current,
@@ -2821,6 +2819,7 @@ else if (rotWrapper && !autoRotate) {
         autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
     );
 }
+
 
     ///   7) Icon Scale
     if (appliedIconSize === null) {
