@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:66.66</h2>
+<h2>Trip Version:66.69</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2393,7 +2393,6 @@ let panPrediction = {
     velLon: 0,
     initialized: false
 };
-
 let rotationState = {
     current: 0,
     target: 0,
@@ -2401,8 +2400,8 @@ let rotationState = {
 };
 let zoomVel = 0;
 let zoomFloat = null;
-const MIN_MOVE_FOR_MOTION_M = 0.8;
-const MIN_MOVE_FOR_HISTORY_M = 0.8;
+const MIN_MOVE_FOR_MOTION_M = 0.3;
+const MIN_MOVE_FOR_HISTORY_M = 0.3;
 const posHistory = [];
 const HISTORY_MAX = 4;
 const NAVI_CENTER_OFFSET_RATIO = 0.18;
@@ -2436,9 +2435,12 @@ function resetFollowRotationState(full = false) {
 	zoomVel = 0;
 	panVelX = 0;
 	panVelY = 0;
-	rotationState.current = 0;
-	rotationState.target = 0;
-	rotationState.velocity = 0;
+if (!autoRotate) {
+    rotationState.current = 0;
+    rotationState.target = 0;
+    rotationState.velocity = 0;
+}
+
 	visualFreezeLat = null;
 	visualFreezeLon = null;
 	isVisualFrozen = false;
@@ -2617,20 +2619,30 @@ function smoothTransformStep(now) {
         : null;
     const motionOk =
         isFinite(motion.heading) &&
-        motion.confidence >= 0.6 &&
+        motion.confidence >= 0.35 &&
         targetSpeed >= MIN_MOTION_SPEED;
     let baseHeading = mixHeading(gpsHeading, motion.heading, motion.confidence, targetSpeed);
+	if (!isFinite(baseHeading) && posHistory.length >= 2) {
+    const p1 = posHistory[posHistory.length - 2];
+    const p2 = posHistory[posHistory.length - 1];
+    baseHeading = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
+}
+
     if (!isFinite(baseHeading)) {
         baseHeading = lastHeading ?? 0;
     }
+
 	const isRealStop =
-		targetSpeed < STOP_LOCK_SPEED &&
-		(!motionOk || motion.turnRate < 8);
-	if (isRealStop && Math.abs(rotationState.velocity) < 0.05) {
-		smoothTransformTarget._stopState = true;
-	} else if (targetSpeed > RESUME_UNLOCK_SPEED || motionOk) {
-		smoothTransformTarget._stopState = false;
-	}
+    targetSpeed < STOP_LOCK_SPEED &&
+    (!motionOk || motion.turnRate < 8);
+if (isRealStop) {
+    smoothTransformTarget._stopState = true;
+} 
+
+else if (targetSpeed > RESUME_UNLOCK_SPEED) {
+    smoothTransformTarget._stopState = false;
+}
+
     ///  4) Curve Model
 	const curveStrength01 = targetSpeed < 5
 			? 0
@@ -2652,11 +2664,12 @@ function smoothTransformStep(now) {
 			baseHeading = getSmoothedDeviceHeading(baseHeading);
 		}
 	}
-	if (smoothTransformTarget._stopState && !isTurning) {
-		baseHeading = lastHeading ?? baseHeading;
-	} else if (isFinite(baseHeading)) {
-		lastHeading = baseHeading;
-	}
+if (smoothTransformTarget._stopState) {
+    baseHeading = lastHeading ?? baseHeading;
+} else if (isFinite(baseHeading)) {
+    lastHeading = baseHeading;
+}
+
     ///  5) Smooth Pan + Zoom 
 	if (appliedZoom === null) {
 		appliedZoom = map.getZoom();
@@ -2739,7 +2752,12 @@ function smoothTransformStep(now) {
 			map.setView([appliedMapLat, appliedMapLon], appliedZoom, { animate: false });
 		}
 	}
+	
     ///  6) Map and Marker Rotation
+	if (!isFinite(baseHeading)) {
+    baseHeading = lastHeading ?? 0;
+}
+
 	const rotWrapper = ensureRotationWrapper(map);
 	if (rotWrapper && autoRotate) {
 		let heading = (baseHeading ?? lastHeading ?? 0) % 360;
