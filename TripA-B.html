@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:05.55</h2>
+<h2>Trip Version:07.55</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2709,15 +2709,16 @@ if (autoFollow) {
         zoomVel = 0;
     }
 
-    const panSpaceZoom = appliedZoom;
+const panSpaceZoom = appliedZoom;
 
-    if (appliedMapLat === null || appliedMapLon === null) {
-        const c = map.getCenter();
-        appliedMapLat = c.lat;
-        appliedMapLon = c.lng;
-        panVelX = 0;
-        panVelY = 0;
-    }
+if (appliedMapLat === null || appliedMapLon === null) {
+    const c = map.getCenter();
+    appliedMapLat = c.lat;
+    appliedMapLon = c.lng;
+    panVelX = 0;
+    panVelY = 0;
+}
+
 
     const targetPoint = map.project(
         L.latLng(followLat, followLon),
@@ -2732,9 +2733,8 @@ if (autoFollow) {
     const errX = targetPoint.x - currentPoint.x;
     const errY = targetPoint.y - currentPoint.y;
 
-const panK = 55;
+const panK = 38;
 const panD = 2 * Math.sqrt(panK);
-
 
     panVelX += errX * panK * dtSec;
     panVelY += errY * panK * dtSec;
@@ -2750,24 +2750,29 @@ const panD = 2 * Math.sqrt(panK);
     appliedMapLat = newCenter.lat;
     appliedMapLon = newCenter.lng;
     const currentCenter = map.getCenter();
-    const currentZoom = map.getZoom();
 
-const CENTER_GUARD = 1e-7;
-const ZOOM_GUARD = 1e-4;
-
-    if (
-        Math.abs(appliedMapLat - currentCenter.lat) > CENTER_GUARD ||
-        Math.abs(appliedMapLon - currentCenter.lng) > CENTER_GUARD ||
-        Math.abs(appliedZoom - currentZoom) > ZOOM_GUARD
-    ) {
-map._move(
-    L.latLng(appliedMapLat, appliedMapLon),
+const pixelGuard = 0.5; // ครึ่ง pixel
+const guardLatLng = map.unproject(
+    map.project(currentCenter, appliedZoom).add([pixelGuard, 0]),
     appliedZoom
 );
 
+const CENTER_GUARD = Math.abs(guardLatLng.lat - currentCenter.lat);
+
+
+
+if (
+    Math.abs(appliedMapLat - currentCenter.lat) > CENTER_GUARD ||
+    Math.abs(appliedMapLon - currentCenter.lng) > CENTER_GUARD
+)
+ {
+    map.setView(
+        [appliedMapLat, appliedMapLon],
+        appliedZoom,
+        { animate: false }
+    );
     }
 
-    setMapPaneTransformOriginToCenter(map);
 }
 
     ///  6) Map and Marker Rotation
@@ -2932,15 +2937,17 @@ function enableMapInteraction() {
 // initMap 
 function initMap(lat, lon) {
     destroyMap();
-    map = L.map("map", {
-        center: [lat, lon],
-        zoom: BASE_ZOOM,
-        zoomControl: false,
-        attributionControl: false,
-        worldCopyJump: true,
-        keepBuffer: 4,
-        inertia: false
-    });
+	map = L.map("map", {
+		center: [lat, lon],
+		zoom: BASE_ZOOM,
+		zoomControl: false,
+		attributionControl: false,
+		worldCopyJump: true,
+		keepBuffer: 4,
+		inertia: false,
+		zoomSnap: 0,
+		zoomDelta: 0.1
+	});
     L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
             updateWhenIdle: false,
             updateWhenZooming: false
