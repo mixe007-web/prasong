@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:66.99</h2>
+<h2>Trip Version:69.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1443,15 +1443,32 @@ updateEfficiency = function() {
 let displayedSpeed = 0;
 let lastUIUpdate = 0;
 function interpolateSpeed(target, current, dt) {
-    if (target < 2) {
-        return current * Math.exp(-dt * 16);
+
+    const diff = target - current;
+
+    // Launch assist (ออกตัวไว)
+    if (current < 6 && target > 10) {
+        return target * 0.75;
     }
-    if (target > current) {
-        return current + (target - current) * (1 - Math.exp(-dt * 9));
-    } else {
-        return current + (target - current) * (1 - Math.exp(-dt * 18));
+
+    const accelRate = 45;  // tuned for 0-100 in 8s EV
+    const decelRate = 65;  // stronger regen feel
+
+    const rate = diff > 0 ? accelRate : decelRate;
+    const maxStep = rate * dt;
+
+    if (Math.abs(diff) <= maxStep) {
+        return target;
     }
+
+    if (target < 2 && Math.abs(diff) < 2) {
+        return target;
+    }
+
+    return current + Math.sign(diff) * maxStep;
 }
+
+
 const digitalSpeed = document.getElementById("digitalSpeed");
 let lastTimestamp = null;
 function animateDigitalSpeed(timestamp) {
@@ -1494,7 +1511,7 @@ function updateSpeed(newSpeed) {
     try { detectBraking(speed); } catch (e) {}
 }
 let belowStopLockSince = null;
-const IDLE_CONFIRM_DELAY = 1500;
+const IDLE_CONFIRM_DELAY = 1000;
 
 function checkIdleStatus() {
     const now = Date.now();
@@ -2410,6 +2427,9 @@ let lastAppliedZoom = BASE_ZOOM;
 let zoomStableSince = 0;
 let zoomChanged = false;
 let orientationStateSince = 0;
+let hasInitialHeading = false;
+let lastPanTime = 0;
+const PAN_INTERVAL_MS = 120;
 const ORIENTATION_MIN_ON_TIME = 1500;
 const ORIENTATION_MIN_OFF_TIME = 1500;
 const ZOOM_STABLE_DELAY = 450;
@@ -2455,6 +2475,7 @@ function resetFollowRotationState(full = false) {
 	visualFreezeLon = null;
 	isVisualFrozen = false;
 	zoomStableSince = 0;
+	hasInitialHeading = false;
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
@@ -2573,7 +2594,7 @@ function smoothTransformStep(now) {
     const speedFactorPos = clamp(targetSpeed / 60, 0, 1);
 	const lambda = lerp(6, 14, speedFactorPos);
 	const posT = 1 - Math.exp(-lambda * dtSec);
-	if (targetSpeed < 3) {
+	if (targetSpeed < STOP_LOCK_SPEED) {
 	   const snapThreshold = 0.6;
 	   if (haversineMeters(smoothedLat, smoothedLon, targetLat, targetLon) < snapThreshold) {
 		   smoothedLat = targetLat;
@@ -2612,22 +2633,29 @@ function smoothTransformStep(now) {
 		} else {
 			zoomStableSince = 0;
 		}
-		const moveThresholdM = targetSpeed < 5 ? 0.25 : 0.15;
-		if (
-			zoomChanged ||
-			appliedMapLat === null ||
-			haversineMeters(
-				appliedMapLat,
-				appliedMapLon,
-				renderLat,
-				renderLon
-			) > moveThresholdM
-		) {
+		const moveThresholdM =
+    targetSpeed < 5 ? 0.25 :
+    targetSpeed < 40 ? 0.18 :
+    0.35;
+if (
+    (now - lastPanTime > PAN_INTERVAL_MS) &&
+    (
+        zoomChanged ||
+        appliedMapLat === null ||
+        haversineMeters(
+            appliedMapLat,
+            appliedMapLon,
+            renderLat,
+            renderLon
+        ) > moveThresholdM
+    )
+) {
 			map.setView(
 				[renderLat, renderLon],
 				lastAppliedZoom,
 				{ animate: false }
 			);
+			lastPanTime = now;
 			appliedMapLat = renderLat;
 			appliedMapLon = renderLon;
 		}
@@ -2679,30 +2707,6 @@ function smoothTransformStep(now) {
 	const isRealStop =
     targetSpeed < STOP_LOCK_SPEED &&
     (!motionOk || motion.turnRate < 8);
-	// 5)===== Smart Device Orientation Control =====
-	const needDeviceHeading =
-		autoRotate &&
-		targetSpeed < 12 &&
-		(!motionOk || motion.confidence < 0.25);
-	if (needDeviceHeading !== deviceOrientationActive) {
-		if (!orientationStateSince) {
-			orientationStateSince = now;
-		}
-		const minTime = needDeviceHeading
-			? ORIENTATION_MIN_ON_TIME
-			: ORIENTATION_MIN_OFF_TIME;
-
-		if (now - orientationStateSince > minTime) {
-			if (needDeviceHeading) {
-				startDeviceOrientationTracking();
-			} else {
-				stopDeviceOrientationTracking();
-			}
-			orientationStateSince = 0;
-		}
-	} else {
-		orientationStateSince = 0;
-	}
     ///  6) Curve Model
 	const curveStrength01 = targetSpeed < 5
 			? 0
@@ -2732,6 +2736,14 @@ function smoothTransformStep(now) {
 	if (!isFinite(baseHeading)) {
 		baseHeading = rotationController.lastStableHeading ?? 0;
 	}
+	// ---- Safety Initial Heading (run once when first valid heading appears) ----
+if (!hasInitialHeading && isFinite(baseHeading)) {
+    rotationController.current = baseHeading;
+    rotationController.lastStableHeading = baseHeading;
+    rotationController.lockedHeading = baseHeading;
+    hasInitialHeading = true;
+}
+
 	 ///  7) Map and Marker Rotation
 	if (!rotationWrapperCache || !rotationWrapperCache.isConnected) {
 		rotationWrapperCache = ensureRotationWrapper(map);
@@ -2739,20 +2751,34 @@ function smoothTransformStep(now) {
 	const rotWrapper = rotationWrapperCache;
 	if (rotWrapper && autoRotate) {
 		let effectiveHeading = normalizeAngle(baseHeading);
-		const HEADING_DEADBAND = targetSpeed < 8 ? 1.5 : targetSpeed < 20 ? 1.0 : 0.6;
-		if (targetSpeed < STOP_LOCK_SPEED) {
-			if (!rotationController.freeze) {
-				rotationController.lockedHeading = rotationController.current;
-				rotationController.velocity = 0;
-			}
-			rotationController.freeze = true;
-			rotationController.unlockBlend = 0;
-		} else if (targetSpeed >= RESUME_UNLOCK_SPEED) {
+		const HEADING_DEADBAND =
+    targetSpeed < 8 ? 1.5 :
+    targetSpeed < 20 ? 1.0 :
+    0.8;
+
+if (isRealStop)
+ {
+
+    if (!rotationController.freeze) {
+        if (!isTurning && Math.abs(motion.turnRate) < 10) {
+            rotationController.lockedHeading = baseHeading;
+        }
+        else {
+            rotationController.lockedHeading = rotationController.current;
+        }
+
+        rotationController.velocity = 0;
+    }
+
+    rotationController.freeze = true;
+    rotationController.unlockBlend = 0;
+}else if (!isRealStop && targetSpeed >= RESUME_UNLOCK_SPEED) {
+ 
 			rotationController.freeze = false;
 		}
 		if (targetSpeed > STOP_LOCK_SPEED && targetSpeed < RESUME_UNLOCK_SPEED) {
 			const t = (targetSpeed - STOP_LOCK_SPEED) / (RESUME_UNLOCK_SPEED - STOP_LOCK_SPEED);
-			rotationController.unlockBlend = lerp(rotationController.unlockBlend, t, 0.12);
+			rotationController.unlockBlend = lerp(rotationController.unlockBlend, t, 0.22);
 		} else if (targetSpeed >= RESUME_UNLOCK_SPEED) {
 			rotationController.unlockBlend = lerp(rotationController.unlockBlend, 1, 0.08);
 		}
@@ -2774,7 +2800,7 @@ function smoothTransformStep(now) {
 		}
 		const speedFactor = clamp(targetSpeed / 80, 0.25, 1);
 		const turnIntensity = clamp(Math.abs(diff) / 45, 0, 1);
-		const stiffness = lerp(16, 22, speedFactor);
+		const stiffness = lerp(14, 22, speedFactor);
 		const damping = lerp(9.5, 7.2, turnIntensity);
 		rotationController.velocity += diff * stiffness * dtSec;
 		rotationController.velocity *= Math.exp(-damping * dtSec);
@@ -2941,10 +2967,10 @@ function initMap(lat, lon) {
 		zoomSnap: 1,
 		zoomDelta: 1
 	});
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
-            updateWhenIdle: false,
-            updateWhenZooming: false
-    }).addTo(map);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
+        updateWhenIdle: true,
+        updateWhenZooming: false
+}).addTo(map);
     routeLayer = L.layerGroup().addTo(map);
     vehicleMarker = L.marker([lat, lon], {icon: vehicleIcon, interactive: false}).addTo(map);
     map.whenReady(() => {
@@ -3008,19 +3034,67 @@ function destroyMap() {
 	pathCoordinates = [];
 	routeBatchLayers = [];
 	isMapReady = false;
+	hasInitialHeading = false;
 	resetFollowRotationState(true);
 	lastMarkerAngle = 0;
 	lastIconSize = BASE_ICON_SIZE;
 	stopDeviceOrientationTracking();
 	rotationWrapperCache = null;
 }
+
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
     if (!map || !routeLayer) return;
-    const lastCoord = pathCoordinates[pathCoordinates.length - 2];
-    if (!lastCoord) return;
+
+    const len = pathCoordinates.length;
+    if (len < 2) return;
+
+    const prev = pathCoordinates[len - 2];
+    const curr = pathCoordinates[len - 1];
+
     const color = getSpeedColor(speedKmh || 0);
-    L.polyline([[lastCoord[0], lastCoord[1]], [lat, lon]], {color, weight: 4, opacity: 0.95, interactive: false}).addTo(routeLayer);
+
+    let currentBatch = routeBatchLayers[routeBatchLayers.length - 1];
+
+    // ถ้ายังไม่มี batch → สร้างใหม่
+    if (!currentBatch) {
+        currentBatch = [];
+        routeBatchLayers.push(currentBatch);
+    }
+
+    let currentPolyline = currentBatch[currentBatch.length - 1];
+
+    // กรณีไม่มี polyline หรือสีเปลี่ยน → สร้างเส้นใหม่
+const normalizedNewColor = String(color).toLowerCase();
+const currentColor = currentPolyline?.options?.color
+    ? String(currentPolyline.options.color).toLowerCase()
+    : null;
+
+if (!currentPolyline || currentColor !== normalizedNewColor) {
+
+
+        currentPolyline = L.polyline(
+            [[prev[0], prev[1]], [curr[0], curr[1]]],
+            {
+                color,
+                weight: 4,
+                opacity: 0.95,
+                interactive: false,
+                smoothFactor: 1.5
+            }
+        ).addTo(routeLayer);
+
+        currentBatch.push(currentPolyline);
+    } else {
+        // สีเดิม → ต่อเส้น
+        currentPolyline.addLatLng([curr[0], curr[1]]);
+    }
+
+    // จำกัดขนาด batch (กัน memory โต)
+    if (currentBatch.length >= POLYLINE_BATCH_SIZE) {
+        routeBatchLayers.push([]);
+    }
 }
+
 // Update route and autoFollow target
 const MIN_DIST_KM = 0.001;
 function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
@@ -3137,6 +3211,8 @@ function resetTrackingVisualState() {
 	lastZoomLevel = null;
 	appliedMapLat = null;
 	appliedMapLon = null;
+	hasInitialHeading = false;
+lastDeviceHeading = null;
 	if (smoothTransformTarget) {
 		smoothTransformTarget.lat = null;
 		smoothTransformTarget.lon = null;
@@ -3193,7 +3269,7 @@ function normalizeGps(pos) {
 		);
 		const expectedMove = speedKmh * 1000 / 3600 * timeDeltaSec;
 		const dynamicAllowance = Math.max(15, expectedMove * 5) + 5;
-		const isLowSpeed = speedKmh < 8;
+		const isLowSpeed = speedKmh < 5;
 		if (distMeters > dynamicAllowance && !isLowSpeed) {
 			return null;
 		}
@@ -3231,6 +3307,8 @@ function startTracking() {
 	lastGpsTimestamp = null;
 	autoFollow = true;
 	autoRotate = true;
+	lastZoomLevel = calculateTargetZoom(0);
+lastAppliedZoom = lastZoomLevel;
 	disableMapInteraction();
 	isTracking = true;
 	prevTimestamp = null;
@@ -3346,13 +3424,7 @@ function startTracking() {
 		const physicallyStopped =
 		isStopped && checkIfStopped(latitude, longitude, speedKmh);
 			// --- Update display + map ---
-		const isDecelerating = speedKmh < smoothedSpeed;
-		const alpha = isDecelerating ? 0.55 : 0.30;
-		smoothedSpeed = lerp(smoothedSpeed, speedKmh, alpha);
-		if (speedKmh < STOP_LOCK_SPEED) {
-			smoothedSpeed = 0;
-		}
-		updateSpeed(smoothedSpeed);
+		updateSpeed(speedKmh);
 		const routeThreshold = Math.max(1.2, (gps.accuracy ?? 5) * 0.4);
 		if (!physicallyStopped || (
 			lastRouteLat !== null &&
@@ -3435,6 +3507,8 @@ function stopTracking() {
     autoRotate = false;
 	stopDeviceOrientationTracking();
 	orientationStateSince = 0;
+	resetFollowRotationState(true);
+hasInitialHeading = false;
 	isTracking = false;
 	lastGpsLat = null;
 	lastGpsLng = null;
@@ -3521,7 +3595,6 @@ function stopTracking() {
 	endCoordSpan.textContent = tripLog[tripLog.length - 1]?.coord || "-";
 	startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
 	endTimeSpan.textContent = new Date(finalTrip.endTime).toLocaleString();
-	// PATCH: clear visuals + state once (clean)
 	lastMarkerAngle = 0;
 	prevPos = null;
 	tripStartTime = null;
