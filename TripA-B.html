@@ -2517,7 +2517,6 @@ function smoothTransformStep(now) {
         smoothTransformAnimFrame = null;
         return;
     }
-
     const {
         lat: targetLat,
         lon: targetLon,
@@ -2527,36 +2526,27 @@ function smoothTransformStep(now) {
         iconSize: targetIconSize,
         callback
     } = smoothTransformTarget;
-
     if (smoothTransformTarget.lastFrameTime == null) {
         smoothTransformTarget.lastFrameTime = now;
     }
-
     const prevFrameTime = smoothTransformTarget.lastFrameTime;
     let dtSec = (now - prevFrameTime) / 1000;
     dtSec = clamp(dtSec, 0, 0.05);
-
-// CENTRAL STOP STATE (Hysteresis – Single Source of Truth)
-
-if (movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
-    movementState = "stopped";
-}
-else if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
-    movementState = "moving";
-}
-
-const isStopped = movementState === "stopped";
-
+	if (movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
+		movementState = "stopped";
+	}
+	else if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
+		movementState = "moving";
+	}
+	const isStopped = movementState === "stopped";
     /// 1) Marker Position Smoothing
     if (smoothedLat === null) {
         smoothedLat = targetLat;
         smoothedLon = targetLon;
     }
-
     const speedFactorPos = clamp(targetSpeed / 60, 0, 1);
     const lambda = lerp(8, 18, speedFactorPos);
     const posT = 1 - Math.exp(-lambda * dtSec);
-
     if (isStopped) {
         const snapThreshold = 0.3;
         if (haversineMeters(smoothedLat, smoothedLon, targetLat, targetLon) < snapThreshold) {
@@ -2567,23 +2557,18 @@ const isStopped = movementState === "stopped";
         smoothedLat = lerp(smoothedLat, targetLat, posT);
         smoothedLon = lerp(smoothedLon, targetLon, posT);
     }
-
     const renderLat = smoothedLat;
     const renderLon = smoothedLon;
-
     /// 2) Smooth Pan + Zoom
     if (appliedMapLat === null) {
         lastPanTime = now;
     }
-
     zoomChanged = false;
-
     if (autoFollow) {
         if (targetZoom !== lastAppliedZoom) {
             if (!zoomStableSince) {
                 zoomStableSince = now;
             }
-
             if (now - zoomStableSince > ZOOM_STABLE_DELAY) {
                 lastAppliedZoom = targetZoom;
                 zoomStableSince = 0;
@@ -2594,113 +2579,89 @@ const isStopped = movementState === "stopped";
         } else {
             zoomStableSince = 0;
         }
-
         let distanceFromCenter = 0;
         if (appliedMapLat !== null) {
             distanceFromCenter = haversineMeters(
                 appliedMapLat,
                 appliedMapLon,
- renderLat,
- renderLon
+				renderLat,
+				renderLon
             );
         }
-
         const speedNorm = clamp(targetSpeed / 120, 0, 1);
         const moveThresholdM = lerp(2.0, 10.0, speedNorm);
-
-const effectiveThreshold = moveThresholdM;
-
-const shouldPan =
-    !isStopped &&
-    (
-        zoomChanged ||
-        appliedMapLat === null ||
-        distanceFromCenter > effectiveThreshold
-    );
-
+		const effectiveThreshold = moveThresholdM;
+		const shouldPan = !isStopped && (
+			zoomChanged ||
+			appliedMapLat === null ||
+			distanceFromCenter > effectiveThreshold
+		);
         if (
             shouldPan &&
             (now - lastPanTime > PAN_INTERVAL_MS)
         ) {
             const panLat = smoothedLat;
             const panLon = smoothedLon;
-
-            map.setView(
-                [panLat, panLon],
-                lastAppliedZoom,
-                { animate: false }
-            );
-
+            map.setView([panLat, panLon], lastAppliedZoom, { animate: false });
 			appliedMapLat = panLat;
 			appliedMapLon = panLon;
             lastPanTime = now;
         }
     }
-
     /// 3) History (Decoupled from rotation)
-		const historyLat = renderLat;
+	const historyLat = renderLat;
 	const historyLon = renderLon;
     if (posHistory.length === 0) {
 		pushHistory(historyLat, historyLon, now);
     } else {
         const last = posHistory[posHistory.length - 1];
-const moved = haversineMeters(last.lat, last.lon, historyLat, historyLon);
+		const moved = haversineMeters(last.lat, last.lon, historyLat, historyLon);
         if (moved >= MIN_MOVE_FOR_HISTORY_M && !isStopped) {
             let allowPush = true;
-
             if (targetSpeed < RESUME_UNLOCK_SPEED && posHistory.length >= 2) {
                 const prev2 = posHistory[posHistory.length - 2];
                 const h1 = bearingDeg(prev2.lat, prev2.lon, last.lat, last.lon);
                 const h2 = bearingDeg(last.lat, last.lon, historyLat, historyLon);
                 const dirDiff = Math.abs(normalizeAngleDifference(h2, h1));
-
                 if ((moved < 1.5 && dirDiff > 25) || dirDiff > 35) {
                     allowPush = false;
                 }
             }
-
             if (allowPush) {
 				pushHistory(historyLat, historyLon, now);
             }
         }
     }
-
     /// 4) Heading Fusion
     const motion = getMotionHeadingFromHistory();
     const gpsHeading = isFinite(targetHeading)
         ? ((targetHeading + 360) % 360)
         : null;
-
-const motionOk =
-    movementState === "moving" &&
-    targetSpeed >= MIN_MOTION_SPEED &&
-    isFinite(motion.heading) &&
-    motion.confidence >= 0.35;
+	const motionOk =
+		movementState === "moving" &&
+		targetSpeed >= MIN_MOTION_SPEED &&
+		isFinite(motion.heading) &&
+		motion.confidence >= 0.35;
     let baseHeading = mixHeading(
         gpsHeading,
         motion.heading,
         motion.confidence,
         targetSpeed
     );
-
     if (!isFinite(baseHeading) && posHistory.length >= 2) {
         const p1 = posHistory[posHistory.length - 2];
         const p2 = posHistory[posHistory.length - 1];
         baseHeading = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
     }
-
     if (!isFinite(baseHeading)) {
         baseHeading = lastHeading ?? 0;
     }
-
     /// 5) Curve Model
     const curveStrength01 = targetSpeed < 5
         ? 0
         : computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
-
     const isTurning = motionOk &&
         (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
-
     if (targetSpeed >= LOW_SPEED_KMH && curveStrength01 > 0.14) {
         curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
     }
@@ -2709,17 +2670,14 @@ const motionOk =
     } else {
         curveMomentum *= rotationController.freeze ? 0.6 : 0.78;
     }
-
     if (rotationController.freeze) {
         baseHeading = rotationController.lockedHeading;
     } else if (isFinite(baseHeading)) {
         lastHeading = baseHeading;
     }
-
     if (!isFinite(baseHeading)) {
         baseHeading = rotationController.lastStableHeading ?? 0;
     }
-
     /// 6) Initial Heading Safety
     if (!hasInitialHeading && isFinite(baseHeading) && targetSpeed > MIN_MOTION_SPEED) {
         rotationController.current = baseHeading;
@@ -2727,21 +2685,16 @@ const motionOk =
         rotationController.lockedHeading = baseHeading;
         hasInitialHeading = true;
     }
-
     /// 7) Rotation (uses central stop state)
     if (!rotationWrapperCache || !rotationWrapperCache.isConnected) {
         rotationWrapperCache = ensureRotationWrapper(map);
     }
-
     const rotWrapper = rotationWrapperCache;
-
     if (rotWrapper && autoRotate) {
-
 		const HEADING_DEADBAND =
 			targetSpeed < 10 ? 1.2 :
 			targetSpeed < 40 ? 0.8 :
 			0.6;
-
         if (isStopped) {
             if (!rotationController.freeze) {
                 rotationController.lockedHeading = rotationController.current;
@@ -2751,32 +2704,24 @@ const motionOk =
         } else {
             rotationController.freeze = false;
         }
-
         let finalTargetHeading = rotationController.freeze
             ? rotationController.lockedHeading
             : normalizeAngle(baseHeading);
-
         finalTargetHeading = normalizeAngle(finalTargetHeading);
-
         let diff = normalizeAngleDifference(
             finalTargetHeading,
             rotationController.current
         );
-
         if (Math.abs(diff) < HEADING_DEADBAND) {
             diff = 0;
         }
-
         const speedNorm = clamp(targetSpeed / 140, 0, 1);
 		const stiffness = lerp(8, 18, speedNorm);
 		const damping   = lerp(11, 8.5, speedNorm);
-
         rotationController.velocity += diff * stiffness * dtSec;
         rotationController.velocity *= Math.exp(-damping * dtSec);
-
         rotationController.current =
             normalizeAngle(rotationController.current + rotationController.velocity * dtSec);
-
 		if (Math.abs(diff) < 0.05 &&
 			Math.abs(rotationController.velocity) < 0.002) {
 				rotationController.current = finalTargetHeading;
@@ -2798,7 +2743,6 @@ const motionOk =
 				lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate);
 				vehicleMarker.setRotationAngle(lastMarkerAngle);
 			}
-
 	} else if (rotWrapper && !autoRotate) {
 		rotationController.current = 0;
 		rotationController.velocity = 0;
@@ -2815,33 +2759,25 @@ const motionOk =
 			vehicleMarker.setRotationAngle(0);
 		}
 	}
-
     /// 8) Icon Scale (unchanged)
     if (appliedIconSize === null) {
         appliedIconSize = targetIconSize;
     }
-
     const iconSmooth = clamp(dtSec * 12, 0, 1);
     appliedIconSize = lerp(appliedIconSize, targetIconSize, iconSmooth);
-
     if (lastIconSize === null) {
         lastIconSize = appliedIconSize;
     }
-
     if (Math.abs(appliedIconSize - lastIconSize) >= 0.005) {
         lastIconSize = appliedIconSize;
-
         const inner =
             vehicleMarker?._icon?.querySelector(".vehicle-inner");
-
         if (inner) {
             const scale = appliedIconSize / BASE_ICON_SIZE;
             inner.style.setProperty("--marker-scale", scale);
         }
     }
-
     if (callback) callback();
-
     smoothTransformTarget.lastFrameTime = now;
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
 }
