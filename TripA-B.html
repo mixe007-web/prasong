@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:99.99</h2>
+<h2>Trip Version:00.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2379,11 +2379,8 @@ let rotationController = {
 let rotationWrapperCache = null;
 let lastAppliedZoom = BASE_ZOOM;
 let zoomStableSince = 0;
-let zoomChanged = false;
 let hasInitialHeading = false;
-let lastPanTime = 0;
 let movementState = "moving";
-const PAN_INTERVAL_MS = 16;
 const ZOOM_STABLE_DELAY = 300;
 const MIN_MOVE_FOR_MOTION_M = 0.3;
 const MIN_MOVE_FOR_HISTORY_M = 0.3;
@@ -2560,54 +2557,44 @@ function smoothTransformStep(now) {
     const renderLat = smoothedLat;
     const renderLon = smoothedLon;
     /// 2) Smooth Pan + Zoom
-    if (appliedMapLat === null) {
-        lastPanTime = now;
-    }
-    zoomChanged = false;
-    if (autoFollow) {
-        if (targetZoom !== lastAppliedZoom) {
-            if (!zoomStableSince) {
-                zoomStableSince = now;
-            }
-            if (now - zoomStableSince > ZOOM_STABLE_DELAY) {
-                lastAppliedZoom = targetZoom;
-                zoomStableSince = 0;
-                zoomChanged = true;
-                appliedMapLat = null;
-                appliedMapLon = null;
-            }
-        } else {
-            zoomStableSince = 0;
-        }
-        let distanceFromCenter = 0;
-        if (appliedMapLat !== null) {
-            distanceFromCenter = haversineMeters(
-                appliedMapLat,
-                appliedMapLon,
+	if (autoFollow) {
+		let zoomJustChanged = false;
+		if (targetZoom !== lastAppliedZoom) {
+			if (!zoomStableSince) {
+				zoomStableSince = now;
+			}
+			if (now - zoomStableSince > ZOOM_STABLE_DELAY) {
+				lastAppliedZoom = targetZoom;
+				zoomStableSince = 0;
+				map.setZoom(lastAppliedZoom, { animate: false });
+				zoomJustChanged = true;
+				appliedMapLat = null;
+				appliedMapLon = null;
+			}
+		} else {
+			zoomStableSince = 0;
+		}
+		const movedEnough =
+			appliedMapLat === null ||
+			haversineMeters(
+				appliedMapLat,
+				appliedMapLon,
 				renderLat,
 				renderLon
-            );
-        }
-        const speedNorm = clamp(targetSpeed / 120, 0, 1);
-        const moveThresholdM = lerp(2.0, 10.0, speedNorm);
-		const effectiveThreshold = moveThresholdM;
-		const shouldPan = !isStopped && (
-			zoomChanged ||
-			appliedMapLat === null ||
-			distanceFromCenter > effectiveThreshold
-		);
-        if (
-            shouldPan &&
-            (now - lastPanTime > PAN_INTERVAL_MS)
-        ) {
-            const panLat = smoothedLat;
-            const panLon = smoothedLon;
-            map.setView([panLat, panLon], lastAppliedZoom, { animate: false });
-			appliedMapLat = panLat;
-			appliedMapLon = panLon;
-            lastPanTime = now;
-        }
-    }
+			) > 0.05;
+		if (
+			!zoomJustChanged &&
+			movedEnough 
+		) {
+			map.setView(
+				[renderLat, renderLon],
+				lastAppliedZoom,
+				{ animate: false }
+			);
+			appliedMapLat = renderLat;
+			appliedMapLon = renderLon;
+		}
+	}
     /// 3) History (Decoupled from rotation)
 	const historyLat = renderLat;
 	const historyLon = renderLon;
