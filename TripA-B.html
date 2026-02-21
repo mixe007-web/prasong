@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:00.09</h2>
+<h2>Trip Version:01.29</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1445,80 +1445,41 @@ let lastUIUpdate = 0;
 let rawSpeedKmh = 0;
 let speedAnimFrame = null;
 function interpolateSpeed(target, current, dt) {
-    const diff = target - current;
-    const absDiff = Math.abs(diff);
+    const stiffness = 12;   // ยิ่งมาก ยิ่งตามไว
+    const damping = 0.85;   // ลด overshoot
 
-    // ---------- ACCEL ----------
-    const accelRate =
-        20 +                // base accel
-        18 * Math.exp(-current / 60); 
-        // ยิ่งเร็ว ยิ่งลดแรงเร่ง (smooth curve)
+    const delta = target - current;
 
-    // ---------- DECEL ----------
-    const speedFactor = current / 120; // normalize
-    const brakeFactor = Math.min(absDiff / 40, 1);
+    const acceleration = delta * stiffness;
 
-    let decelRate =
-        22 +                    // base regen
-        35 * speedFactor +      // ยิ่งเร็ว ยิ่งแรง
-        25 * brakeFactor;       // เบรกแรง → ลดแรง
-
-    // taper zone ใกล้หยุด (soft landing)
-    if (current < 6) {
-        decelRate = 18 + 4 * current; 
-        // ค่อย ๆ ลด ไม่ snap
-    }
-
-    const rate = diff > 0 ? accelRate : decelRate;
-    const maxStep = rate * dt;
-
-    if (absDiff <= maxStep) {
-        return target;
-    }
-
-    return current + Math.sign(diff) * maxStep;
+    return current + acceleration * dt * damping;
 }
 const digitalSpeed = document.getElementById("digitalSpeed");
 let lastTimestamp = null;
 function animateDigitalSpeed(timestamp) {
-
     if (!lastTimestamp) lastTimestamp = timestamp;
-
-    const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.1);
+    const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
     lastTimestamp = timestamp;
-
-    const targetSpeed =
-        rawSpeedKmh <= STOP_LOCK_SPEED ? 0 : rawSpeedKmh;
-
-    // interpolate แค่ครั้งเดียว
+    const targetSpeed = rawSpeedKmh <= STOP_LOCK_SPEED ? 0 : rawSpeedKmh;
     displayedSpeed = interpolateSpeed(targetSpeed, displayedSpeed, dt);
-
-    // snap clean into 0
-    if (targetSpeed === 0 && displayedSpeed < 0.2) {
+    if (targetSpeed === 0 && Math.abs(displayedSpeed) < 0.15) {
         displayedSpeed = 0;
     }
-
-    // render ทุก frame (60fps)
-    const displayValue = Number(displayedSpeed.toFixed(1));
-
+    const displayValue = Math.round(displayedSpeed * 10) / 10;
     digitalSpeed.textContent = `${displayValue.toFixed(1)} km/h`;
-
     digitalSpeed.classList.remove(
         'speed-low',
         'speed-medium',
         'speed-high'
     );
-
     if (displayValue < 80)
         digitalSpeed.classList.add('speed-low');
     else if (displayValue < 110)
         digitalSpeed.classList.add('speed-medium');
     else
         digitalSpeed.classList.add('speed-high');
-
     speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
 }
-
 speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
 
 // --- updateSpeed()
@@ -1572,7 +1533,6 @@ function checkIdleStatus() {
     }
     lastTime = now;
 }
-
 function calculateIdlePower(timeIdleSeconds) {
 	const idleEnergyWh = idlePowerWatts * (timeIdleSeconds / 3600); 
 	totalEnergyWh += idleEnergyWh;
@@ -2961,34 +2921,22 @@ function destroyMap() {
 
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
     if (!map || !routeLayer) return;
-
     const len = pathCoordinates.length;
     if (len < 2) return;
-
     const prev = pathCoordinates[len - 2];
     const curr = pathCoordinates[len - 1];
-
     const color = getSpeedColor(speedKmh || 0);
-
     let currentBatch = routeBatchLayers[routeBatchLayers.length - 1];
-
-    // ถ้ายังไม่มี batch → สร้างใหม่
     if (!currentBatch) {
         currentBatch = [];
         routeBatchLayers.push(currentBatch);
     }
-
     let currentPolyline = currentBatch[currentBatch.length - 1];
-
-    // กรณีไม่มี polyline หรือสีเปลี่ยน → สร้างเส้นใหม่
 const normalizedNewColor = String(color).toLowerCase();
 const currentColor = currentPolyline?.options?.color
     ? String(currentPolyline.options.color).toLowerCase()
     : null;
-
 if (!currentPolyline || currentColor !== normalizedNewColor) {
-
-
         currentPolyline = L.polyline(
             [[prev[0], prev[1]], [curr[0], curr[1]]],
             {
@@ -3002,11 +2950,8 @@ if (!currentPolyline || currentColor !== normalizedNewColor) {
 
         currentBatch.push(currentPolyline);
     } else {
-        // สีเดิม → ต่อเส้น
         currentPolyline.addLatLng([curr[0], curr[1]]);
     }
-
-    // จำกัดขนาด batch (กัน memory โต)
  if (currentBatch.length >= POLYLINE_BATCH_SIZE) {
     const newBatch = [];
     routeBatchLayers.push(newBatch);
@@ -3020,7 +2965,6 @@ let lastRouteLon = null;
 function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     if (!map || !vehicleMarker) return;
     if (!isFinite(lat) || !isFinite(lon)) return;
-
     lastGpsLat = lat;
     lastGpsLng = lon;
     lastGpsSpeedKmh = speedKmh;
@@ -3069,23 +3013,20 @@ function drawHistoryRoute(pathCoords) {
     })
     .addTo(routeLayer);
 startMarker.openPopup();
-
     const end = pathCoords[pathCoords.length - 1];
-	
     const endMarker = L.marker([end[0], end[1]], { icon: endIcon })
     .bindPopup("🏁 จุดสิ้นสุด", {
         autoPan: false,
         closeOnClick: false
     })
     .addTo(routeLayer);
-
 endMarker.openPopup();
 
 }
 function getAutoPaddingFromContainer(container) {
     const h = container.getBoundingClientRect().height;
 
-    const vertical = Math.round(h * 0.18);  // 16%
+    const vertical = Math.round(h * 0.20);  // 16%
     const horizontal = 40;
 
     return {
@@ -3197,33 +3138,29 @@ function normalizeGps(pos) {
             ? c.speed * 3.6
             : 0;
     let dt = 0.2;
-
     if (lastGpsTimestamp != null) {
         dt = (timestamp - lastGpsTimestamp) / 1000;
     }
-
     dt = clamp(dt, 0.05, 1.0);
-
-    const tau = 0.6; 
+    const tau = 0.18; 
     const alpha = dt / (tau + dt);
-
     filteredSpeedKmh += (rawSpeedKmh - filteredSpeedKmh) * alpha;
-
     if (filteredSpeedKmh < 0.5) {
         filteredSpeedKmh = 0;
     }
-
     const speedKmh = filteredSpeedKmh;
     const heading =
         (isFinite(c.heading) && c.heading >= 0)
             ? (c.heading % 360)
             : null;
+let finalHeading = heading;
+if (accuracy && accuracy > 35 && speedKmh < 15) {
+    finalHeading = null;
+}
     if (lastGpsTimestamp != null) {
         const gapSec = (timestamp - lastGpsTimestamp) / 1000;
-
         if (gapSec > 8) {
             filteredSpeedKmh = rawSpeedKmh;
-
             lastRawGpsLat = lat;
             lastRawGpsLon = lon;
             lastGpsTimestamp = timestamp;
@@ -3232,7 +3169,7 @@ function normalizeGps(pos) {
                 latitude: lat,
                 longitude: lon,
                 speedKmh,
-                heading,
+                heading: finalHeading,
                 altitude: c.altitude ?? null,
                 altitudeAccuracy: c.altitudeAccuracy ?? null,
                 accuracy,
@@ -3264,24 +3201,14 @@ function normalizeGps(pos) {
 
         const dynamicAllowance =
             Math.max(
-                10,
-                expectedMove * 4,
+                12,
+                expectedMove * 3.5,
                 accuracy ?? 0
             ) + 5;
-
-        const stopThreshold =
-            accuracy
-                ? clamp(accuracy * 0.35, 1.5, 4)
-                : 2.0;
-        if (
-            accuracy &&
-            accuracy > 35 &&
-            isStopped &&
-            distMeters > accuracy * 0.6
-        ) {
-            return null;
-        }
-
+const stopThreshold =
+    accuracy
+        ? clamp(accuracy * 0.45, 3, 12)
+        : 4;
         if (isStopped) {
             if (distMeters > stopThreshold) {
                 return null;
@@ -3299,7 +3226,7 @@ function normalizeGps(pos) {
         latitude: lat,
         longitude: lon,
         speedKmh,
-        heading,
+        heading: finalHeading,
         altitude: c.altitude ?? null,
         altitudeAccuracy: c.altitudeAccuracy ?? null,
         accuracy,
