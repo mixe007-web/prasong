@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:03.39</h2>
+<h2>Trip Version:04.39</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1579,28 +1579,20 @@ function updateTripTime() {
 }
 const historyContainer = document.getElementById("historyContainer");
 const TARGET_DISTANCE_KM = 10;
-
 function getDynamicMinDist(speedKmh) {
     const EXPECTED_INTERVAL_SEC = 1.5;
     const NOISE_FACTOR = 0.9;
-
-    const MIN_DIS_KM = 0.0003;  // 0.3 m
-    const MAX_DIS_KM = 0.020;   // 20 m
-
-    if (!isFinite(speedKmh) || speedKmh < 0) {
-        return MIN_DIS_KM;
+    const MIN_DIS_KM = 0.0003;
+    const MAX_DIS_KM = 0.025;
+    if (!isFinite(speedKmh) || speedKmh <= 5) {
+         return Infinity;
     }
-
-    // ถ้าความเร็วต่ำมาก ใช้ floor เลย
-    if (speedKmh <= 5) {
-        return MIN_DIS_KM;  // แทน Infinity
-    }
-
     const speedMs = speedKmh / 3.6;
-
+	const effectiveSpeed = speedKmh < 5
+        ? speedMs * 0.65
+        : speedMs;
     let minDistKm =
-        (speedMs * EXPECTED_INTERVAL_SEC * NOISE_FACTOR) / 1000;
-
+        (effectiveSpeed * EXPECTED_INTERVAL_SEC * NOISE_FACTOR) / 1000;
     return Math.min(
         MAX_DIS_KM,
         Math.max(MIN_DIS_KM, minDistKm)
@@ -2649,18 +2641,12 @@ function smoothTransformStep(now) {
 		targetSpeed >= MIN_MOTION_SPEED &&
 		isFinite(motion.heading) &&
 		motion.confidence >= 0.35;
-    /*let baseHeading = mixHeading(
+    let baseHeading = mixHeading(
         gpsHeading,
         motion.heading,
         motion.confidence,
         targetSpeed
-    );*/
-	let baseHeading = mixHeading(
-    gpsHeading,
-    motionOk ? motion.heading : null,
-    motion.confidence,
-    targetSpeed
-);
+    );
     if (!isFinite(baseHeading) && posHistory.length >= 2) {
         const p1 = posHistory[posHistory.length - 2];
         const p2 = posHistory[posHistory.length - 1];
@@ -2725,12 +2711,10 @@ function smoothTransformStep(now) {
             finalTargetHeading,
             rotationController.current
         );
-        /*if (Math.abs(diff) < HEADING_DEADBAND) {
+        if (Math.abs(diff) < HEADING_DEADBAND) {
             diff = 0;
-        }*/
-		if (!isTurning && Math.abs(diff) < HEADING_DEADBAND) {
-			diff = 0;
-		}
+        }
+
         const speedNorm = clamp(targetSpeed / 140, 0, 1);
 		const stiffness = lerp(8, 18, speedNorm);
 		const damping   = lerp(11, 8.5, speedNorm);
@@ -3117,19 +3101,24 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
     if (!map || !vehicleMarker) return;
     const btn = document.getElementById('gpsFollowBtn');
     autoFollow = !autoFollow;
-    if (autoFollow) {
-        btn.classList.add('active');
-        btn.innerHTML = '🚗';
-        disableMapInteraction();
-        autoRotate = true;
-        forceRecenterToVehicle();
-    } else {
+	if (autoFollow) {
+		btn.classList.add('active');
+		btn.innerHTML = '🚗';
+
+		disableMapInteraction();
+		autoRotate = true;
+		forceRecenterToVehicle();
+	} else {
         btn.classList.remove('active');
         btn.innerHTML = '👆';
         enableMapInteraction();
         autoRotate = false;
+        if (smoothTransformAnimFrame) {
+            cancelAnimationFrame(smoothTransformAnimFrame);
+            smoothTransformAnimFrame = null;
+        }
         resetMapRotation(() => {
-            if (vehicleMarker?.setRotationAngle) {
+            if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
                 vehicleMarker.setRotationAngle(lastGpsHeading || 0);
             }
         });
@@ -3419,47 +3408,20 @@ function startTracking() {
 			} 
 			////----- Distance ---
 			if (prevPos) {
-				const dtSec = prevTimestamp
-					? Math.max(0.3, (timestamp - prevTimestamp) / 1000)
-					: 1;
-				const dist = getDistanceFromLatLonInKm(
-					prevPos.latitude,
-					prevPos.longitude,
-					latitude,
-					longitude
-				);
-				const distMeters = dist * 1000;
-				const expectedMeters = (speedKmh * 1000 / 3600) * dtSec;
-				const maxAllowed =
-					Math.max(
-						8,
-						expectedMeters * 3,
-						gps.accuracy ?? 0
-					) + 5;
-				const minAllowed =
-					Math.max(
-						getDynamicMinDist(speedKmh),
-						0.000002
-					);
-				const validMove =
-					!physicallyStopped &&
-					dist >= minAllowed &&
-					distMeters <= maxAllowed;
-				if (validMove) {
+				const dist = getDistanceFromLatLonInKm(prevPos.latitude, prevPos.longitude, latitude, longitude);
+				if (!physicallyStopped && dist >= getDynamicMinDist(speedKmh)) {
 					totalDistance += dist;
 					cumulativeDistance += dist;
 					updateEnergyConsumptionRealTime(dist, speedKmh);
+					prevPos = { latitude, longitude };
 					if (totalDistance >= TARGET_DISTANCE_KM) {
 						totalDistance = 0;
 						tripLog.push({ time: pos.timestamp, coord: coordText });
 					}
 				}
-				prevPos = { latitude, longitude };
-				prevTimestamp = timestamp;
 			} else {
 				prevPos = { latitude, longitude };
-				prevTimestamp = timestamp;
-			}	
+			}
 			distanceSpan.textContent = cumulativeDistance.toFixed(3);
 			startCoordSpan.textContent = tripLog[0]?.coord || "-";
 			endCoordSpan.textContent = tripLog[tripLog.length - 1]?.coord || "-";
