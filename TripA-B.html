@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:06.39</h2>
+<h2>Trip Version:07.39</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2371,8 +2371,10 @@ let movementState = "moving";
 let filteredMotionHeading = null;
 let lastAcceptedGpsTime = 0;
 let dynamicGpsInterval = 0;
+let smoothedCenterLat = null;
+let smoothedCenterLon = null;
 let lastMapUpdateTime = 0;
-const ZOOM_STABLE_DELAY = 300;
+const ZOOM_STABLE_DELAY = 450;
 const MIN_MOVE_FOR_MOTION_M = 0.3;
 const MIN_MOVE_FOR_HISTORY_M = 0.5;
 const posHistory = [];
@@ -2387,7 +2389,7 @@ function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio
     if (!wrapper) return;
     const container = wrapper.closest('.leaflet-container');
     if (!container) return;
-    const offsetPx = container.clientHeight * offsetRatio;
+    const offsetPx = Math.round(container.clientHeight * offsetRatio);
     const transform =
         `translate3d(${panX}px, ${panY + offsetPx}px, 0px) ` +
         `rotate(${rotationDeg}deg)`;
@@ -2411,12 +2413,15 @@ function resetFollowRotationState(full = false) {
 	zoomStableSince = 0;
 	hasInitialHeading = false;
 	filteredMotionHeading = null;
+	
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
 		appliedIconSize = null;
 		lastIconSize = null;
 		lastHeading = null;
+		smoothedCenterLat = null;
+smoothedCenterLon = null;
 	}
 }
 function haversineMeters(lat1, lon1, lat2, lon2) {
@@ -2596,30 +2601,64 @@ const fpsFactor = clamp(fps / 60, 0.5, 1);
     }
     const renderLat = smoothedLat;
     const renderLon = smoothedLon;
-    /// 2) Smooth Pan + Zoom
-	if (autoFollow) {
-		let needZoomUpdate = false;
-		if (targetZoom !== lastAppliedZoom) {
-			if (!zoomStableSince) zoomStableSince = now;
-			if (now - zoomStableSince > ZOOM_STABLE_DELAY) {
-				lastAppliedZoom = targetZoom;
-				zoomStableSince = 0;
-				needZoomUpdate = true;
-			}
-		} else {
-			zoomStableSince = 0;
-		}
-const nowTime = performance.now();
+/// 2) Smooth Pan + Zoom
 
-if (autoFollow && nowTime - lastMapUpdateTime > 33) {
-    map.setView(
-        [renderLat, renderLon],
-        needZoomUpdate ? lastAppliedZoom : map.getZoom(),
-        { animate:false }
-    );
-    lastMapUpdateTime = nowTime;
+if (autoFollow) {
+
+    const nowTime = performance.now();
+
+    // sync frame rate with animation loop (~60fps)
+    if (nowTime - lastMapUpdateTime < 16) {
+        // ไม่ return เพื่อไม่ให้กระทบ logic ด้านล่าง
+    } else {
+
+        /* -------- ZOOM STATE -------- */
+
+        if (targetZoom !== lastAppliedZoom) {
+
+            if (!zoomStableSince) zoomStableSince = nowTime;
+
+            if (nowTime - zoomStableSince >= ZOOM_STABLE_DELAY) {
+                lastAppliedZoom = targetZoom;
+                zoomStableSince = 0;
+            }
+
+        } else {
+            zoomStableSince = 0;
+        }
+
+        /* -------- CENTER SMOOTH -------- */
+
+        if (smoothedCenterLat === null) {
+            smoothedCenterLat = renderLat;
+            smoothedCenterLon = renderLon;
+        }
+
+        const safeDt = clamp(dtSec, 0.012, 0.033);
+
+        const speedFactor = clamp(targetSpeed / 90, 0, 1);
+
+        const lambdaCenter =
+            targetSpeed < 5
+                ? 4
+                : lerp(6, 15, speedFactor);
+
+        const t = 1 - Math.exp(-lambdaCenter * safeDt);
+
+        smoothedCenterLat = lerp(smoothedCenterLat, renderLat, t);
+        smoothedCenterLon = lerp(smoothedCenterLon, renderLon, t);
+
+        /* -------- APPLY MAP (continuous) -------- */
+
+        map.setView(
+            [smoothedCenterLat, smoothedCenterLon],
+            lastAppliedZoom,
+            { animate: false }
+        );
+
+        lastMapUpdateTime = nowTime;
+    }
 }
-	}
     /// 3) // 
 if (!isStopped) {
     const last = posHistory[posHistory.length - 1];
@@ -3131,6 +3170,8 @@ function resetTrackingVisualState() {
 	autoRotate = true;
 	smoothedLat = null;
 	smoothedLon = null;
+	smoothedCenterLat = null;
+smoothedCenterLon = null;
 	lastZoomLevel = null;
 	appliedMapLat = null;
 	appliedMapLon = null;
@@ -3437,9 +3478,8 @@ function startTracking() {
 dynamicGpsInterval = getDynamicGpsInterval(speedKmh);
 
 if (nowTs - lastAcceptedGpsTime < dynamicGpsInterval) {
-    return; // ข้าม frame นี้
+    return;
 }
-
 lastAcceptedGpsTime = nowTs;
 		if (!physicallyStopped || (
 			lastRouteLat !== null &&
