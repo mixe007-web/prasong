@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:06.99</h2>
+<h2>Trip Version:06.11</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1183,8 +1183,6 @@ updateHistory();
   let tripStartTime = null;
   let tripLog = [];
   let maxSpeed = 0;
-  let speedSum = 0;
-  let speedCount = 0;
   let totalDistance = 0;
   let prevPos = null;
   let prevTimestamp = null;
@@ -1457,14 +1455,25 @@ function animateDigitalSpeed(timestamp) {
     lastTimestamp = timestamp;
     const now = performance.now();
     const timeSinceGps = Math.max(0, (now - lastGpsUpdateTime) / 1000);
-		if (timeSinceGps > 1.5) {
-		speedSlope = 0;
-	}
+if (timeSinceGps > 1.0) {
+    speedSlope *= (1 - 2 * safeDt);
+}
+if (timeSinceGps > 1.5) {
+    speedSlope = 0;
+}
     let predictedSpeed = rawSpeedKmh;
     const maxPredictionWindow = 0.9;
 	const maxSlope = 120;
 	const safeSlope = Math.max(-maxSlope, Math.min(maxSlope, speedSlope));
-
+// 🔥 HARD STOP LOCK
+if (rawSpeedKmh <= STOP_LOCK_SPEED && filteredSpeedKmh === 0) {
+    displayedSpeed = 0;
+    digitalSpeed.textContent = "0.0 km/h";
+    digitalSpeed.classList.remove('speed-medium','speed-high');
+    digitalSpeed.classList.add('speed-low');
+    speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
+    return;
+}
 if (timeSinceGps < 0.9) {
     predictedSpeed = rawSpeedKmh + safeSlope * timeSinceGps;
 } else if (timeSinceGps < 1.5) {
@@ -1473,17 +1482,17 @@ if (timeSinceGps < 0.9) {
     speedSlope = 0;
 }
     if (predictedSpeed < 0) predictedSpeed = 0;
-	if (predictedSpeed < 0.6) {
+	if (predictedSpeed < 0.4) {
 		displayedSpeed = 0;
 	} else {
 		let response;
 		if (predictedSpeed < displayedSpeed) {
 			const dropRate = Math.abs(predictedSpeed - displayedSpeed) / safeDt;
-			if (dropRate > 35) {
-				response = 70;
-			} else {
-				response = 40;
-			}
+if (dropRate > 35) {
+    response = 55;
+} else {
+    response = 38;
+}
 		} else {
 			response = 25;
 		}
@@ -1496,9 +1505,6 @@ if (timeSinceGps < 0.9) {
 		if (Math.abs(diff) < 0.03) {
 			displayedSpeed = predictedSpeed;
 		}
-	}
-	if (rawSpeedKmh < 0.5 && predictedSpeed < 0.8) {
-		displayedSpeed = 0;
 	}
     digitalSpeed.textContent = displayedSpeed.toFixed(1) + " km/h";
     digitalSpeed.classList.remove('speed-low','speed-medium','speed-high');
@@ -1519,11 +1525,6 @@ function updateSpeed(newSpeed) {
         maxSpeed = rawSpeedKmh;
         maxSpeedSpan.textContent = maxSpeed.toFixed(1);
     }
-    /*if (rawSpeedKmh > 0) {
-        speedSum += rawSpeedKmh;
-        speedCount++;
-        avgSpeedSpan.textContent = (speedSum / speedCount).toFixed(1);
-    }*/
     updateEfficiency();
     try { updateAvgEfficiencyPerPercent(); } catch(e){}
     try { detectBraking(rawSpeedKmh); } catch(e){}
@@ -3094,17 +3095,6 @@ function drawHistoryRoute(pathCoords) {
     .addTo(routeLayer);
 	endMarker.openPopup();
 }
-function getAutoPaddingFromContainer(container) {
-    const rect = container.getBoundingClientRect();
-    const h = rect.height;
-    const w = rect.width;
-    const vertical = Math.round(h * 0.15);
-    const horizontal = Math.round(w * 0.10);
-    return {
-        paddingTopLeft: [horizontal, vertical],
-        paddingBottomRight: [horizontal, vertical]
-    };
-}
 function forceRecenterToVehicle() {
 	if (!map || lastGpsLat == null || lastGpsLng == null) return;
 	resetFollowRotationState(false);
@@ -3258,7 +3248,7 @@ function normalizeGps(pos) {
 		}
 	}
     let delta = sensorSpeedKmh - filteredSpeedKmh;
-	const baseUp = 45;
+	const baseUp = 50;
 	const baseDown = 85;
 	const speedFactor = Math.min(1, Math.max(0.2, filteredSpeedKmh / 15));
 	const maxAccelUp = baseUp * speedFactor;
@@ -3399,8 +3389,6 @@ function startTracking() {
 	totalEnergyWh = 0;
 	document.getElementById("energyConsumption").textContent = "0.00 kWh";
 	maxSpeed = 0;
-	speedSum = 0;
-	speedCount = 0;
 	displayVelocity = 0;
 	zeroCandidateSince = null;
 	lastTimestamp = null;
@@ -3520,7 +3508,7 @@ if (!speedAnimFrame) {
 updateSpeedSlope(speedKmh, timestamp);
 rawSpeedKmh = speedKmh;
 lastGpsUpdateTime = performance.now();
-
+speedSlope *= 0.35;
 			// --- Update display + map ---
 		updateSpeed(speedKmh);
 		
@@ -3682,26 +3670,27 @@ speedSlope = 0;
 		return [lat, lon, p.speed || 0];
 	})
 	.filter(Boolean);
-	resetMapRotation(() => {
-		setTimeout(() => {
-			map.invalidateSize(true);
-			removeRotationWrapper(map);
-			ensureRotationWrapper(map);
-			drawHistoryRoute(pathCoords);
-			const latlngsAll = pathCoords.map(p => [p[0], p[1]]);
-			if (latlngsAll.length > 1) {
-				const bounds = L.latLngBounds(latlngsAll);
-				const padding = getAutoPaddingFromContainer(
-					document.getElementById("map-container")
-				);
-				map.fitBounds(bounds, {
-					...padding,
-					animate: true
-				});
-				enableMapInteraction();
-				}
-			}, 120);
-		});	
+resetMapRotation(() => {
+    setTimeout(() => {
+
+        removeRotationWrapper(map);
+        ensureRotationWrapper(map);
+
+        map.invalidateSize(true);
+
+        drawHistoryRoute(pathCoords);
+
+        const bounds = L.latLngBounds(
+            pathCoords.map(p => [p[0], p[1]])
+        );
+
+        map.fitBounds(bounds, {
+            padding: [50, 50],
+            animate: false
+        });
+
+    }, 150);
+});
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
