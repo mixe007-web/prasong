@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:06.34</h2>
+<h2>Trip Version:06.44</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2377,19 +2377,15 @@ const MIN_MOTION_SPEED = 3;
 const STOP_LOCK_SPEED = 1.5;
 const RESUME_UNLOCK_SPEED = 2.5;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
-function applyMapTransform(wrapper, rotationDeg, offsetRatio = 0) {
+function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio = 0) {
     if (!wrapper) return;
-
     const container = wrapper.closest('.leaflet-container');
     if (!container) return;
-
     const offsetPx = container.clientHeight * offsetRatio;
-
     const transform =
-        `translate3d(0px, ${offsetPx}px, 0px) rotate(${rotationDeg}deg)`;
-
+        `translate3d(${panX}px, ${panY + offsetPx}px, 0px) ` +
+        `rotate(${rotationDeg}deg)`;
     if (transform === lastAppliedTransform) return;
-
     lastAppliedTransform = transform;
     wrapper.style.transform = transform;
 }
@@ -2584,9 +2580,8 @@ function smoothTransformStep(now) {
         smoothedLat = targetLat;
         smoothedLon = targetLon;
     }
-    const speedFactorPos = clamp(targetSpeed / 60, 0, 1);
-    const lambda = lerp(7, 14, speedFactorPos);
-    const posT = 1 - Math.exp(-lambda * dtSec);
+const lambda = 18
+const posT = 1 - Math.exp(-lambda * dtSec)
     if (isStopped) {
         const snapThreshold = 0.3;
         if (haversineMeters(smoothedLat, smoothedLon, targetLat, targetLon) < snapThreshold) {
@@ -2606,50 +2601,32 @@ if (autoFollow) {
         smoothedCenterLon = renderLon;
     }
     // ===== Adaptive Lambda =====
-    const speedFactor = clamp(targetSpeed / 80, 0, 1);
-    const baseLambda = lerp(7, 14, speedFactor);
-    const fpsFactor = clamp(60 / fps, 0.7, 2.0);
-    const gpsFactor = clamp(gpsIntervalSec / 0.5, 0.8, 2.0);
-    const adaptiveLambda = baseLambda * fpsFactor * gpsFactor;
-    const lambdaFollow = clamp(adaptiveLambda, 5, 20);
-    const followT = 1 - Math.exp(-lambdaFollow * dtSec);
-    // ===== Lookahead =====
-    const lookAheadMeters = dynamicLookAhead(
-        targetSpeed,
-        curveStrength01,
-        isStopped
-    );
-    const [lookLat, lookLon] = projectAhead(
-        renderLat,
-        renderLon,
-        rotationController.current,
-        lookAheadMeters
-    );
-    // ===== Smooth center =====
-    smoothedCenterLat = lerp(smoothedCenterLat, lookLat, followT);
-    smoothedCenterLon = lerp(smoothedCenterLon, lookLon, followT);
-    // ===== Limit pan step =====
-    const distToTarget = haversineMeters(
-        appliedMapLat ?? smoothedCenterLat,
-        appliedMapLon ?? smoothedCenterLon,
-        smoothedCenterLat,
-        smoothedCenterLon
-    );
-    const MAX_PAN_STEP = 1.4;
-    if (distToTarget > MAX_PAN_STEP) {
-        const ratio = MAX_PAN_STEP / distToTarget;
-        smoothedCenterLat =
-            (appliedMapLat ?? smoothedCenterLat) +
-            (smoothedCenterLat - (appliedMapLat ?? smoothedCenterLat)) * ratio;
-        smoothedCenterLon =
-            (appliedMapLon ?? smoothedCenterLon) +
-            (smoothedCenterLon - (appliedMapLon ?? smoothedCenterLon)) * ratio;
-    }
+const lambdaFollow = 8.8
+const followT = 1 - Math.exp(-lambdaFollow * dtSec)
+
+// ===== Lookahead =====
+// ===== Lookahead =====
+const lookAheadMeters = clamp(targetSpeed * 0.9 + curveMomentum * 0.15, 2, 14);
+
+const lookAheadHeading =
+    isFinite(lastHeading) ? lastHeading : rotationController.current;
+
+const [lookLat, lookLon] = projectAhead(
+    renderLat,
+    renderLon,
+    lookAheadHeading,
+    lookAheadMeters
+);
+
+// ===== Smooth center =====
+smoothedCenterLat = lerp(smoothedCenterLat, lookLat, followT);
+smoothedCenterLon = lerp(smoothedCenterLon, lookLon, followT);
+
     // ===== Zoom smoothing =====
     if (lastAppliedZoom === null) {
         lastAppliedZoom = targetZoom;
     }
-    const zoomT = clamp(dtSec * 6, 0, 1);
+    zoomT = clamp(dtSec * 8,0,1)
     lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
     // ===== Pan threshold =====
     const PAN_EPSILON = 0.04;
@@ -2776,15 +2753,17 @@ if (!isStopped) {
 			}
 
 // 🔹 Apply rotation AFTER setView (same frame)
-applyMapTransform(
-    rotWrapper,
-    -rotationController.current,
-    autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
-);
+		applyMapTransform(
+				rotWrapper,
+				-rotationController.current,
+				0,
+				0,
+				autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
+			);
 			vehicleMarker.setLatLng([renderLat, renderLon]);
 			if (vehicleMarker?.setRotationAngle) {
 				const markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
-				const markerFollow = targetSpeed < 10 ? 0.45 : targetSpeed < 40 ? 0.60 : 0.72;
+				const markerFollow = 0.9
 				const markerFollowRate = markerFollow * clamp(dtSec * 60, 0, 1);
 				lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate);
 				vehicleMarker.setRotationAngle(lastMarkerAngle);
@@ -2793,11 +2772,13 @@ applyMapTransform(
 		rotationController.current = 0;
 		rotationController.velocity = 0;
 		rotationController.freeze = false;
-applyMapTransform(
-    rotWrapper,
-    0,
-    autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
-);
+		applyMapTransform(
+			rotWrapper,
+			0,
+			0,
+			0,
+			autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
+		);
 		vehicleMarker.setLatLng([renderLat, renderLon]);
 		if (vehicleMarker?.setRotationAngle) {
 			vehicleMarker.setRotationAngle(0);
@@ -2995,7 +2976,7 @@ function destroyMap() {
 	lastIconSize = BASE_ICON_SIZE;
 	rotationWrapperCache = null;
 }
-
+let lastPolylineUpdate = 0
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
     if (!map || !routeLayer) return;
     const len = pathCoordinates.length;
@@ -3013,6 +2994,9 @@ const normalizedNewColor = String(color).toLowerCase();
 const currentColor = currentPolyline?.options?.color
     ? String(currentPolyline.options.color).toLowerCase()
     : null;
+	const now = performance.now()
+if (now - lastPolylineUpdate < 120) return
+lastPolylineUpdate = now
 if (!currentPolyline || currentColor !== normalizedNewColor) {
         currentPolyline = L.polyline(
             [[prev[0], prev[1]], [curr[0], curr[1]]],
@@ -3100,28 +3084,35 @@ function drawHistoryRoute(pathCoords) {
 	endMarker.openPopup();
 }
 function forceRecenterToVehicle() {
-    if (!map || lastGpsLat == null || lastGpsLng == null) return;
-    resetFollowRotationState(false);
-    smoothedLat = lastGpsLat;
-    smoothedLon = lastGpsLng;
-    smoothedCenterLat = lastGpsLat;
-    smoothedCenterLon = lastGpsLng;
-    smoothedSpeedForZoom = lastGpsSpeedKmh || 0;
-    if (smoothTransformAnimFrame) {
-        cancelAnimationFrame(smoothTransformAnimFrame);
-        smoothTransformAnimFrame = null;
-    }
-    const heading = isFinite(lastGpsHeading) ? lastGpsHeading : 0;
-    rotationController.current = heading;
-    rotationController.velocity = 0;
-    rotationController.lastStableHeading = heading;
+	if (!map || lastGpsLat == null || lastGpsLng == null) return;
+	resetFollowRotationState(false);
+	smoothedLat = lastGpsLat;
+	smoothedLon = lastGpsLng;
+	if (smoothTransformAnimFrame) {
+		cancelAnimationFrame(smoothTransformAnimFrame);
+		smoothTransformAnimFrame = null;
+	}
+	const heading = isFinite(lastGpsHeading) ? lastGpsHeading : 0;
+	rotationController.current = heading;
+	rotationController.velocity = 0;
+	rotationController.lastStableHeading = heading;
     applySmoothTransform(
         lastGpsLat,
         lastGpsLng,
         heading,
-        lastGpsSpeedKmh || 0,
+        (isFinite(lastGpsSpeedKmh) ? lastGpsSpeedKmh : 0),
         null
     );
+   const rotWrapper = ensureRotationWrapper(map);
+    if (rotWrapper) {
+		applyMapTransform(
+			rotWrapper,
+			-heading,
+			0,
+			0,
+			autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
+		);
+    }
 }
 // 🔹 GPS FOLLOW BUTTON (FIXED)
 document.getElementById('gpsFollowBtn').addEventListener('click', () => {
@@ -3582,7 +3573,6 @@ deltaTimeSec = Math.max(0.05, Math.min(deltaTimeSec, 2.5));
 		},{ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
 	);
 }
-
 function stopTracking() {
 	if (!isTracking) return;
 	if (smoothTransformAnimFrame) { 
