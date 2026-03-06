@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:06.44</h2>
+<h2>Trip Version:08.88</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1451,7 +1451,7 @@ function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-    const safeDt = Math.max(0.008, Math.min(dt, 0.12));
+    const safeDt = Math.max(0.012, Math.min(dt, 0.12));
     if (filteredSpeedKmh === 0) {
 
         displayedSpeed = 0;
@@ -1467,12 +1467,13 @@ function animateDigitalSpeed(timestamp) {
     }
     const targetSpeed = filteredSpeedKmh;
     let diff = targetSpeed - displayedSpeed;
-    const TAU_UP = 0.22;
-    const TAU_DOWN = 0.14;
+    const TAU_UP = 0.20;
+    const TAU_DOWN = 0.08;
     const tau = diff > 0 ? TAU_UP : TAU_DOWN;
     const alpha = 1 - Math.exp(-safeDt / tau);
     displayedSpeed += diff * alpha;
     const remain = targetSpeed - displayedSpeed;
+	
     if (Math.abs(remain) < 0.5) {
 
         const settleAlpha = 1 - Math.exp(-safeDt / 0.18);
@@ -1492,11 +1493,11 @@ const targetDigit = Math.trunc(displayedSpeed * 10);
 // DIGIT WALKER (true no-skip)
 // -----------------------------
 const slope = Math.min(Math.abs(speedSlope), 60);
-const DIGIT_SPEED = 120 + slope * 0.6;
+const DIGIT_SPEED = 90 + slope * 0.8;
 
 let steps = Math.floor(DIGIT_SPEED * safeDt);
 steps = Math.max(1, steps);
-steps = Math.min(steps, 6);
+steps = Math.min(steps, 12);
 while (steps-- > 0 && shownSpeed !== targetDigit) {
 
     if (shownSpeed < targetDigit) {
@@ -2145,6 +2146,8 @@ let lastGpsSpeedKmh = 0;
 let autoFollow = true;
 let autoRotate = true;
 let smoothedSpeedForZoom = 0;
+let lastGpsTimestamp = null;
+let gpsIntervalSec = 1;
 const BASE_ZOOM = 17;
 const BASE_ICON_SIZE = 32;
 const POLYLINE_BATCH_SIZE = 200;
@@ -2319,12 +2322,15 @@ let smoothTransformAnimFrame = null;
 function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callback = null) {
 	if (!map || !vehicleMarker) return;
 	if (!map._loaded) return;
+	const now = performance.now()
+	if (lastGpsTimestamp !== null) {gpsIntervalSec = (now - lastGpsTimestamp) / 1000}
+	lastGpsTimestamp = now
 	if (isFinite(lat)) lastGpsLat = lat;
 	if (isFinite(lon)) lastGpsLng = lon;
 	if (isFinite(headingDeg)) lastGpsHeading = headingDeg;
 	if (isFinite(speedKmh)) lastGpsSpeedKmh = speedKmh;
-	smoothTransformTarget.lat = lat;
-	smoothTransformTarget.lon = lon;
+	if (isFinite(lat)) smoothTransformTarget.lat = lat;
+	if (isFinite(lon)) smoothTransformTarget.lon = lon;
 	smoothTransformTarget.heading = headingDeg;
 	smoothTransformTarget.speedKmh = speedKmh;
 	const zoomSmoothFactor = 0.15;
@@ -2361,11 +2367,12 @@ let hasInitialHeading = false;
 let movementState = "moving";
 let filteredMotionHeading = null;
 let lastAcceptedGpsTime = 0;
-let dynamicGpsInterval = 0;
 let smoothedCenterLat = null;
 let smoothedCenterLon = null;
-let lastGpsTimestamp = null;
-let gpsIntervalSec = 1; // default 1Hz
+let smoothedLookAhead = null;
+let lastPanTime = 0
+let panVelLat = 0;
+let panVelLon = 0;
 const ZOOM_STABLE_DELAY = 250;
 const MIN_MOVE_FOR_MOTION_M = 0.3;
 const MIN_MOVE_FOR_HISTORY_M = 0.5;
@@ -2406,6 +2413,9 @@ function resetFollowRotationState(full = false) {
 	filteredMotionHeading = null;
 	smoothedCenterLat = null;
 	smoothedCenterLon = null;
+	smoothedLookAhead = null;
+	panVelLat = 0;
+panVelLon = 0;
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
@@ -2465,16 +2475,14 @@ function getMotionHeadingFromHistory() {
 	const h12 = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
 	const delta = normalizeAngleDifference(h12, h01);
 	const absTurn = Math.abs(delta);
-	const confidence = clamp((Math.min(d01, d12) - MIN_MOVE_FOR_MOTION_M) / 8.0, 0, 1);
+	const confidence = clamp((Math.min(d01, d12) - MIN_MOVE_FOR_MOTION_M) / 4.0, 0, 1);
 	// ----- Adaptive Motion Heading Stabilizer -----
 let finalHeading = h12;
 if (filteredMotionHeading == null) {
     filteredMotionHeading = h12;
 } else {
-
     const diff = normalizeAngleDifference(h12, filteredMotionHeading);
     const absDiff = Math.abs(diff);
-
     // 🔹 1) Speed adaptive deadband
     const speedFactor = clamp(lastGpsSpeedKmh / 120, 0, 1);
     const deadband =
@@ -2510,7 +2518,6 @@ return {
     confidence
 };
 }
-
 function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
 	const gpsOk = isFinite(gpsHeading);
 	const motionOk = isFinite(motionHeading);
@@ -2518,7 +2525,7 @@ function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
 	if (!gpsOk) return motionHeading;
 	if (!motionOk) return gpsHeading;
 	const speedW = clamp(speedKmh / 200, 0, 1);
-	let wMotion = lerp(0.85, 0.70, speedW) * clamp(motionConfidence + 0.15, 0, 1);
+	let wMotion = lerp(0.65, 0.90, speedW) * clamp(motionConfidence + 0.15, 0, 1);
 	wMotion = clamp(wMotion, 0.45, 0.90);
 	return lerpAngle(gpsHeading, motionHeading, wMotion);
 }
@@ -2559,7 +2566,6 @@ function smoothTransformStep(now) {
     const prevFrameTime = smoothTransformTarget.lastFrameTime;
     let dtSec = (now - prevFrameTime) / 1000;
     dtSec = clamp(dtSec, 0.001, 0.05);
-	const fps = 1 / dtSec;
 	if (movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
 		movementState = "stopped";
 	} else if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
@@ -2580,7 +2586,13 @@ function smoothTransformStep(now) {
         smoothedLat = targetLat;
         smoothedLon = targetLon;
     }
-const lambda = 18
+	
+const speedNorm = clamp(targetSpeed / 160, 0, 1)
+
+const lambda =
+    lerp(3.5, 9.0, speedNorm) /
+    Math.max(gpsIntervalSec, 0.25)
+
 const posT = 1 - Math.exp(-lambda * dtSec)
     if (isStopped) {
         const snapThreshold = 0.3;
@@ -2594,62 +2606,8 @@ const posT = 1 - Math.exp(-lambda * dtSec)
     }
     const renderLat = smoothedLat;
     const renderLon = smoothedLon;
-/// 2) Smooth Pan + Zoom (IMPROVED SETVIEW VERSION)
-if (autoFollow) {
-    if (smoothedCenterLat === null) {
-        smoothedCenterLat = renderLat;
-        smoothedCenterLon = renderLon;
-    }
-    // ===== Adaptive Lambda =====
-const lambdaFollow = 8.8
-const followT = 1 - Math.exp(-lambdaFollow * dtSec)
 
-// ===== Lookahead =====
-// ===== Lookahead =====
-const lookAheadMeters = clamp(targetSpeed * 0.9 + curveMomentum * 0.15, 2, 14);
-
-const lookAheadHeading =
-    isFinite(lastHeading) ? lastHeading : rotationController.current;
-
-const [lookLat, lookLon] = projectAhead(
-    renderLat,
-    renderLon,
-    lookAheadHeading,
-    lookAheadMeters
-);
-
-// ===== Smooth center =====
-smoothedCenterLat = lerp(smoothedCenterLat, lookLat, followT);
-smoothedCenterLon = lerp(smoothedCenterLon, lookLon, followT);
-
-    // ===== Zoom smoothing =====
-    if (lastAppliedZoom === null) {
-        lastAppliedZoom = targetZoom;
-    }
-    zoomT = clamp(dtSec * 8,0,1)
-    lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
-    // ===== Pan threshold =====
-    const PAN_EPSILON = 0.04;
-    if (
-        appliedMapLat === null ||
-        haversineMeters(
-            appliedMapLat,
-            appliedMapLon,
-            smoothedCenterLat,
-            smoothedCenterLon
-        ) > PAN_EPSILON
-    ) {
-        map.setView(
-            [smoothedCenterLat, smoothedCenterLon],
-            lastAppliedZoom,
-            { animate:false }
-        );
-        appliedMapLat = smoothedCenterLat;
-        appliedMapLon = smoothedCenterLon;
-    }
-
-}
-    /// 3) // 
+    /// 2) // 
 if (!isStopped) {
     const last = posHistory[posHistory.length - 1];
     if (!last ||
@@ -2658,20 +2616,16 @@ if (!isStopped) {
         pushHistory(renderLat, renderLon, now);
     }
 }
-
-    /// 4) Heading Fusion
-    
+    /// 3) Heading Fusion
     const gpsHeading = isFinite(targetHeading)
         ? ((targetHeading + 360) % 360)
         : null;
-
     let baseHeading = mixHeading(
         gpsHeading,
         motion.heading,
         motion.confidence,
         targetSpeed
     );
-
     if (!isFinite(baseHeading) && posHistory.length >= 2) {
         const p1 = posHistory[posHistory.length - 2];
         const p2 = posHistory[posHistory.length - 1];
@@ -2680,8 +2634,7 @@ if (!isStopped) {
     if (!isFinite(baseHeading)) {
         baseHeading = lastHeading ?? 0;
     }
-    /// 5) Curve Model
-
+    /// 4) Curve Model
     const isTurning = motionOk &&
         (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
     if (targetSpeed >= LOW_SPEED_KMH && curveStrength01 > 0.14) {
@@ -2700,13 +2653,108 @@ if (!isStopped) {
     if (!isFinite(baseHeading)) {
         baseHeading = rotationController.lastStableHeading ?? 0;
     }
-    /// 6) Initial Heading Safety
+    /// 5) Initial Heading Safety
     if (!hasInitialHeading && isFinite(baseHeading) && targetSpeed > MIN_MOTION_SPEED) {
         rotationController.current = baseHeading;
         rotationController.lastStableHeading = baseHeading;
         rotationController.lockedHeading = baseHeading;
         hasInitialHeading = true;
     }
+	/// 6) Smooth Pan + Zoom
+if (autoFollow) {
+
+    // ---------- INIT ----------
+    if (smoothedCenterLat === null) {
+        smoothedCenterLat = renderLat;
+        smoothedCenterLon = renderLon;
+        appliedMapLat = renderLat;
+        appliedMapLon = renderLon;
+
+        if (lastAppliedZoom === null) {
+            lastAppliedZoom = targetZoom;
+        }
+    }
+
+    // ---------- LookAhead distance ----------
+const rawLookAhead =
+    isStopped
+        ? 0
+        : clamp(targetSpeed * 0.12 + curveMomentum * 0.05, 2, 18);
+    // smooth lookAhead
+if (smoothedLookAhead === null) {
+    smoothedLookAhead = rawLookAhead;
+}
+   const LOOK_SMOOTH = 0.08
+
+smoothedLookAhead = lerp(
+    smoothedLookAhead,
+    rawLookAhead,
+    LOOK_SMOOTH
+)
+
+    // ---------- LookAhead heading ----------
+    const lookHeading =
+        isFinite(baseHeading)
+            ? baseHeading
+            : rotationController.current;
+
+    const [lookLat, lookLon] = projectAhead(
+        renderLat,
+        renderLon,
+        lookHeading,
+        smoothedLookAhead
+    );
+
+    // ---------- Smooth center ----------
+const accel =
+    lerp(4.5, 8.0, speedNorm) /
+    Math.max(gpsIntervalSec, 0.25)
+const damping = 0.88
+
+const errLat = lookLat - smoothedCenterLat
+const errLon = lookLon - smoothedCenterLon
+
+panVelLat += errLat * accel * dtSec
+panVelLon += errLon * accel * dtSec
+
+const dampingFactor = Math.pow(damping, dtSec * 60)
+
+panVelLat *= dampingFactor
+panVelLon *= dampingFactor
+
+smoothedCenterLat += panVelLat * dtSec
+smoothedCenterLon += panVelLon * dtSec
+
+    // ---------- Zoom smoothing ----------
+    const zoomLambda = 6;
+    const zoomT = 1 - Math.exp(-zoomLambda * dtSec);
+
+    lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
+const panDist = haversineMeters(
+    appliedMapLat,
+    appliedMapLon,
+    smoothedCenterLat,
+    smoothedCenterLon
+)
+
+const PAN_THRESHOLD = 0.25
+const ZOOM_EPS = 0.001
+
+if (
+    panDist > PAN_THRESHOLD ||
+    Math.abs(lastAppliedZoom - map.getZoom()) > ZOOM_EPS
+) {
+
+    map.setView(
+        [smoothedCenterLat, smoothedCenterLon],
+        lastAppliedZoom,
+        { animate: false }
+    )
+
+    appliedMapLat = smoothedCenterLat
+    appliedMapLon = smoothedCenterLon
+}
+}
     /// 7) Rotation (uses central stop state)
     if (!rotationWrapperCache || !rotationWrapperCache.isConnected) {
         rotationWrapperCache = ensureRotationWrapper(map);
@@ -2994,9 +3042,12 @@ const normalizedNewColor = String(color).toLowerCase();
 const currentColor = currentPolyline?.options?.color
     ? String(currentPolyline.options.color).toLowerCase()
     : null;
+	const dist = haversineMeters(prev[0], prev[1], curr[0], curr[1]);
+if (dist < 0.6) return;
 	const now = performance.now()
 if (now - lastPolylineUpdate < 120) return
 lastPolylineUpdate = now
+
 if (!currentPolyline || currentColor !== normalizedNewColor) {
         currentPolyline = L.polyline(
             [[prev[0], prev[1]], [curr[0], curr[1]]],
@@ -3186,10 +3237,10 @@ let smoothLon = null;
 
 function getZeroConfirmMs() {
     return Math.min(
-        1500,
+        700,
         Math.max(
-            250,
-            avgGpsIntervalMs * 1.4
+            120,
+            avgGpsIntervalMs * 0.75
         )
     );
 }
@@ -3233,10 +3284,14 @@ function normalizeGps(pos) {
 			sensorSpeedKmh = (moveMeters / dt) * 3.6;
 		}
 	}
+	// HARD STOP: prevent 3-5 km/h drift when vehicle already stopped
+if (sensorSpeedKmh < 1 && moveMeters < 0.35) {
+    sensorSpeedKmh = 0;
+}
     let delta = sensorSpeedKmh - filteredSpeedKmh;
 // --- Physics-based acceleration clamp (sensor-agnostic) ---
 const MAX_ACCEL_MS2 = 6.0;   // ~0-100 EV ปกติ
-const MAX_DECEL_MS2 = 9.0;   // เบรกแรง
+const MAX_DECEL_MS2 = 12.0;   // เบรกแรง
 
 const maxUp = MAX_ACCEL_MS2 * 3.6 * dt;     // m/s² → km/h/s
 const maxDown = MAX_DECEL_MS2 * 3.6 * dt;
@@ -3325,7 +3380,6 @@ speedSlope = clamp(rawSlope, -120, 120);
     if (currentSpeed < 0.5) {
         speedSlope = 0;
     }
-
     lastGpsSpeed = currentSpeed;
     lastSpeedSlopeTimestamp = currentTimestamp;
 }
@@ -3642,38 +3696,44 @@ gpsIntervalSec = 1;
 		return;
 	}
 	// 🌟 วาดเส้นทาง + marker + fitBounds + rotation resetใ
-	const validCoords = tripLog
-		.map(p => {
-			if (!p.coord) return null;
-			const [lat, lon] = p.coord.split(',').map(Number);
-			if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-			return [lat, lon, p.speed || 0];
-		})
-		.filter(Boolean);
-		if (validCoords.length === 0) return;
-		resetMapRotation(() => {
-			removeRotationWrapper(map);
-			ensureRotationWrapper(map);
-			map.invalidateSize(true);
-			drawHistoryRoute(validCoords);
-			if (validCoords.length === 1) {
-				map.setView([validCoords[0][0], validCoords[0][1]], BASE_ZOOM || 17, { animate:false });
-				enableMapInteraction();
-				return;
-			}
-			const latLngs = validCoords.map(p => [p[0], p[1]]);
-			const bounds = L.latLngBounds(latLngs);
-			const size = map.getSize();
-			const padding = Math.round(
-				Math.min(size.x, size.y) * 0.10
-			);
-			map.fitBounds(bounds, {
-				padding: [padding, padding],
-				animate: false,
-				maxZoom: BASE_ZOOM || 17
-			});
-			enableMapInteraction();
-		});
+const validCoords = tripLog
+.map(p => {
+    if (!p.coord) return null;
+    const [lat, lon] = p.coord.split(',').map(Number);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return [lat, lon, p.speed || 0];
+})
+.filter(Boolean);
+if (validCoords.length === 0) return;
+resetMapRotation(() => {
+    removeRotationWrapper(map);
+    ensureRotationWrapper(map);
+    map.invalidateSize(true);
+    drawHistoryRoute(validCoords);
+    if (validCoords.length === 1) {
+        map.setView(
+            [validCoords[0][0], validCoords[0][1]],
+            BASE_ZOOM || 17,
+            { animate:false }
+        );
+		enableMapInteraction();
+        return;
+    }
+    const latLngs = validCoords.map(p => [p[0], p[1]]);
+    let bounds = L.latLngBounds(latLngs);
+    // ⭐ ขยาย bounds เล็กน้อย (กัน marker ชิดขอบ)
+    bounds = bounds.pad(0.08); 
+    const size = map.getSize();
+    // ⭐ padding แบบ adaptive
+    const padding = Math.round(Math.max(40, Math.min(size.x, size.y) * 0.14));
+    map.fitBounds(bounds, {
+        padding: [padding, padding],
+        animate: false,
+        maxZoom: BASE_ZOOM || 17
+    });
+    enableMapInteraction();
+
+});
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
