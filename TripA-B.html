@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:88.88</h2>
+<h2>Trip Version:88.99</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1451,8 +1451,9 @@ function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-    const safeDt = Math.max(0.012, Math.min(dt, 0.12));
-filteredSpeedKmh <= 2 && displayedSpeed <= 3) {
+const safeDt = Math.max(0.012, Math.min(dt, 0.12));
+
+if (filteredSpeedKmh <= 2 && displayedSpeed <= 3) {
 
     displayedSpeed = 0;
     shownSpeed = 0;
