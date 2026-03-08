@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:08.88</h2>
+<h2>Trip Version:88.88</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1452,19 +1452,19 @@ function animateDigitalSpeed(timestamp) {
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
     const safeDt = Math.max(0.012, Math.min(dt, 0.12));
-    if (filteredSpeedKmh === 0) {
+filteredSpeedKmh <= 2 && displayedSpeed <= 3) {
 
-        displayedSpeed = 0;
-        shownSpeed = 0;
+    displayedSpeed = 0;
+    shownSpeed = 0;
 
-        digitalSpeed.textContent = "0.0 km/h";
+    digitalSpeed.textContent = "0.0 km/h";
 
-        digitalSpeed.classList.remove('speed-medium','speed-high');
-        digitalSpeed.classList.add('speed-low');
+    digitalSpeed.classList.remove('speed-medium','speed-high');
+    digitalSpeed.classList.add('speed-low');
 
-        speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
-        return;
-    }
+    speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
+    return;
+}
     const targetSpeed = filteredSpeedKmh;
     let diff = targetSpeed - displayedSpeed;
     const TAU_UP = 0.20;
@@ -2663,96 +2663,41 @@ if (!isStopped) {
 	/// 6) Smooth Pan + Zoom
 if (autoFollow) {
 
-    // ---------- INIT ----------
-    if (smoothedCenterLat === null) {
-        smoothedCenterLat = renderLat;
-        smoothedCenterLon = renderLon;
+    if (appliedMapLat === null) {
         appliedMapLat = renderLat;
         appliedMapLon = renderLon;
-
-        if (lastAppliedZoom === null) {
-            lastAppliedZoom = targetZoom;
-        }
     }
 
-    // ---------- LookAhead distance ----------
-const rawLookAhead =
-    isStopped
-        ? 0
-        : clamp(targetSpeed * 0.12 + curveMomentum * 0.05, 2, 18);
-    // smooth lookAhead
-if (smoothedLookAhead === null) {
-    smoothedLookAhead = rawLookAhead;
-}
-   const LOOK_SMOOTH = 0.08
+    if (lastAppliedZoom === null) {
+        lastAppliedZoom = targetZoom;
+    }
 
-smoothedLookAhead = lerp(
-    smoothedLookAhead,
-    rawLookAhead,
-    LOOK_SMOOTH
-)
-
-    // ---------- LookAhead heading ----------
-    const lookHeading =
-        isFinite(baseHeading)
-            ? baseHeading
-            : rotationController.current;
-
-    const [lookLat, lookLon] = projectAhead(
-        renderLat,
-        renderLon,
-        lookHeading,
-        smoothedLookAhead
-    );
-
-    // ---------- Smooth center ----------
-const accel =
-    lerp(4.5, 8.0, speedNorm) /
-    Math.max(gpsIntervalSec, 0.25)
-const damping = 0.88
-
-const errLat = lookLat - smoothedCenterLat
-const errLon = lookLon - smoothedCenterLon
-
-panVelLat += errLat * accel * dtSec
-panVelLon += errLon * accel * dtSec
-
-const dampingFactor = Math.pow(damping, dtSec * 60)
-
-panVelLat *= dampingFactor
-panVelLon *= dampingFactor
-
-smoothedCenterLat += panVelLat * dtSec
-smoothedCenterLon += panVelLon * dtSec
-
-    // ---------- Zoom smoothing ----------
+    // zoom smoothing
     const zoomLambda = 6;
     const zoomT = 1 - Math.exp(-zoomLambda * dtSec);
-
     lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
-const panDist = haversineMeters(
-    appliedMapLat,
-    appliedMapLon,
-    smoothedCenterLat,
-    smoothedCenterLon
-)
 
-const PAN_THRESHOLD = 0.25
-const ZOOM_EPS = 0.001
+    // smooth pan
+const panLambda =
+    targetSpeed < 10 ? 7 :
+    targetSpeed < 60 ? 9 :
+    11;
+    const panT = 1 - Math.exp(-panLambda * dtSec);
+
+    appliedMapLat = lerp(appliedMapLat, renderLat, panT);
+    appliedMapLon = lerp(appliedMapLon, renderLon, panT);
+
+const center = map.getCenter();
 
 if (
-    panDist > PAN_THRESHOLD ||
-    Math.abs(lastAppliedZoom - map.getZoom()) > ZOOM_EPS
+    Math.abs(center.lat - appliedMapLat) > 1e-7 ||
+    Math.abs(center.lng - appliedMapLon) > 1e-7
 ) {
-
     map.setView(
-        [smoothedCenterLat, smoothedCenterLon],
+        [appliedMapLat, appliedMapLon],
         lastAppliedZoom,
         { animate: false }
-    )
-
-    appliedMapLat = smoothedCenterLat
-    appliedMapLon = smoothedCenterLon
+    );
 }
 }
     /// 7) Rotation (uses central stop state)
@@ -2801,6 +2746,7 @@ if (
 			}
 
 // 🔹 Apply rotation AFTER setView (same frame)
+vehicleMarker.setLatLng([renderLat, renderLon]);
 		applyMapTransform(
 				rotWrapper,
 				-rotationController.current,
@@ -2808,7 +2754,7 @@ if (
 				0,
 				autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
 			);
-			vehicleMarker.setLatLng([renderLat, renderLon]);
+			
 			if (vehicleMarker?.setRotationAngle) {
 				const markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
 				const markerFollow = 0.9
@@ -2820,6 +2766,7 @@ if (
 		rotationController.current = 0;
 		rotationController.velocity = 0;
 		rotationController.freeze = false;
+		vehicleMarker.setLatLng([renderLat, renderLon]);
 		applyMapTransform(
 			rotWrapper,
 			0,
@@ -2827,7 +2774,7 @@ if (
 			0,
 			autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
 		);
-		vehicleMarker.setLatLng([renderLat, renderLon]);
+		
 		if (vehicleMarker?.setRotationAngle) {
 			vehicleMarker.setRotationAngle(0);
 		}
