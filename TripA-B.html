@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:22.22</h2>
+<h2>Trip Version:22.44</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2687,14 +2687,14 @@ if (autoFollow) {
         lastAppliedZoom = targetZoom;
     }
 
-    const zoomLambda = 2;
+    const zoomLambda = 6;
     const zoomT = 1 - Math.exp(-zoomLambda * dtSec);
     lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
 
     const zoomLevel = Math.round(lastAppliedZoom);
 
     // smooth pan
-    const panLambda = lerp(4.8, 9.5, speedNorm);
+    const panLambda = lerp(3.8, 6.5, speedNorm);
     const panT = 1 - Math.exp(-panLambda * dtSec);
 
     let camLat = renderLat;
@@ -3681,54 +3681,46 @@ gpsIntervalSec = 1;
 		return;
 	}
 // 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset
-let validCoords = tripLog
-.map(p => {
-    if (!p.coord) return null;
-    const [lat, lon] = p.coord.split(',').map(Number);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    return [lat, lon, p.speed || 0];
-})
-.filter(Boolean);
+	let validCoords = tripLog
+	.map(p => {
+		if (!p.coord) return null;
+		const [lat, lon] = p.coord.split(',').map(Number);
+		if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+		return [lat, lon, p.speed || 0];
+	})
+	.filter(Boolean);
+	// ลดจำนวนจุดเฉพาะตอน render (ไม่กระทบ tripLog)
+	const MAX_RENDER_POINTS = 8000;
+	if (validCoords.length > MAX_RENDER_POINTS) {
+		const step = Math.ceil(validCoords.length / MAX_RENDER_POINTS);
+		validCoords = validCoords.filter((_, i) => i % step === 0);
+	}
+	if (validCoords.length === 0) return;
+	resetMapRotation(() => {
+		if (routeLayer) {
+			routeLayer.clearLayers();
+		}
+		drawHistoryRoute(validCoords);
 
-// ลดจำนวนจุดเฉพาะตอน render (ไม่กระทบ tripLog)
-const MAX_RENDER_POINTS = 8000;
+		if (validCoords.length === 1) {
+			map.setView(validCoords[0], BASE_ZOOM || 17, { animate:false });
+			enableMapInteraction();
+			return;
+		}
+		const bounds = L.latLngBounds(validCoords).pad(0.1);
+		if (!bounds.isValid()) {
+			enableMapInteraction();
+			return;
+		}
 
-if (validCoords.length > MAX_RENDER_POINTS) {
-    const step = Math.ceil(validCoords.length / MAX_RENDER_POINTS);
-    validCoords = validCoords.filter((_, i) => i % step === 0);
-}
+		map.fitBounds(bounds, {
+			padding:[40,40],
+			animate:false,
+			maxZoom: BASE_ZOOM || 17
+		});
 
-if (validCoords.length === 0) return;
-
-resetMapRotation(() => {
-
-    if (routeLayer) {
-        routeLayer.clearLayers();
-    }
-
-    drawHistoryRoute(validCoords);
-
-    if (validCoords.length === 1) {
-        map.setView(validCoords[0], BASE_ZOOM || 17, { animate:false });
-        enableMapInteraction();
-        return;
-    }
-
-    const bounds = L.latLngBounds(validCoords).pad(0.1);
-
-    if (!bounds.isValid()) {
-        enableMapInteraction();
-        return;
-    }
-
-    map.fitBounds(bounds, {
-        padding:[40,40],
-        animate:false,
-        maxZoom: BASE_ZOOM || 17
-    });
-
-    enableMapInteraction();
-});
+		enableMapInteraction();
+	});
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
