@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:22.44</h2>
+<h2>Trip Version:44.44</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1451,18 +1451,14 @@ function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-const safeDt = Math.max(0.012, Math.min(dt, 0.12));
+	const safeDt = Math.max(0.012, Math.min(dt, 0.12));
 
-if (filteredSpeedKmh <= 2 && displayedSpeed <= 3) {
-
+	if (filteredSpeedKmh <= 2 && displayedSpeed <= 3) {
     displayedSpeed = 0;
     shownSpeed = 0;
-
     digitalSpeed.textContent = "0.0 km/h";
-
     digitalSpeed.classList.remove('speed-medium','speed-high');
     digitalSpeed.classList.add('speed-low');
-
     speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
     return;
 }
@@ -1477,6 +1473,7 @@ if (filteredSpeedKmh > 90) TAU_UP = 0.13;
 if (displayedSpeed < 15) TAU_DOWN = 0.05;
 if (displayedSpeed < 8)  TAU_DOWN = 0.035;
 if (displayedSpeed < 5)  TAU_DOWN = 0.02;
+if (displayedSpeed < 3)  TAU_DOWN = 0.01;
     const tau = diff > 0 ? TAU_UP : TAU_DOWN;
     const alpha = 1 - Math.exp(-safeDt / tau);
 if (targetSpeed === 0 && displayedSpeed < 3) {
@@ -1597,7 +1594,7 @@ function updateTripTime() {
 	const elapsedTimeSeconds = (elapsedTime % 60).toString().padStart(2, '0');
 	const elapsedTimeSpan = document.getElementById("elapsedTime");
 	elapsedTimeSpan.textContent = `${elapsedTimeHours}:${elapsedTimeMinutes}:${elapsedTimeSeconds}`;
-if (elapsedTime > 0) {
+if (elapsedTime > 0&& filteredSpeedKmh >= 3) {
     const avgSpeed = cumulativeDistance / (elapsedTime / 3600);
     avgSpeedSpan.textContent = avgSpeed.toFixed(1);
 }
@@ -2621,8 +2618,7 @@ const posT = 1 - Math.exp(-lambda * dtSec);
     }
     const renderLat = smoothedLat;
     const renderLon = smoothedLon;
-//vehicleMarker.setLatLng([renderLat, renderLon]);
-    /// 2) // 
+    /// 2) หยุด 
 if (!isStopped) {
     const last = posHistory[posHistory.length - 1];
 if (!last ||
@@ -2675,56 +2671,56 @@ if (!last ||
         rotationController.lockedHeading = baseHeading;
         hasInitialHeading = true;
     }
-/// 6) Smooth Pan + Zoom
-if (autoFollow) {
+	/// 6) Smooth Pan + Zoom
+	if (autoFollow) {
 
-    if (appliedMapLat === null) {
-        appliedMapLat = renderLat;
-        appliedMapLon = renderLon;
-    }
+		if (appliedMapLat === null) {
+			appliedMapLat = renderLat;
+			appliedMapLon = renderLon;
+		}
 
-    if (lastAppliedZoom === null) {
-        lastAppliedZoom = targetZoom;
-    }
+		if (lastAppliedZoom === null) {
+			lastAppliedZoom = targetZoom;
+		}
 
-    const zoomLambda = 6;
-    const zoomT = 1 - Math.exp(-zoomLambda * dtSec);
-    lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
+		const PAN_EPS = 3e-7;
 
-    const zoomLevel = Math.round(lastAppliedZoom);
+		const zoomLambda = 4.5;
+		const zoomT = 1 - Math.exp(-zoomLambda * dtSec);
+		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
+		const zoomLevel = Math.round(lastAppliedZoom);
 
-    // smooth pan
-    const panLambda = lerp(3.8, 6.5, speedNorm);
-    const panT = 1 - Math.exp(-panLambda * dtSec);
+		const panLambda = lerp(2.2, 3.6, speedNorm);
+		const panT = 1 - Math.exp(-panLambda * dtSec);
 
-    let camLat = renderLat;
-    let camLon = renderLon;
+		const camLat = renderLat;
+		const camLon = renderLon;
 
-    appliedMapLat = lerp(appliedMapLat, camLat, panT);
-    appliedMapLon = lerp(appliedMapLon, camLon, panT);
+		appliedMapLat = lerp(appliedMapLat, camLat, panT);
+		appliedMapLon = lerp(appliedMapLon, camLon, panT);
 
-    if (lastMapLat === null) {
-        lastMapLat = appliedMapLat;
-        lastMapLon = appliedMapLon;
-    }
+		if (lastMapLat === null) {
+			lastMapLat = appliedMapLat;
+			lastMapLon = appliedMapLon;
+		}
 
-    const currentZoom = map.getZoom();
+		const currentZoom = map.getZoom();
 
-    if (
-        currentZoom !== zoomLevel ||
-        Math.abs(appliedMapLat - lastMapLat) > 1e-7 ||
-        Math.abs(appliedMapLon - lastMapLon) > 1e-7
-    ) {
-        map.setView(
-            [appliedMapLat, appliedMapLon],
-            zoomLevel,
-            { animate:false }
-        );
+		if (
+			currentZoom !== zoomLevel ||
+			Math.abs(appliedMapLat - lastMapLat) > PAN_EPS ||
+			Math.abs(appliedMapLon - lastMapLon) > PAN_EPS
+		) {
+			map.setView(
+				[appliedMapLat, appliedMapLon],
+				zoomLevel,
+				{ animate:false }
+			);
 
-        lastMapLat = appliedMapLat;
-        lastMapLon = appliedMapLon;
-    }
-}
+			lastMapLat = appliedMapLat;
+			lastMapLon = appliedMapLon;
+		}
+	}
     /// 7) Rotation (uses central stop state)
     if (!rotationWrapperCache || !rotationWrapperCache.isConnected) {
         rotationWrapperCache = ensureRotationWrapper(map);
@@ -2732,11 +2728,11 @@ if (autoFollow) {
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {
 			const HEADING_DEADBAND =
-    targetSpeed < 10  ? 1.3 :
-    targetSpeed < 40  ? 0.7 :
+    targetSpeed < 10  ? 1.0 :
+    targetSpeed < 40  ? 0.6 :
     targetSpeed < 80  ? 0.5 :
     targetSpeed < 120 ? 0.45 :
-                        0.4;
+                        0.35;
         if (isStopped) {
             if (!rotationController.freeze) {
                 rotationController.lockedHeading = rotationController.current;
@@ -2754,11 +2750,28 @@ if (autoFollow) {
             finalTargetHeading,
             rotationController.current
         );
+const LOW_SPEED_MIN = 3;
+const LOW_SPEED_MAX = 5;
+const LOW_SPEED_WINDOW = 5;
+
+if (!rotationController.freeze &&
+    targetSpeed >= LOW_SPEED_MIN &&
+    targetSpeed <= LOW_SPEED_MAX) {
+
+    const diffFromStop = normalizeAngleDifference(
+        finalTargetHeading,
+        rotationController.lockedHeading
+    );
+
+    if (Math.abs(diffFromStop) > LOW_SPEED_WINDOW) {
+        diff = 0;
+    }
+}
         if (Math.abs(diff) < HEADING_DEADBAND) {
             diff = 0;
         }
-		const stiffness = lerp(22, 48, speedNorm);
-		const damping   = lerp(8.5, 6.5, speedNorm);
+		const stiffness = lerp(28, 60, speedNorm);
+		const damping   = lerp(10.5, 8.0, speedNorm);
         rotationController.velocity += diff * stiffness * dtSec;
         rotationController.velocity *= Math.exp(-damping * dtSec);
         rotationController.current =
@@ -2769,7 +2782,6 @@ if (autoFollow) {
 				rotationController.velocity = 0;
 				rotationController.lastStableHeading = finalTargetHeading;
 			}
-//vehicleMarker.setLatLng([renderLat, renderLon]);
 		applyMapTransform(
 				rotWrapper,
 				-rotationController.current,
@@ -2780,7 +2792,7 @@ if (autoFollow) {
 			
 			if (vehicleMarker?.setRotationAngle) {
 				const markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
-				const markerFollow = 1.2
+				const markerFollow = 1.8
 				const markerFollowRate = markerFollow * clamp(dtSec * 60, 0, 1);
 				lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate);
 				vehicleMarker.setRotationAngle(lastMarkerAngle);
@@ -3071,7 +3083,7 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
 	if (!lastCoord || getDistanceFromLatLonInKm(lastCoord[0], lastCoord[1], lat, lon) >= MIN_DIST_KM) {
 		pathCoordinates.push([lat, lon, speedKmh || 0, now]);
 
-		if (pathCoordinates.length > 20000) {
+		if (pathCoordinates.length > 30000) {
 			pathCoordinates.shift();
 		}
 		addRealtimePolylineSegment(lat, lon, speedKmh);
@@ -3550,7 +3562,7 @@ lastGpsUpdateTime = performance.now();
 			const lastLog = tripLog[tripLog.length - 1];
 			if (!lastLog || lastLog.coord !== coordText || lastLog.speed !== speedKmh) {
 				tripLog.push({ time: pos.timestamp, coord: coordText, speed: speedKmh });
-				if (tripLog.length > 10000) tripLog.shift();
+				if (tripLog.length > 100000) tripLog.shift();
 			} 
 			////----- Distance ---
 if (prevPos) {
@@ -3690,11 +3702,27 @@ gpsIntervalSec = 1;
 	})
 	.filter(Boolean);
 	// ลดจำนวนจุดเฉพาะตอน render (ไม่กระทบ tripLog)
-	const MAX_RENDER_POINTS = 8000;
-	if (validCoords.length > MAX_RENDER_POINTS) {
-		const step = Math.ceil(validCoords.length / MAX_RENDER_POINTS);
-		validCoords = validCoords.filter((_, i) => i % step === 0);
-	}
+const MAX_RENDER_POINTS = 8000;
+
+if (validCoords.length > MAX_RENDER_POINTS) {
+
+    const step = Math.ceil(validCoords.length / MAX_RENDER_POINTS);
+    const reduced = [];
+
+    for (let i = 0; i < validCoords.length; i += step) {
+        reduced.push(validCoords[i]);
+    }
+
+    // บังคับให้มีจุดสุดท้ายเสมอ
+    const last = validCoords[validCoords.length - 1];
+    const lastReduced = reduced[reduced.length - 1];
+
+    if (!lastReduced || lastReduced[0] !== last[0] || lastReduced[1] !== last[1]) {
+        reduced.push(last);
+    }
+
+    validCoords = reduced;
+}
 	if (validCoords.length === 0) return;
 	resetMapRotation(() => {
 		if (routeLayer) {
