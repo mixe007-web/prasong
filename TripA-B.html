@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:44.44</h2>
+<h2>Trip Version:11.11</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1451,7 +1451,7 @@ function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-	const safeDt = Math.max(0.012, Math.min(dt, 0.12));
+	const safeDt = 1 / 60; // fix 60 FPS reference
 
 	if (filteredSpeedKmh <= 2 && displayedSpeed <= 3) {
     displayedSpeed = 0;
@@ -1478,6 +1478,7 @@ if (displayedSpeed < 3)  TAU_DOWN = 0.01;
     const alpha = 1 - Math.exp(-safeDt / tau);
 if (targetSpeed === 0 && displayedSpeed < 3) {
     displayedSpeed = 0;
+    shownSpeed = 0;
 } else {
     displayedSpeed += diff * alpha;
 }
@@ -1503,11 +1504,15 @@ const targetDigit = Math.trunc(displayedSpeed * 10);
 // -----------------------------
 const slope = Math.min(Math.abs(speedSlope), 60);
 let DIGIT_SPEED = 100 + slope * 0.9;
-if (speedSlope < -5) DIGIT_SPEED *= 1.8;
+if (speedSlope < -5) DIGIT_SPEED *= 2.8; // แรงขึ้น
+if (speedSlope < -15) DIGIT_SPEED *= 1.5; // เบรกหนัก ยิ่งไว
 
-let steps = Math.floor(DIGIT_SPEED * safeDt);
+let steps = Math.floor(DIGIT_SPEED * dt); // ใช้เวลาจริง
 steps = Math.max(1, steps);
-steps = Math.min(steps, speedSlope > 15 ? 24 : 12);
+steps = Math.min(
+    steps,
+    speedSlope < -10 ? 32 : (speedSlope > 15 ? 24 : 12)
+);
 while (steps-- > 0 && shownSpeed !== targetDigit) {
 
     if (shownSpeed < targetDigit) {
@@ -1594,10 +1599,12 @@ function updateTripTime() {
 	const elapsedTimeSeconds = (elapsedTime % 60).toString().padStart(2, '0');
 	const elapsedTimeSpan = document.getElementById("elapsedTime");
 	elapsedTimeSpan.textContent = `${elapsedTimeHours}:${elapsedTimeMinutes}:${elapsedTimeSeconds}`;
-if (elapsedTime > 0&& filteredSpeedKmh >= 3) {
-    const avgSpeed = cumulativeDistance / (elapsedTime / 3600);
-    avgSpeedSpan.textContent = avgSpeed.toFixed(1);
-}
+	if (elapsedTime > 0) {
+		if (filteredSpeedKmh >= 3) {
+			const avgSpeed = cumulativeDistance / (elapsedTime / 3600);
+			avgSpeedSpan.textContent = avgSpeed.toFixed(1);
+		}
+	}
 }
 const historyContainer = document.getElementById("historyContainer");
 const TARGET_DISTANCE_KM = 10;
@@ -2147,6 +2154,7 @@ let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
 let pathCoordinates = [];
+let pathCoordinatesRender = [];
 let routeBatchLayers = [];
 let isTracking = false;
 let lastGpsLat = null;
@@ -2387,6 +2395,9 @@ let lastMapLat = null;
 let lastMapLon = null;
 let lastMarkerLat = null;
 let lastMarkerLon = null;
+let justUnlocked = false;
+let lastRenderLat = null;
+let lastRenderLon = null;
 const ZOOM_STABLE_DELAY = 250;
 const MIN_MOVE_FOR_MOTION_M = 0.3;
 const MIN_MOVE_FOR_HISTORY_M = 0.5;
@@ -2430,6 +2441,7 @@ function resetFollowRotationState(full = false) {
 	smoothedLookAhead = null;
 	panVelLat = 0;
 panVelLon = 0;
+justUnlocked = false;
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
@@ -2586,8 +2598,10 @@ function smoothTransformStep(now) {
 		movementState = "moving";
 	}
 	const isStopped = movementState === "stopped";
-	if (isStopped) {
-    posHistory.length = 0;
+if (isStopped) {
+    if (posHistory.length > 1) {
+        posHistory.splice(0, posHistory.length - 1);
+    }
 }
 	const motion = getMotionHeadingFromHistory();
 		const motionOk =
@@ -2642,9 +2656,9 @@ if (!last ||
         const p2 = posHistory[posHistory.length - 1];
         baseHeading = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
     }
-    if (!isFinite(baseHeading)) {
-        baseHeading = lastHeading ?? 0;
-    }
+if (!isFinite(baseHeading)) {
+    baseHeading = rotationController.lockedHeading ?? lastHeading ?? 0;
+}
     /// 4) Curve Model
     const isTurning = motionOk &&
         (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
@@ -2658,9 +2672,9 @@ if (!last ||
     }
     if (rotationController.freeze) {
         baseHeading = rotationController.lockedHeading;
-    } else if (isFinite(baseHeading)) {
-        lastHeading = baseHeading;
-    }
+    } else if (isFinite(baseHeading) && targetSpeed > 5) {
+    lastHeading = baseHeading;
+}
     if (!isFinite(baseHeading)) {
         baseHeading = rotationController.lastStableHeading ?? 0;
     }
@@ -2733,19 +2747,28 @@ if (!last ||
     targetSpeed < 80  ? 0.5 :
     targetSpeed < 120 ? 0.45 :
                         0.35;
-        if (isStopped) {
-            if (!rotationController.freeze) {
-                rotationController.lockedHeading = rotationController.current;
-            }
-            rotationController.freeze = true;
-            rotationController.velocity *= 0.4;
-        } else {
-            rotationController.freeze = false;
-        }
+						
+if (isStopped) {
+    if (!rotationController.freeze) {
+        rotationController.lockedHeading = rotationController.current;
+    }
+    rotationController.freeze = true;
+    rotationController.velocity *= 0.4;
+} else {
+    if (rotationController.freeze) {
+        justUnlocked = true;   // ✅ เพิ่มบรรทัดนี้
+    }
+    rotationController.freeze = false;
+}
         let finalTargetHeading = rotationController.freeze
             ? rotationController.lockedHeading
             : normalizeAngle(baseHeading);
         finalTargetHeading = normalizeAngle(finalTargetHeading);
+if (justUnlocked) {
+    rotationController.current = finalTargetHeading;
+    rotationController.velocity = 0;
+    justUnlocked = false;
+}
         let diff = normalizeAngleDifference(
             finalTargetHeading,
             rotationController.current
@@ -2791,13 +2814,21 @@ if (!rotationController.freeze &&
 			);
 			
 			if (vehicleMarker?.setRotationAngle) {
-				const markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
-				const markerFollow = 1.8
+				let markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
+
+// ✅ เพิ่ม deadband
+if (Math.abs(markerDiff) < 0.4) {
+    markerDiff = 0;
+}
+				const markerFollow = 0.9
 				const markerFollowRate = markerFollow * clamp(dtSec * 60, 0, 1);
-				lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate);
+				const damping = 0.7;
+lastMarkerAngle = normalizeAngle(
+    lastMarkerAngle + markerDiff * markerFollowRate * damping
+);
 				vehicleMarker.setRotationAngle(lastMarkerAngle);
 			}
-const MARKER_EPS = 0.5;
+const MARKER_EPS = 0.25;
 if (
  !lastMarkerLat ||
  haversineMeters(
@@ -2810,6 +2841,7 @@ if (
  vehicleMarker.setLatLng([appliedMapLat, appliedMapLon]);
  lastMarkerLat = appliedMapLat;
  lastMarkerLon = appliedMapLon;
+
 }
 	} else if (rotWrapper && !autoRotate) {
 		rotationController.current = 0;
@@ -2847,6 +2879,27 @@ if (
             inner.style.setProperty("--marker-scale", scale);
         }
     }
+	// 9 วาดเส้น
+lastRenderLat = renderLat;   // ใช้ renderLat หลัง smoothing
+lastRenderLon = renderLon;
+
+if (lastRenderLat !== null && lastRenderLon !== null) {
+    const lastCoord = pathCoordinatesRender[pathCoordinatesRender.length - 1];
+    const SMOOTH_MIN_DIST = 0.5;
+
+    if (!lastCoord ||
+        haversineMeters(lastCoord[0], lastCoord[1], lastRenderLat, lastRenderLon) > SMOOTH_MIN_DIST
+    ) {
+        pathCoordinatesRender.push([
+            lastRenderLat,
+            lastRenderLon,
+            targetSpeed || 0,
+            Date.now()
+        ]);
+
+        addRealtimePolylineSegment(lastRenderLat, lastRenderLon, targetSpeed);
+    }
+}
     if (callback) callback();
     smoothTransformTarget.lastFrameTime = now;
     smoothTransformAnimFrame = requestAnimationFrame(smoothTransformStep);
@@ -3015,6 +3068,7 @@ function destroyMap() {
 	routeLayer = null;
 	vehicleMarker = null;
 	pathCoordinates = [];
+	pathCoordinatesRender = [];
 	routeBatchLayers = [];
 	hasInitialHeading = false;
 	resetFollowRotationState(true);
@@ -3022,50 +3076,29 @@ function destroyMap() {
 	lastIconSize = BASE_ICON_SIZE;
 	rotationWrapperCache = null;
 }
-let lastPolylineUpdate = 0
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
     if (!map || !routeLayer) return;
-    const len = pathCoordinates.length;
+    const len = pathCoordinatesRender.length;
     if (len < 2) return;
-    const prev = pathCoordinates[len - 2];
-    const curr = pathCoordinates[len - 1];
+    const prev = pathCoordinatesRender[len - 2];
+    const curr = pathCoordinatesRender[len - 1];
     const color = getSpeedColor(speedKmh || 0);
     let currentBatch = routeBatchLayers[routeBatchLayers.length - 1];
-    if (!currentBatch) {
-        currentBatch = [];
-        routeBatchLayers.push(currentBatch);
-    }
+    if (!currentBatch) { currentBatch = []; routeBatchLayers.push(currentBatch); }
     let currentPolyline = currentBatch[currentBatch.length - 1];
-const normalizedNewColor = String(color).toLowerCase();
-const currentColor = currentPolyline?.options?.color
-    ? String(currentPolyline.options.color).toLowerCase()
-    : null;
-	const dist = haversineMeters(prev[0], prev[1], curr[0], curr[1]);
-if (dist < 0.6) return;
-	const now = performance.now()
-if (now - lastPolylineUpdate < 120) return
-lastPolylineUpdate = now
-
-if (!currentPolyline || currentColor !== normalizedNewColor) {
-        currentPolyline = L.polyline(
-            [[prev[0], prev[1]], [curr[0], curr[1]]],
-            {
-                color,
-                weight: 4,
-                opacity: 0.95,
-                interactive: false,
-                smoothFactor: 1.5
-            }
-        ).addTo(routeLayer);
-
+    const normalizedNewColor = String(color).toLowerCase();
+    const currentColor = currentPolyline?.options?.color ? String(currentPolyline.options.color).toLowerCase() : null;
+    if (!currentPolyline || currentColor !== normalizedNewColor) {
+        currentPolyline = L.polyline([[prev[0], prev[1]], [curr[0], curr[1]]], {
+            color, weight: 4, opacity: 0.95, interactive: false, smoothFactor: 1.5
+        }).addTo(routeLayer);
         currentBatch.push(currentPolyline);
     } else {
         currentPolyline.addLatLng([curr[0], curr[1]]);
     }
- if (currentBatch.length >= POLYLINE_BATCH_SIZE) {
-    const newBatch = [];
-    routeBatchLayers.push(newBatch);
-}
+    if (currentBatch.length >= POLYLINE_BATCH_SIZE) {
+        routeBatchLayers.push([]);
+    }
 }
 // Update route and autoFollow target
 const MIN_DIST_KM = 0.002;
@@ -3074,6 +3107,7 @@ let lastRouteLon = null;
 function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     if (!map || !vehicleMarker) return;
     if (!isFinite(lat) || !isFinite(lon)) return;
+
     lastGpsLat = lat;
     lastGpsLng = lon;
     lastGpsSpeedKmh = speedKmh;
@@ -3086,9 +3120,8 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
 		if (pathCoordinates.length > 30000) {
 			pathCoordinates.shift();
 		}
-		addRealtimePolylineSegment(lat, lon, speedKmh);
 		    lastRouteLat = lat;
-    lastRouteLon = lon;
+			lastRouteLon = lon;
 	}
 	const rawHeading = isFinite(headingDegInput) ? headingDegInput : lastGpsHeading;
 	if (autoFollow) {
@@ -3220,6 +3253,7 @@ function clearTrackingMapObjects() {
 		routeLayer.clearLayers();
 	}
 	pathCoordinates = [];
+	pathCoordinatesRender = [];
 	posHistory.length = 0;
 }
 let lastInputTimestamp = null;
@@ -3233,13 +3267,7 @@ let sensorSpeedKmh = 0;
 let smoothLat = null;
 let smoothLon = null;
 function getZeroConfirmMs() {
-    return Math.min(
-        400,
-        Math.max(
-            80,
-            avgGpsIntervalMs * 0.5
-        )
-    );
+ return Math.min(220, Math.max(120, avgGpsIntervalMs * 0.4));
 }
 function normalizeGps(pos) {
     const c = pos?.coords;
@@ -3300,17 +3328,25 @@ if (delta > 0) {
 }
 	filteredSpeedKmh += delta;
 	filteredSpeedKmh = Math.max(0, filteredSpeedKmh);
-	if (sensorSpeedKmh <= STOP_LOCK_SPEED) {
-		if (zeroCandidateSince === null) {
-			zeroCandidateSince = timestamp;
-		}
-		if (timestamp - zeroCandidateSince > getZeroConfirmMs()) {
-			filteredSpeedKmh = 0;
-			sensorSpeedKmh = 0;
-		}
-	} else {
-		zeroCandidateSince = null;
-	}
+if (sensorSpeedKmh <= STOP_LOCK_SPEED) {
+
+    if (zeroCandidateSince === null) {
+        zeroCandidateSince = timestamp;
+    }
+
+    const timeReady = (timestamp - zeroCandidateSince) > getZeroConfirmMs();
+    const noMovement = moveMeters < 0.5; // 🔥 เพิ่มบรรทัดนี้
+
+    const brakingHard = speedSlope < -15;
+
+if ((timeReady && noMovement) || brakingHard) {
+        filteredSpeedKmh = 0;
+        sensorSpeedKmh = 0;
+    }
+
+} else {
+    zeroCandidateSince = null;
+}
 
 	const speedKmh = filteredSpeedKmh;
     const heading = (isFinite(c.heading) && c.heading >= 0)
@@ -3554,7 +3590,7 @@ lastGpsUpdateTime = performance.now();
 				longitude
 			) > routeThreshold
 		)) {
-			updateRoute(latitude, longitude, speedKmh, heading);
+updateRoute(latitude, longitude, speedKmh, heading);
 		}
 			// --- Logging ---
 			const coordText = latitude.toFixed(6) + "," + longitude.toFixed(6);
@@ -3692,62 +3728,64 @@ gpsIntervalSec = 1;
 		alert("ไม่มีข้อมูลตำแหน่งที่บันทึกไว้");
 		return;
 	}
-// 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset
+	// 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset (FIXED)
 	let validCoords = tripLog
-	.map(p => {
-		if (!p.coord) return null;
-		const [lat, lon] = p.coord.split(',').map(Number);
-		if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-		return [lat, lon, p.speed || 0];
-	})
-	.filter(Boolean);
-	// ลดจำนวนจุดเฉพาะตอน render (ไม่กระทบ tripLog)
-const MAX_RENDER_POINTS = 8000;
+		.map(p => {
+			if (!p.coord) return null;
+			const [lat, lon] = p.coord.split(',').map(Number);
+			if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+			return [lat, lon, p.speed || 0];
+		})
+		.filter(Boolean);
+	const MAX_RENDER_POINTS = 8000;
+	if (validCoords.length > MAX_RENDER_POINTS) {
+		const step = Math.ceil(validCoords.length / MAX_RENDER_POINTS);
+		const reduced = [];
+		for (let i = 0; i < validCoords.length; i += step) {
+			reduced.push(validCoords[i]);
+		}
+		const last = validCoords[validCoords.length - 1];
+		const lastReduced = reduced[reduced.length - 1];
 
-if (validCoords.length > MAX_RENDER_POINTS) {
-
-    const step = Math.ceil(validCoords.length / MAX_RENDER_POINTS);
-    const reduced = [];
-
-    for (let i = 0; i < validCoords.length; i += step) {
-        reduced.push(validCoords[i]);
-    }
-
-    // บังคับให้มีจุดสุดท้ายเสมอ
-    const last = validCoords[validCoords.length - 1];
-    const lastReduced = reduced[reduced.length - 1];
-
-    if (!lastReduced || lastReduced[0] !== last[0] || lastReduced[1] !== last[1]) {
-        reduced.push(last);
-    }
-
-    validCoords = reduced;
-}
+		if (!lastReduced || lastReduced[0] !== last[0] || lastReduced[1] !== last[1]) {
+			reduced.push(last);
+		}
+		validCoords = reduced;
+	}
 	if (validCoords.length === 0) return;
+	autoFollow = false;
+	autoRotate = false;
 	resetMapRotation(() => {
-		if (routeLayer) {
-			routeLayer.clearLayers();
+		hardClearMapRotation(map);
+		const wrapper = document.querySelector(".leaflet-rotate-wrapper");
+		if (wrapper) {
+			wrapper.style.transform = "none";
 		}
-		drawHistoryRoute(validCoords);
-
-		if (validCoords.length === 1) {
-			map.setView(validCoords[0], BASE_ZOOM || 17, { animate:false });
+		map.getContainer().offsetHeight;
+		removeRotationWrapper(map);
+		map.invalidateSize(true);
+		requestAnimationFrame(() => {
+			if (routeLayer) {
+				routeLayer.clearLayers();
+			}
+			drawHistoryRoute(validCoords);
+			if (validCoords.length === 1) {
+				map.setView(validCoords[0], BASE_ZOOM || 17, { animate: false });
+				enableMapInteraction();
+				return;
+			}
+			const bounds = L.latLngBounds(validCoords).pad(0.1);
+			if (!bounds.isValid()) {
+				enableMapInteraction();
+				return;
+			}
+			map.fitBounds(bounds, {
+				padding: [40, 40],
+				animate: false,
+				maxZoom: BASE_ZOOM || 17
+			});
 			enableMapInteraction();
-			return;
-		}
-		const bounds = L.latLngBounds(validCoords).pad(0.1);
-		if (!bounds.isValid()) {
-			enableMapInteraction();
-			return;
-		}
-
-		map.fitBounds(bounds, {
-			padding:[40,40],
-			animate:false,
-			maxZoom: BASE_ZOOM || 17
 		});
-
-		enableMapInteraction();
 	});
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
