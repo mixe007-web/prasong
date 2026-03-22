@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:1.1</h2>
+<h2>Trip Version:11.19</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1450,13 +1450,13 @@ function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-
-    dt = Math.min(Math.max(dt, 0.01), 0.2);
-
+    dt = Math.min(Math.max(dt, 0.01), 0.1); // ตัด lag frame ยาว
     const targetSpeed = filteredSpeedKmh;
     const targetDigit = Math.round(targetSpeed * 10);
 
-    // --- SNAP 0 จริง ---
+    // =========================
+    // SNAP 0 จริง (จบปัญหาค้าง 1–5 km/h)
+    // =========================
     if (targetSpeed <= 1.5) {
         displayedSpeed = 0;
         shownSpeed = 0;
@@ -1467,47 +1467,45 @@ function animateDigitalSpeed(timestamp) {
         return;
     }
 
-    // --- ไม่มี smoothing ---
+    // =========================
+    // NO SMOOTH (ตาม GPS 100%)
+    // =========================
     displayedSpeed = targetSpeed;
 
-    const currentDigit = shownSpeed;
+    let diff = targetDigit - shownSpeed;
 
     // =========================
-    // DOWN FAST (แก้ lag ตอนเบรก)
+    // SPEED CONTROL (สำคัญมาก)
     // =========================
-    if (currentDigit > targetDigit) {
+    let rate;
 
-        let diff = currentDigit - targetDigit;
+    if (diff > 0) {
+        // ขึ้น
+        rate = 80; // digits/sec (เร็วมาก)
+    } else {
+        // ลง (ต้องไวกว่า)
+        rate = 140;
+    }
 
-        // ถ้าลงแรง → เร่ง step
-        let steps = Math.min(diff, 4); // ลงได้เร็ว (max 4 step ต่อ frame)
+    // คำนวณจำนวน step จากเวลา (ไม่ fix 1 frame)
+    let steps = Math.max(1, Math.floor(rate * dt));
 
-        // ใกล้เป้า → ลด step กันกระโดด
-        if (diff <= 2) steps = 1;
-
-        shownSpeed -= steps;
+    // แต่ "ห้ามข้ามเลข" → loop ทีละ 1
+    while (steps-- > 0 && shownSpeed !== targetDigit) {
+        if (shownSpeed < targetDigit) shownSpeed += 1;
+        else shownSpeed -= 1;
     }
 
     // =========================
-    // UP (ไม่กระโดด)
+    // LOCK TARGET กันค้าง
     // =========================
-    else if (currentDigit < targetDigit) {
-
-        let diff = targetDigit - currentDigit;
-
-        let steps = Math.min(diff, 2); // ขึ้นไม่เกิน 2 step
-
-        shownSpeed += steps;
-    }
-
-    // =========================
-    // CATCH TARGET (กันค้าง)
-    // =========================
-    if (Math.abs(shownSpeed - targetDigit) <= 1) {
+    if (Math.abs(shownSpeed - targetDigit) === 1) {
         shownSpeed = targetDigit;
     }
 
-    // --- Render ---
+    // =========================
+    // RENDER
+    // =========================
     const renderSpeed = shownSpeed / 10;
     digitalSpeed.textContent = renderSpeed.toFixed(1) + " km/h";
 
@@ -2778,7 +2776,7 @@ if (isStopped && targetSpeed < 1) {
 			const safeBaseHeading = lerpAngle(
 				rotationController.current,
 				baseHeading,
-				clamp(targetSpeed / 20, 0.2, 1)
+				clamp(targetSpeed / 20, 0.4, 1)
 			);
 
 			blendedHeading = lerpAngle(
@@ -2789,7 +2787,7 @@ if (isStopped && targetSpeed < 1) {
 			finalTargetHeading = lerpAngle(
 				rotationController.current,
 				blendedHeading,
-				0.35,
+				0.9,
 				targetSpeed
 			);
 		}
@@ -2808,9 +2806,6 @@ if (isStopped && targetSpeed < 1) {
 			if (Math.abs(diffFromStop) > LOW_SPEED_WINDOW) {
 				diff *= clamp(targetSpeed / 10, 0.3, 0.6);
 			}
-		}
-		if (!rotationController.unlockTime && targetSpeed > 8 && Math.abs(diff) < HEADING_DEADBAND) {
-			diff *= 0.5;
 		}
 		if (rotationController.unlockTime && unlockT >= 1) {
 			rotationController.unlockTime = null;
@@ -3737,60 +3732,79 @@ function stopTracking() {
 		validCoords = reduced;
 	}
 	if (validCoords.length === 0) return;
-	resetMapRotation(() => {
-		const mapEl = map.getContainer();
-		mapEl.style.transform = "none";
-		const wrapper = document.querySelector(".leaflet-rotate-wrapper");
-		if (wrapper) wrapper.style.transform = "none";
-		hardClearMapRotation(map);
-		removeRotationWrapper(map);
-		map.invalidateSize(true);
-		requestAnimationFrame(() => {
-			let bounds = L.latLngBounds(validCoords);
-			if (!bounds.isValid()) {
-				enableMapInteraction();
-				return;
-			}
-			const ne = bounds.getNorthEast();
-			const sw = bounds.getSouthWest();
-			const distanceMeters = ne.distanceTo(sw);
-			const mapSize = map.getSize();
-			const basePadding = Math.min(mapSize.x, mapSize.y) * 0.12;
-			const markerExtra = 24;
-			let padding;
-			if (distanceMeters < 100) padding = basePadding * 1.8;
-			else if (distanceMeters < 1000) padding = basePadding * 1.4;
-			else if (distanceMeters < 10000) padding = basePadding * 1.2;
-			else if (distanceMeters < 100000) padding = basePadding;
-			else padding = basePadding * 0.8;
-			padding += markerExtra;
-			let maxZoom;
-			if (distanceMeters < 50) maxZoom = 19;
-			else if (distanceMeters < 500) maxZoom = 18;
-			else if (distanceMeters < 5000) maxZoom = 16;
-			else if (distanceMeters < 50000) maxZoom = 14;
-			else if (distanceMeters < 200000) maxZoom = 12;
-			else if (distanceMeters < 1000000) maxZoom = 10;
-			else maxZoom = 6;
-			map.fitBounds(bounds, {
-				paddingTopLeft: [padding, padding],
-				paddingBottomRight: [padding, padding],
-				maxZoom: maxZoom,
-				animate: false
-			});
-			const center = bounds.getCenter();
-			map.setView(center, map.getZoom(), { animate: false });
-			map.panInsideBounds(bounds, {
-				padding: [padding, padding],
-				animate: false
-			});
-			map.invalidateSize(true);
-			requestAnimationFrame(() => {
-				map.invalidateSize(true);
-			});
-			enableMapInteraction();
-		});
-	});
+resetMapRotation(() => {
+    const mapEl = map.getContainer();
+    mapEl.style.transform = "none";
+
+    const wrapper = document.querySelector(".leaflet-rotate-wrapper");
+    if (wrapper) wrapper.style.transform = "none";
+
+    // 🔥 สำคัญ (ต้องมี)
+    removeRotationWrapper(map);
+
+    requestAnimationFrame(() => {
+
+        let bounds = L.latLngBounds(validCoords);
+        if (!bounds.isValid()) {
+            enableMapInteraction();
+            return;
+        }
+
+        let totalDistanceMeters = 0;
+        for (let i = 1; i < validCoords.length; i++) {
+            totalDistanceMeters += map.distance(
+                [validCoords[i - 1][0], validCoords[i - 1][1]],
+                [validCoords[i][0], validCoords[i][1]]
+            );
+        }
+
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+        const diagonalMeters = ne.distanceTo(sw);
+        const distanceMeters = Math.max(diagonalMeters, totalDistanceMeters);
+
+        const mapSize = map.getSize();
+        let padding = Math.min(mapSize.x, mapSize.y) * 0.12;
+
+        const latDiff = Math.abs(ne.lat - sw.lat);
+        const lngDiff = Math.abs(ne.lng - sw.lng);
+        const stretchFactor = Math.max(latDiff, lngDiff) / Math.max(0.00001, Math.min(latDiff, lngDiff));
+
+        if (stretchFactor > 4) padding *= 1.6;
+
+        if (distanceMeters < 100) padding *= 1.8;
+        else if (distanceMeters < 1000) padding *= 1.4;
+        else if (distanceMeters < 10000) padding *= 1.2;
+
+        padding += 32;
+        padding = Math.max(padding, 50); // 🔥 กัน icon ชิดขอบ
+
+        let maxZoom;
+        if (distanceMeters < 50) maxZoom = 19;
+        else if (distanceMeters < 500) maxZoom = 18;
+        else if (distanceMeters < 5000) maxZoom = 16;
+        else if (distanceMeters < 50000) maxZoom = 14;
+        else if (distanceMeters < 200000) maxZoom = 12;
+        else if (distanceMeters < 1000000) maxZoom = 10;
+        else maxZoom = 6;
+
+        map.fitBounds(bounds, {
+            paddingTopLeft: [padding, padding],
+            paddingBottomRight: [padding, padding],
+            maxZoom: maxZoom,
+            animate: false
+        });
+
+        requestAnimationFrame(() => {
+            map.invalidateSize(true);
+
+            requestAnimationFrame(() => {
+                drawHistoryRoute(validCoords);
+                enableMapInteraction();
+            });
+        });
+    });
+});
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
