@@ -715,7 +715,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:00.77</h2>
+<h2>Trip Version:1.1</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1376,45 +1376,35 @@ function updateEfficiency() {
 	lastUpdateTime = Date.now();
 }
 // --- AVG EFFICIENCY (2 MIN VERSION) ---
-// --- AVG EFFICIENCY (Trip Average, 1 MIN UPDATE) ---
-let lastAvgEfficiency = 0;       // ค่าเฉลี่ยตลอดการเดินทาง
-let totalEffSum = 0;             // ผลรวม efficiency ตั้งแต่เริ่ม
-let totalEffCount = 0;           // จำนวนตัวอย่างทั้งหมด
-const AVG_UPDATE_INTERVAL = 60;  // อัปเดต UI ทุก 1 นาที
+let efficiencySamples = [];      // เก็บ {eff, time}
+let lastAvgEfficiency = 0;
+const AVG_WINDOW_SECONDS = 120;        // เก็บข้อมูลย้อนหลัง 2 นาที
+const AVG_UPDATE_INTERVAL = 120;       // อัปเดต UI ทุก 2 นาที
 const DECREASE_AMOUNT_WHEN_IDLE = 0.1;
 const MIN_EFF = 2.4;
 const MAX_EFF = 6.02;
 let lastAvgUpdateTime = Date.now() / 1000;
-
 function updateAvgEfficiencyPerPercent() {
     if (!isTracking) return;
-
     const effElem = document.getElementById("efficiencyPerPercentBar");
     if (!effElem) return;
     const match = effElem.textContent.match(/([\d.]+)/);
     const currentEff = match ? parseFloat(match[1]) : 0;
     if (isNaN(currentEff) || currentEff <= 0) return;
-
     const now = Date.now() / 1000;
-
-    // บันทึก efficiency ทุกครั้งที่ speed > 3 km/h
     if (rawSpeedKmh > 3) {
-        totalEffSum += currentEff;
-        totalEffCount += 1;
+        efficiencySamples.push({ eff: currentEff, time: now });
+        efficiencySamples = efficiencySamples.filter(s => now - s.time <= AVG_WINDOW_SECONDS);
     }
-    // อัปเดต UI ทุก 1 นาที
     if (now - lastAvgUpdateTime >= AVG_UPDATE_INTERVAL) {
-        // คำนวณค่าเฉลี่ยตลอด trip
-        if (totalEffCount > 0) {
-            lastAvgEfficiency = totalEffSum / totalEffCount;
-        } else {
-            lastAvgEfficiency = MIN_EFF;
+        if (rawSpeedKmh > 3 && efficiencySamples.length > 0) {      
+            const sum = efficiencySamples.reduce((a, b) => a + b.eff, 0);
+            lastAvgEfficiency = sum / efficiencySamples.length;
+        } else if (rawSpeedKmh <= 3) {
+            lastAvgEfficiency = Math.max(lastAvgEfficiency - DECREASE_AMOUNT_WHEN_IDLE, MIN_EFF);
         }
-
-        // จำกัดค่าให้อยู่ใน MIN/MAX
         lastAvgEfficiency = Math.min(Math.max(lastAvgEfficiency, MIN_EFF), MAX_EFF);
-
-        // แสดงผลบน UI
+        lastAvgUpdateTime = now;
         const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
         if (avgEffSpan) {
             avgEffSpan.textContent = `Avg: ${lastAvgEfficiency.toFixed(3)} km / 1%`;
@@ -1423,28 +1413,20 @@ function updateAvgEfficiencyPerPercent() {
             else if (lastAvgEfficiency >= 4.23) avgEffSpan.classList.add('efficiency-medium');
             else avgEffSpan.classList.add('efficiency-poor');
         }
-
-        lastAvgUpdateTime = now;
     }
 }
-
-// เริ่ม / หยุด tracking
 let avgEffInterval = null;
 function startAvgEfficiencyTracking() {
+    efficiencySamples = [];
     lastAvgEfficiency = 0;
-    totalEffSum = 0;
-    totalEffCount = 0;
     lastAvgUpdateTime = Date.now() / 1000;
-
     const avgEffSpan = document.getElementById("avgEfficiencyPerPercent");
     if (avgEffSpan) avgEffSpan.textContent = `Avg: 0.000 km / 1%`;
-
     if (avgEffInterval) clearInterval(avgEffInterval);
     avgEffInterval = setInterval(() => {
         try { updateAvgEfficiencyPerPercent(); } catch (e) {}
     }, 1000);
 }
-
 function stopAvgEfficiencyTracking() {
     if (avgEffInterval) clearInterval(avgEffInterval);
     avgEffInterval = null;
@@ -1468,9 +1450,14 @@ function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-    dt = Math.min(Math.max(dt, 0.01), 0.2); // clamp
+
+    dt = Math.min(Math.max(dt, 0.01), 0.2);
+
     const targetSpeed = filteredSpeedKmh;
-    if (targetSpeed < 1.5) {
+    const targetDigit = Math.round(targetSpeed * 10);
+
+    // --- SNAP 0 จริง ---
+    if (targetSpeed <= 1.5) {
         displayedSpeed = 0;
         shownSpeed = 0;
         digitalSpeed.textContent = "0.0 km/h";
@@ -1479,24 +1466,56 @@ function animateDigitalSpeed(timestamp) {
         speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
         return;
     }
+
+    // --- ไม่มี smoothing ---
     displayedSpeed = targetSpeed;
-    const targetDigit = Math.round(displayedSpeed * 10);
-    const slopeAbs = Math.min(Math.abs(speedSlope), 60);
-    let DIGIT_SPEED = 400 + slopeAbs * 2;
-    if (speedSlope > 15) DIGIT_SPEED *= 1.5;
-    if (speedSlope < -15) DIGIT_SPEED *= 2.5;
-    let steps = Math.floor(DIGIT_SPEED * dt);
-    steps = Math.max(1, steps);
-    while (steps-- > 0 && shownSpeed !== targetDigit) {
-        if (shownSpeed < targetDigit) shownSpeed += 1;
-        else if (shownSpeed > targetDigit) shownSpeed -= 1;
+
+    const currentDigit = shownSpeed;
+
+    // =========================
+    // DOWN FAST (แก้ lag ตอนเบรก)
+    // =========================
+    if (currentDigit > targetDigit) {
+
+        let diff = currentDigit - targetDigit;
+
+        // ถ้าลงแรง → เร่ง step
+        let steps = Math.min(diff, 4); // ลงได้เร็ว (max 4 step ต่อ frame)
+
+        // ใกล้เป้า → ลด step กันกระโดด
+        if (diff <= 2) steps = 1;
+
+        shownSpeed -= steps;
     }
+
+    // =========================
+    // UP (ไม่กระโดด)
+    // =========================
+    else if (currentDigit < targetDigit) {
+
+        let diff = targetDigit - currentDigit;
+
+        let steps = Math.min(diff, 2); // ขึ้นไม่เกิน 2 step
+
+        shownSpeed += steps;
+    }
+
+    // =========================
+    // CATCH TARGET (กันค้าง)
+    // =========================
+    if (Math.abs(shownSpeed - targetDigit) <= 1) {
+        shownSpeed = targetDigit;
+    }
+
+    // --- Render ---
     const renderSpeed = shownSpeed / 10;
     digitalSpeed.textContent = renderSpeed.toFixed(1) + " km/h";
+
     digitalSpeed.classList.remove('speed-low','speed-medium','speed-high');
     if (renderSpeed < 80) digitalSpeed.classList.add('speed-low');
     else if (renderSpeed < 110) digitalSpeed.classList.add('speed-medium');
     else digitalSpeed.classList.add('speed-high');
+
     speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
 }
 function updateSpeed(newSpeed) {
@@ -2770,7 +2789,7 @@ if (isStopped && targetSpeed < 1) {
 			finalTargetHeading = lerpAngle(
 				rotationController.current,
 				blendedHeading,
-				0.15,
+				0.35,
 				targetSpeed
 			);
 		}
@@ -2778,9 +2797,6 @@ if (isStopped && targetSpeed < 1) {
 			finalTargetHeading,
 			rotationController.current
 		);
-		if (rotationController.unlockTime) {
-			diff *= unlockT;
-		}
 		const LOW_SPEED_MIN = 3;
 		const LOW_SPEED_MAX = 5;
 		const LOW_SPEED_WINDOW = 5;
@@ -2799,8 +2815,8 @@ if (isStopped && targetSpeed < 1) {
 		if (rotationController.unlockTime && unlockT >= 1) {
 			rotationController.unlockTime = null;
 		}
-		const stiffness = lerp(18, 45, speedNorm);   // ↓ ลดแรง
-		const damping   = lerp(14.0, 10.0, speedNorm); // ↑ เพิ่มหน่วง
+const stiffness = lerp(24, 55, speedNorm);
+const damping   = lerp(11, 7.5, speedNorm);
         rotationController.velocity += diff * stiffness * dtSec;
         rotationController.velocity *= Math.exp(-damping * dtSec);
         rotationController.current =
