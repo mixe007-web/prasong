@@ -26,9 +26,6 @@ body {
 	background: #121212; /* พื้นหลังมืด */
 	color: #e0e0e0; /* ข้อความสีอ่อน */
 }
-button {
-	padding: 0.5em 1em; margin: 0.3em;
-}
 .trip-entry {
 	border: 1px solid #ccc;
 	padding: 0.5em; margin: 0.5em 0;
@@ -170,7 +167,7 @@ button:disabled {
 	border-radius: 10px;
 	overflow: hidden;
 	position: relative;
-	margin: 0 0 px; /* เว้นช่องว่างซ้ายขวา */
+	margin: 0; /* เว้นช่องว่างซ้ายขวา */
 }
 #efficiencyPerPercentBar {
 	height: 100%;
@@ -715,7 +712,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>Trip Version:11.19</h2>
+<h2>⚡Trip A-B Version:00.09</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1446,18 +1443,15 @@ let lastGpsUpdateTime = 0;
 let speedSlope = 0;
 let shownSpeed = 0;
 const digitalSpeed = document.getElementById("digitalSpeed");
+
 function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-    dt = Math.min(Math.max(dt, 0.01), 0.1); // ตัด lag frame ยาว
+    dt = Math.min(Math.max(dt, 0.01), 0.1);
     const targetSpeed = filteredSpeedKmh;
     const targetDigit = Math.round(targetSpeed * 10);
-
-    // =========================
-    // SNAP 0 จริง (จบปัญหาค้าง 1–5 km/h)
-    // =========================
-    if (targetSpeed <= 1.5) {
+    if (targetSpeed <= 1.5 && shownSpeed <= 8) {
         displayedSpeed = 0;
         shownSpeed = 0;
         digitalSpeed.textContent = "0.0 km/h";
@@ -1466,49 +1460,28 @@ function animateDigitalSpeed(timestamp) {
         speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
         return;
     }
-
-    // =========================
-    // NO SMOOTH (ตาม GPS 100%)
-    // =========================
     displayedSpeed = targetSpeed;
-
     let diff = targetDigit - shownSpeed;
-
-    // =========================
-    // SPEED CONTROL (สำคัญมาก)
-    // =========================
-    let rate;
-
+    let rate = diff > 0 ? 100 : 260;
+    let steps = Math.floor(rate * dt);
+    steps = Math.min(steps, 6);
     if (diff > 0) {
-        // ขึ้น
-        rate = 80; // digits/sec (เร็วมาก)
+        steps = Math.min(steps, 2);
     } else {
-        // ลง (ต้องไวกว่า)
-        rate = 140;
+        if (Math.abs(diff) > 30) steps = Math.min(steps, 6);
+        else if (Math.abs(diff) > 10) steps = Math.min(steps, 4);
+        else steps = Math.min(steps, 2);
     }
-
-    // คำนวณจำนวน step จากเวลา (ไม่ fix 1 frame)
-    let steps = Math.max(1, Math.floor(rate * dt));
-
-    // แต่ "ห้ามข้ามเลข" → loop ทีละ 1
+    steps = Math.max(1, steps);
     while (steps-- > 0 && shownSpeed !== targetDigit) {
         if (shownSpeed < targetDigit) shownSpeed += 1;
         else shownSpeed -= 1;
     }
-
-    // =========================
-    // LOCK TARGET กันค้าง
-    // =========================
-    if (Math.abs(shownSpeed - targetDigit) === 1) {
+    if (Math.abs(shownSpeed - targetDigit) <= 1) {
         shownSpeed = targetDigit;
     }
-
-    // =========================
-    // RENDER
-    // =========================
     const renderSpeed = shownSpeed / 10;
     digitalSpeed.textContent = renderSpeed.toFixed(1) + " km/h";
-
     digitalSpeed.classList.remove('speed-low','speed-medium','speed-high');
     if (renderSpeed < 80) digitalSpeed.classList.add('speed-low');
     else if (renderSpeed < 110) digitalSpeed.classList.add('speed-medium');
@@ -2137,6 +2110,7 @@ let lastGpsLat = null;
 let lastGpsLng = null;
 let lastGpsHeading = 0;
 let lastGpsSpeedKmh = 0;
+let lastGpsAccuracy = 5;
 let autoFollow = true;
 let autoRotate = true;
 let smoothedSpeedForZoom = 0;
@@ -2382,7 +2356,7 @@ const posHistory = [];
 const HISTORY_MAX = 6;
 const NAVI_CENTER_OFFSET_RATIO = 0.18;
 const LOW_SPEED_KMH = 10;
-const MIN_MOTION_SPEED = 3;
+const MIN_MOTION_SPEED = 2;
 const STOP_LOCK_SPEED = 1.5;
 const RESUME_UNLOCK_SPEED = 2.5;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
@@ -2509,7 +2483,8 @@ if (filteredMotionHeading == null) {
     const absDiff = Math.abs(diff);
     // 🔹 1) Speed adaptive deadband
     const deadband =
-        lastGpsSpeedKmh < 10  ? 2.5 :
+	lastGpsSpeedKmh < 5   ? 1.2 :
+        lastGpsSpeedKmh < 10  ? 2.0 :
         lastGpsSpeedKmh < 40  ? 1.6 :
         lastGpsSpeedKmh < 80  ? 1.2 :
         lastGpsSpeedKmh < 130 ? 0.8 :
@@ -2589,34 +2564,32 @@ function smoothTransformStep(now) {
     const prevFrameTime = smoothTransformTarget.lastFrameTime;
     let dtSec = (now - prevFrameTime) / 1000;
     dtSec = clamp(dtSec, 0.001, 0.05);
-	if (movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
-		movementState = "stopped";
-	} else if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
-		movementState = "moving";
-	}
+    if (movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
+        movementState = "stopped";
+        rotationController.velocity = 0;
+    } else if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
+        movementState = "moving";
+    }
 	   // 1 stop
-	const isStopped = movementState === "stopped";
-if (isStopped && targetSpeed < 1) {
-    posHistory.length = 0;   // 🔥 ล้างจริง
-    filteredMotionHeading = null;
+    const isStopped = movementState === "stopped";
+    if (isStopped) {
+        posHistory.length = 0;
+        filteredMotionHeading = null;
+    }
 
-	} else if (isStopped && posHistory.length > 2) {
-		posHistory.splice(0, posHistory.length - 2);
-	}
-
-	if (!isStopped) {
-		const last = posHistory[posHistory.length - 1];
-		if (!last ||
-			haversineMeters(last.lat, last.lon, targetLat, targetLon) >= MIN_MOVE_FOR_HISTORY_M
-		) {
-			pushHistory(targetLat, targetLon, now);
-		}
-	}
+    if (!isStopped) {
+        const last = posHistory[posHistory.length - 1];
+        if (!last ||
+            haversineMeters(last.lat, last.lon, targetLat, targetLon) >= MIN_MOVE_FOR_HISTORY_M
+        ) {
+            pushHistory(targetLat, targetLon, now);
+        }
+    }
 	const motion = getMotionHeadingFromHistory();
 	const motionOk = movementState === "moving" && targetSpeed >= MIN_MOTION_SPEED &&
 		isFinite(motion.heading) &&
 		motion.confidence >= 0.25;
-	const curveStrength01 = targetSpeed < 5
+	const curveStrength01 = targetSpeed < MIN_MOTION_SPEED
         ? 0 : computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
     /// 2) Marker Position Smoothing
     if (smoothedLat === null) {
@@ -2627,7 +2600,7 @@ if (isStopped && targetSpeed < 1) {
 	const lambda = lerp(3.2, 6.2, speedNorm) / Math.max(gpsIntervalSec, 0.30);
 	const posT = 1 - Math.exp(-lambda * dtSec);
     if (isStopped) {
-        const snapThreshold = 0.3;
+        const snapThreshold = Math.max(0.3, (lastGpsAccuracy ?? 5) * 0.5);
         if (haversineMeters(smoothedLat, smoothedLon, targetLat, targetLon) < snapThreshold) {
             smoothedLat = targetLat;
             smoothedLon = targetLon;
@@ -2727,35 +2700,42 @@ if (isStopped && targetSpeed < 1) {
         rotationWrapperCache = ensureRotationWrapper(map);
     }
     const rotWrapper = rotationWrapperCache;
-    if (rotWrapper && autoRotate) {
-		const HEADING_DEADBAND =
-			targetSpeed < 10  ? 1.0 :
-			targetSpeed < 40  ? 0.6 :
-			targetSpeed < 80  ? 0.5 :
-			targetSpeed < 120 ? 0.45 :
-								0.35;				
-		if (isStopped) {
-			if (!rotationController.freeze) {
-				rotationController.lockedHeading = rotationController.current;
-			}
-			rotationController.freeze = true;
-			rotationController.velocity *= 0.4;
-		} else {
-			if (rotationController.freeze) {
-			rotationController.lockedHeading = rotationController.current;
-				justUnlocked = true;
-			}
-			rotationController.freeze = false;
-		}
+    if (rotWrapper && autoRotate) {			
+const shouldFreeze = targetSpeed < STOP_LOCK_SPEED;
+if (shouldFreeze) {
+            if (!rotationController.freeze) {
+                if (isFinite(gpsHeading) && targetSpeed < STOP_LOCK_SPEED + 2) {
+                    rotationController.lockedHeading = gpsHeading;
+                    rotationController.current = gpsHeading;
+                } else {
+                    rotationController.lockedHeading = rotationController.current;
+                }
+            }
+            rotationController.freeze = true;
+            rotationController.velocity = 0;
+        } else {
+            if (rotationController.freeze) {
+                if (isFinite(gpsHeading)) {
+                    rotationController.lockedHeading = gpsHeading;
+                    rotationController.current = gpsHeading;
+                } else {
+                    rotationController.lockedHeading = rotationController.current;
+                }
+                rotationController.velocity = 0;
+                filteredMotionHeading = null;
+                posHistory.length = 0;
+                justUnlocked = true;
+            }
+            rotationController.freeze = false;
+        }
         let finalTargetHeading = rotationController.freeze
             ? rotationController.lockedHeading
             : normalizeAngle(baseHeading);
 		let blendedHeading = normalizeAngle(baseHeading);
-		if (justUnlocked) {
-			rotationController.velocity = 0;
-			rotationController.unlockTime = now;
-			justUnlocked = false;
-		}
+        if (justUnlocked) {
+            rotationController.unlockTime = now;
+            justUnlocked = false;
+        }
 		let unlockT = 1;
 		if (rotationController.unlockTime) {
 			const elapsed = now - rotationController.unlockTime;
@@ -2830,7 +2810,7 @@ const damping   = lerp(11, 7.5, speedNorm);
 				autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
 			);
 		if (vehicleMarker?.setRotationAngle) {
-			let markerDiff = normalizeAngleDifference(rotationController.current, lastMarkerAngle);
+			let markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
 			if (Math.abs(markerDiff) < 0.4) {
 				markerDiff = 0;
 			}
@@ -3565,6 +3545,7 @@ function startTracking() {
 		updateSpeedSlope(speedKmh, timestamp);
 		rawSpeedKmh = speedKmh;
 		lastGpsUpdateTime = performance.now();
+		lastGpsAccuracy = gps.accuracy ?? 5;
 				// --- Update display + map ---
 		updateSpeed(speedKmh);
 		const routeThreshold = Math.max(
@@ -3731,79 +3712,115 @@ function stopTracking() {
 		if (reduced[reduced.length - 1] !== last) reduced.push(last);
 		validCoords = reduced;
 	}
+	if (validCoords.length === 1) {
+    map.setView([validCoords[0][0], validCoords[0][1]], 17);
+    drawHistoryRoute(validCoords);
+    enableMapInteraction();
+    return;
+}
 	if (validCoords.length === 0) return;
-resetMapRotation(() => {
-    const mapEl = map.getContainer();
-    mapEl.style.transform = "none";
 
-    const wrapper = document.querySelector(".leaflet-rotate-wrapper");
-    if (wrapper) wrapper.style.transform = "none";
+requestAnimationFrame(() => {
+    hardClearMapRotation(map);
+    setMapPaneTransformOriginToCenter(map);
+    // ================= CONFIG =================
+    const FIT_CONFIG = {
+        paddingRatio: 0.10,
+        minPadding: 40,
+        maxPadding: 220,
+        maxZoom: 17,
+        retryLimit: 3,
+        overflowFactor: 1.15
+    };
 
-    // 🔥 สำคัญ (ต้องมี)
-    removeRotationWrapper(map);
+    // ===== bounds =====
+    let bounds = L.latLngBounds(validCoords);
+    if (!bounds.isValid()) {
+        enableMapInteraction();
+        return;
+    }
 
-    requestAnimationFrame(() => {
+    // ===== distance =====
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    const diagonalMeters = ne.distanceTo(sw);
+    const distanceMeters = diagonalMeters;
 
-        let bounds = L.latLngBounds(validCoords);
-        if (!bounds.isValid()) {
-            enableMapInteraction();
-            return;
-        }
+    // ===== dynamic zoom =====
+    const dynamicMaxZoom =
+    distanceMeters > 1000000 ? 8  :  // > 1000 km
+    distanceMeters > 500000  ? 10 :  // > 500 km
+    distanceMeters > 200000  ? 12 :  // > 200 km
+    FIT_CONFIG.maxZoom;               // < 200 km = 17
 
-        let totalDistanceMeters = 0;
-        for (let i = 1; i < validCoords.length; i++) {
-            totalDistanceMeters += map.distance(
-                [validCoords[i - 1][0], validCoords[i - 1][1]],
-                [validCoords[i][0], validCoords[i][1]]
-            );
-        }
+    // ===== padding =====
+    const mapSize = map.getSize();
+    let padding = Math.min(mapSize.x, mapSize.y) * FIT_CONFIG.paddingRatio;
 
-        const ne = bounds.getNorthEast();
-        const sw = bounds.getSouthWest();
-        const diagonalMeters = ne.distanceTo(sw);
-        const distanceMeters = Math.max(diagonalMeters, totalDistanceMeters);
+    if (distanceMeters < 200) padding *= 1.6;
+    else if (distanceMeters < 2000) padding *= 1.3;
+    else if (distanceMeters < 20000) padding *= 1.15;
+    else if (distanceMeters > 800000) padding *= 0.75;
+    else if (distanceMeters > 200000) padding *= 0.85;
 
-        const mapSize = map.getSize();
-        let padding = Math.min(mapSize.x, mapSize.y) * 0.12;
+    // stretch
+    const latDiff = Math.abs(ne.lat - sw.lat);
+    const lngDiff = Math.abs(ne.lng - sw.lng);
+    const stretchFactor = Math.max(latDiff, lngDiff) / Math.max(0.00001, Math.min(latDiff, lngDiff));
 
-        const latDiff = Math.abs(ne.lat - sw.lat);
-        const lngDiff = Math.abs(ne.lng - sw.lng);
-        const stretchFactor = Math.max(latDiff, lngDiff) / Math.max(0.00001, Math.min(latDiff, lngDiff));
+    const safeStretch = Math.min(stretchFactor, 10);
+    if (safeStretch > 5) padding *= 1.4;
 
-        if (stretchFactor > 4) padding *= 1.6;
+    // clamp
+    padding = Math.max(FIT_CONFIG.minPadding, padding);
+    padding = Math.min(FIT_CONFIG.maxPadding, padding);
 
-        if (distanceMeters < 100) padding *= 1.8;
-        else if (distanceMeters < 1000) padding *= 1.4;
-        else if (distanceMeters < 10000) padding *= 1.2;
+    map.invalidateSize();
 
-        padding += 32;
-        padding = Math.max(padding, 50); // 🔥 กัน icon ชิดขอบ
-
-        let maxZoom;
-        if (distanceMeters < 50) maxZoom = 19;
-        else if (distanceMeters < 500) maxZoom = 18;
-        else if (distanceMeters < 5000) maxZoom = 16;
-        else if (distanceMeters < 50000) maxZoom = 14;
-        else if (distanceMeters < 200000) maxZoom = 12;
-        else if (distanceMeters < 1000000) maxZoom = 10;
-        else maxZoom = 6;
+    // ===== FIT + retry =====
+    function fitWithRetry(retry = 0) {
 
         map.fitBounds(bounds, {
-            paddingTopLeft: [padding, padding],
-            paddingBottomRight: [padding, padding],
-            maxZoom: maxZoom,
+            padding: [padding, padding],
+            maxZoom: dynamicMaxZoom, // ✅ ใช้ตัวนี้
             animate: false
         });
 
         requestAnimationFrame(() => {
-            map.invalidateSize(true);
+
+            const currentBounds = map.getBounds();
+            let overflow = false;
+
+            const sampleStep = Math.max(1, Math.floor(validCoords.length / 100));
+const paddedBounds = currentBounds.pad(-0.02);
+
+for (let i = 0; i < validCoords.length; i += sampleStep) {
+    const latlng = L.latLng(validCoords[i][0], validCoords[i][1]);
+    if (!paddedBounds.contains(latlng)) {
+        overflow = true;
+        break;
+    }
+}
+
+            if (overflow && retry < FIT_CONFIG.retryLimit) {
+                padding = Math.min(
+                    padding * FIT_CONFIG.overflowFactor,
+                    FIT_CONFIG.maxPadding
+                );
+                fitWithRetry(retry + 1);
+                return;
+            }
+
+            if (routeLayer) routeLayer.clearLayers();
+            drawHistoryRoute(validCoords);
 
             requestAnimationFrame(() => {
-                drawHistoryRoute(validCoords);
                 enableMapInteraction();
             });
         });
-    });
+    }
+
+    fitWithRetry();
 });
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
