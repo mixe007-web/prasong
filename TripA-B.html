@@ -712,7 +712,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡Trip A-B Version:00.09</h2>
+<h2>⚡Trip A-B Version:77.77</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -819,8 +819,8 @@ button:disabled {
 		<p>เวลาที่ใช้เดินทาง: <span id="elapsedTime">00:00:00</span></p>
 		<p>ความเร็วสูงสุด (กม./ชม.): <span id="maxSpeed">0.0</span> km/h</p>
 		<p>ความเร็วเฉลี่ย (กม./ชม.): <span id="avgSpeed">0.0</span> km/h</p>
-		<p>เวลาที่เริ่ม และ พิกัดเริ่มต้น: <span id="startTime">-</span> , <span id="startCoord">-</span></p>
-		<p>เวลาที่สิ้นสุด และ พิกัดสิ้นสุด: <span id="endTime">-</span> , <span id="endCoord">-</span></p>
+		<p>พิกัดเริ่มต้น: <span id="startTime">-</span> , <span id="startCoord">-</span></p>
+		<p>พิกัดสิ้นสุด: <span id="endTime">-</span> , <span id="endCoord">-</span></p>
 	<h3 style="display: flex; align-items: center; justify-content: space-between;">
 		<button id="toggleTripHistory" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
 			History
@@ -1210,8 +1210,8 @@ updateHistory();
   const energyScalingFactorspeed = 1;
 	function getEnergyPerKmFromSpeed(speedKmh) {
 	const table = [
-		{ speed: 0, energy: 0.15 },
-		{ speed: 5, energy: 0.148 },
+		{ speed: 0, energy: 0.158 },
+		{ speed: 5, energy: 0.150 },
 		{ speed: 10, energy: 0.145 },
 		{ speed: 15, energy: 0.140 },
 		{ speed: 20, energy: 0.135 },
@@ -1462,16 +1462,23 @@ function animateDigitalSpeed(timestamp) {
     }
     displayedSpeed = targetSpeed;
     let diff = targetDigit - shownSpeed;
-    let rate = diff > 0 ? 100 : 260;
+    let rate;
+if (diff > 0) {
+    rate = 100;
+} else {
+    if (Math.abs(diff) > 30) rate = 600;
+    else if (Math.abs(diff) > 10) rate = 400;
+    else rate = 250;
+}
     let steps = Math.floor(rate * dt);
-    steps = Math.min(steps, 6);
+    steps = Math.min(steps, 10);
     if (diff > 0) {
-        steps = Math.min(steps, 2);
+        steps = Math.min(steps, 3);
     } else {
-        if (Math.abs(diff) > 30) steps = Math.min(steps, 6);
-        else if (Math.abs(diff) > 10) steps = Math.min(steps, 4);
-        else steps = Math.min(steps, 2);
-    }
+    if (Math.abs(diff) > 30) steps = Math.min(steps, 10);
+    else if (Math.abs(diff) > 10) steps = Math.min(steps, 6);
+    else steps = Math.min(steps, 5);
+}
     steps = Math.max(1, steps);
     while (steps-- > 0 && shownSpeed !== targetDigit) {
         if (shownSpeed < targetDigit) shownSpeed += 1;
@@ -1983,8 +1990,8 @@ function loadHistory(limit = null) {
         <p>Energy/Trip: ${(trip.energyConsumption || 0).toFixed(2)} kWh</p>
         <p>SOC/Trip: ${(trip.batterySOCUsedPercent || 0).toFixed(2)}%</p>
         <p>พลังงานใช้เฉลี่ย: ${(trip.energyPer100km || 0).toFixed(2)} kWh/100km</p>
-        <p>เวลาที่เริ่ม และ พิกัดเริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"} , ${trip.startCoord || "-"}</p>
-        <p>เวลาที่สิ้นสุด และ พิกัดสิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"} , ${trip.endCoord || "-"}</p>	
+        <p>พิกัดเริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"} , ${trip.startCoord || "-"}</p>
+        <p>พิกัดสิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"} , ${trip.endCoord || "-"}</p>	
       </div>`;
 	});
 	historyContainer.innerHTML = html;
@@ -2573,7 +2580,8 @@ function smoothTransformStep(now) {
 	   // 1 stop
     const isStopped = movementState === "stopped";
     if (isStopped) {
-        posHistory.length = 0;
+		if (posHistory.length > 2)
+        posHistory.splice(0, posHistory.length - 1);
         filteredMotionHeading = null;
     }
 
@@ -2586,11 +2594,24 @@ function smoothTransformStep(now) {
         }
     }
 	const motion = getMotionHeadingFromHistory();
-	const motionOk = movementState === "moving" && targetSpeed >= MIN_MOTION_SPEED &&
-		isFinite(motion.heading) &&
-		motion.confidence >= 0.25;
-	const curveStrength01 = targetSpeed < MIN_MOTION_SPEED
-        ? 0 : computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
+const motionOk =
+    movementState === "moving" &&
+    targetSpeed >= MIN_MOTION_SPEED &&
+    isFinite(motion.heading) &&
+    motion.confidence >= 0.25;
+	const lowSpeedCurveOk =
+    movementState === "moving" &&
+    targetSpeed >= 2 &&                 // 🚗 รถติด
+    targetSpeed < 5 &&
+    isFinite(motion.heading) &&
+    motion.confidence >= 0.55 &&        // 🔥 ต้องมั่นใจสูง
+    Math.abs(motion.turnRate) > 12;     // 🔥 ต้องมีโค้งจริง
+const turnRateForCurve =
+    (motionOk || lowSpeedCurveOk) ? motion.turnRate : 0;
+
+const curveStrength01 = targetSpeed < MIN_MOTION_SPEED
+    ? 0
+    : computeCurveStrength(turnRateForCurve, targetSpeed);
     /// 2) Marker Position Smoothing
     if (smoothedLat === null) {
         smoothedLat = targetLat;
@@ -2616,12 +2637,38 @@ function smoothTransformStep(now) {
     const gpsHeading = isFinite(targetHeading)
         ? ((targetHeading + 360) % 360)
         : null;
-    let baseHeading = mixHeading(
-        gpsHeading,
+
+    // 🔥 ใช้ motion เฉพาะตอนเป็นโค้งจริง
+let baseHeading = mixHeading(
+    gpsHeading,
+    motion.heading,
+    motion.confidence,
+    targetSpeed
+);
+
+// low speed curve override
+if (!motionOk && lowSpeedCurveOk) {
+    baseHeading = lerpAngle(
+        rotationController.current,
         motion.heading,
-        motion.confidence,
-        targetSpeed
+        0.35
     );
+}
+
+// stabilize low speed
+if (!rotationController.freeze && targetSpeed < 8) {
+    const ref = rotationController.lastStableHeading ?? baseHeading;
+    const diff = Math.abs(
+        normalizeAngleDifference(baseHeading, ref)
+    );
+const unstable =
+    (!motionOk && !lowSpeedCurveOk) || diff > 25;
+
+    if (unstable) {
+        const t = clamp((targetSpeed - 0.5) / 7.5, 0, 1);
+        baseHeading = lerpAngle(ref, baseHeading, t * 0.6);
+    }
+}
     if (!isFinite(baseHeading) && posHistory.length >= 2) {
         const p1 = posHistory[posHistory.length - 2];
         const p2 = posHistory[posHistory.length - 1];
@@ -2631,8 +2678,9 @@ function smoothTransformStep(now) {
 		baseHeading = rotationController.lockedHeading ?? lastHeading ?? 0;
 	}
     /// 4) Curve Model
-    const isTurning = motionOk &&
-        (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
+const isTurning =
+    (motionOk || lowSpeedCurveOk) &&
+    (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
     if (targetSpeed >= LOW_SPEED_KMH && curveStrength01 > 0.14) {
         curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
     }
@@ -2700,27 +2748,33 @@ function smoothTransformStep(now) {
         rotationWrapperCache = ensureRotationWrapper(map);
     }
     const rotWrapper = rotationWrapperCache;
-    if (rotWrapper && autoRotate) {			
-const shouldFreeze = targetSpeed < STOP_LOCK_SPEED;
-if (shouldFreeze) {
-            if (!rotationController.freeze) {
-                if (isFinite(gpsHeading) && targetSpeed < STOP_LOCK_SPEED + 2) {
-                    rotationController.lockedHeading = gpsHeading;
-                    rotationController.current = gpsHeading;
-                } else {
+    if (rotWrapper && autoRotate) {
+		const preStopLock = !rotationController.freeze && targetSpeed < 5 && targetSpeed > 0;
+		if (preStopLock && !lowSpeedCurveOk) {
+			rotationController.lockedHeading = rotationController.lastStableHeading ?? baseHeading;
+			baseHeading = rotationController.lockedHeading;
+		}	
+		const shouldFreeze = targetSpeed < STOP_LOCK_SPEED;
+		if (shouldFreeze) {
+			if (!rotationController.freeze) {
+				if (isFinite(gpsHeading) && targetSpeed < STOP_LOCK_SPEED + 2) {
+					const diff = Math.abs(normalizeAngleDifference(gpsHeading, lastHeading));
+					if (diff < 45) {
+						rotationController.lockedHeading = gpsHeading;
+					}
+				} else {
                     rotationController.lockedHeading = rotationController.current;
                 }
             }
             rotationController.freeze = true;
             rotationController.velocity = 0;
         } else {
-            if (rotationController.freeze) {
-                if (isFinite(gpsHeading)) {
-                    rotationController.lockedHeading = gpsHeading;
-                    rotationController.current = gpsHeading;
-                } else {
-                    rotationController.lockedHeading = rotationController.current;
-                }
+			if (rotationController.freeze) {
+				if (isFinite(gpsHeading) && targetSpeed > 8) {
+					rotationController.lockedHeading = gpsHeading;
+				} else {
+					rotationController.lockedHeading = rotationController.current;
+				}
                 rotationController.velocity = 0;
                 filteredMotionHeading = null;
                 posHistory.length = 0;
@@ -2728,9 +2782,9 @@ if (shouldFreeze) {
             }
             rotationController.freeze = false;
         }
-        let finalTargetHeading = rotationController.freeze
-            ? rotationController.lockedHeading
-            : normalizeAngle(baseHeading);
+		let finalTargetHeading = (rotationController.freeze || preStopLock)
+			? rotationController.lockedHeading
+			: normalizeAngle(baseHeading);
 		let blendedHeading = normalizeAngle(baseHeading);
         if (justUnlocked) {
             rotationController.unlockTime = now;
@@ -2756,7 +2810,7 @@ if (shouldFreeze) {
 			const safeBaseHeading = lerpAngle(
 				rotationController.current,
 				baseHeading,
-				clamp(targetSpeed / 20, 0.4, 1)
+				clamp(targetSpeed / 20, 0.1, 1)
 			);
 
 			blendedHeading = lerpAngle(
@@ -2775,23 +2829,12 @@ if (shouldFreeze) {
 			finalTargetHeading,
 			rotationController.current
 		);
-		const LOW_SPEED_MIN = 3;
-		const LOW_SPEED_MAX = 5;
-		const LOW_SPEED_WINDOW = 5;
-		if (!rotationController.freeze && targetSpeed >= LOW_SPEED_MIN && targetSpeed <= LOW_SPEED_MAX) {
-			const diffFromStop = normalizeAngleDifference(
-				finalTargetHeading,
-				rotationController.lockedHeading
-			);
-			if (Math.abs(diffFromStop) > LOW_SPEED_WINDOW) {
-				diff *= clamp(targetSpeed / 10, 0.3, 0.6);
-			}
-		}
+		if (Math.abs(diff) < 0.3) diff = 0;
 		if (rotationController.unlockTime && unlockT >= 1) {
 			rotationController.unlockTime = null;
 		}
-const stiffness = lerp(24, 55, speedNorm);
-const damping   = lerp(11, 7.5, speedNorm);
+		const stiffness = lerp(24, 55, speedNorm);
+		const damping   = lerp(11, 7.5, speedNorm);
         rotationController.velocity += diff * stiffness * dtSec;
         rotationController.velocity *= Math.exp(-damping * dtSec);
         rotationController.current =
@@ -3253,7 +3296,7 @@ let sensorSpeedKmh = 0;
 let smoothLat = null;
 let smoothLon = null;
 function getZeroConfirmMs() {
-    return 80;
+    return 30;
 }
 function normalizeGps(pos) {
     const c = pos?.coords;
@@ -3264,7 +3307,6 @@ function normalizeGps(pos) {
     const timestamp = pos.timestamp;
     const accuracy = isFinite(c.accuracy) ? c.accuracy : null;
 	let dt = 0.2;
-	sensorSpeedKmh = 0;
 	if (lastInputTimestamp != null) {
 		dt = (timestamp - lastInputTimestamp) / 1000;
 	}
@@ -3295,7 +3337,7 @@ function normalizeGps(pos) {
 			sensorSpeedKmh = (moveMeters / dt) * 3.6;
 		}
 	}
-	if (sensorSpeedKmh < 1 && moveMeters < 0.35) {
+	if (sensorSpeedKmh < 0.8 && moveMeters < 0.4) {
 		sensorSpeedKmh = 0;
 	}
     let delta = sensorSpeedKmh - filteredSpeedKmh;
@@ -3303,28 +3345,54 @@ function normalizeGps(pos) {
 	const MAX_DECEL_MS2 = 12.0;   // เบรกแรง
 	const maxUp = MAX_ACCEL_MS2 * 3.6 * dt;     // m/s² → km/h/s
 	const maxDown = MAX_DECEL_MS2 * 3.6 * dt;
-	if (delta > 0) {
-		delta = Math.min(delta, maxUp);
-	} else {
-		delta = Math.max(delta, -maxDown);
-	}
-	filteredSpeedKmh += delta;
-	filteredSpeedKmh = Math.max(0, filteredSpeedKmh);
-	if (sensorSpeedKmh <= STOP_LOCK_SPEED) {
-		if (zeroCandidateSince === null) {
-			zeroCandidateSince = timestamp;
-		}
-		const timeReady = (timestamp - zeroCandidateSince) > getZeroConfirmMs();
-		const noMovement = moveMeters < 0.5;
-		const brakingHard = speedSlope < -15 && filteredSpeedKmh < 15; 
-		const nearStop = filteredSpeedKmh < 1 && moveMeters < 0.35;
-		if ((timeReady && noMovement) || brakingHard || nearStop) {
-			filteredSpeedKmh = 0;
-			sensorSpeedKmh = 0;
-		} 
-	} else {
-		zeroCandidateSince = null;
-	}
+const LOW_SPEED_RELEASE = 10; // km/h
+
+if (filteredSpeedKmh < LOW_SPEED_RELEASE) {
+    delta = sensorSpeedKmh - filteredSpeedKmh;
+} else {
+    if (delta > 0) {
+        delta = Math.min(delta, maxUp);
+    } else {
+        delta = Math.max(delta, -maxDown);
+    }
+}
+// --- stage 1: base filter ---
+let nextSpeed = filteredSpeedKmh + delta;
+nextSpeed = Math.max(0, nextSpeed);
+// --- stage 2: slope override
+if (speedSlope < -8 && nextSpeed < 20 && nextSpeed > STOP_LOCK_SPEED) {
+    const diff = Math.abs(sensorSpeedKmh - nextSpeed);
+    if (diff > 1.5) {
+        nextSpeed = sensorSpeedKmh;
+    }
+}
+// --- stage 3: low-speed sync ---
+else if (nextSpeed < 10) {
+    const diffLow = Math.abs(sensorSpeedKmh - nextSpeed);
+    if (diffLow > 1.5) {
+        nextSpeed = sensorSpeedKmh;
+    }
+}
+// --- stage 4: stop lock ---
+if (nextSpeed <= STOP_LOCK_SPEED) {
+    if (zeroCandidateSince === null) {
+        zeroCandidateSince = timestamp;
+    }
+    const timeReady = (timestamp - zeroCandidateSince) > getZeroConfirmMs();
+    const noMovement = moveMeters < 0.5;
+    const brakingHard = speedSlope < -15 && nextSpeed < 15;
+    const nearStop = nextSpeed < 1 && moveMeters < 0.35;
+
+    if ((timeReady && noMovement) || brakingHard || nearStop) {
+        nextSpeed = 0;
+        sensorSpeedKmh = 0;
+    }
+} else {
+    zeroCandidateSince = null;
+}
+
+// commit ทีเดียว
+filteredSpeedKmh = nextSpeed;
 	const speedKmh = filteredSpeedKmh;
     const heading = (isFinite(c.heading) && c.heading >= 0)
             ? (c.heading % 360)
@@ -3350,6 +3418,7 @@ function normalizeGps(pos) {
 			}
 		}
 	}
+
     lastRawGpsLat = finalLat;
     lastRawGpsLon = finalLon;
 	lastInputGpsLat = lat;
@@ -3724,14 +3793,14 @@ requestAnimationFrame(() => {
     hardClearMapRotation(map);
     setMapPaneTransformOriginToCenter(map);
     // ================= CONFIG =================
-    const FIT_CONFIG = {
-        paddingRatio: 0.10,
-        minPadding: 40,
-        maxPadding: 220,
-        maxZoom: 17,
-        retryLimit: 3,
-        overflowFactor: 1.15
-    };
+const FIT_CONFIG = {
+    paddingRatio: 0.12, 
+    minPadding: 60,
+    maxPadding: 500,   
+    maxZoom: 17,
+    retryLimit: 4,
+    overflowFactor: 1.3
+};
 
     // ===== bounds =====
     let bounds = L.latLngBounds(validCoords);
@@ -3745,7 +3814,12 @@ requestAnimationFrame(() => {
     const sw = bounds.getSouthWest();
     const diagonalMeters = ne.distanceTo(sw);
     const distanceMeters = diagonalMeters;
-
+bounds = bounds.pad(
+    distanceMeters > 500000 ? 0.30 :   // > 500 km
+    distanceMeters > 100000 ? 0.18 :   // > 100 km
+    distanceMeters > 10000  ? 0.12 :   // > 10 km
+    0.08                                // < 10 km
+);
     // ===== dynamic zoom =====
     const dynamicMaxZoom =
     distanceMeters > 1000000 ? 8  :  // > 1000 km
@@ -3756,20 +3830,18 @@ requestAnimationFrame(() => {
     // ===== padding =====
     const mapSize = map.getSize();
     let padding = Math.min(mapSize.x, mapSize.y) * FIT_CONFIG.paddingRatio;
-
-    if (distanceMeters < 200) padding *= 1.6;
-    else if (distanceMeters < 2000) padding *= 1.3;
-    else if (distanceMeters < 20000) padding *= 1.15;
-    else if (distanceMeters > 800000) padding *= 0.75;
-    else if (distanceMeters > 200000) padding *= 0.85;
-
+if (distanceMeters < 2000) padding *= 1.4;        // ระยะสั้น → เผื่อเยอะ
+else if (distanceMeters < 20000) padding *= 1.3;  // ระยะกลาง
+else if (distanceMeters < 200000) padding *= 1.2; // เริ่มไกล
+else if (distanceMeters < 800000) padding *= 1.1; // ไกล
+else padding *= 1.05;                             // ไกลมาก (ไม่ต้องเยอะ)
     // stretch
     const latDiff = Math.abs(ne.lat - sw.lat);
     const lngDiff = Math.abs(ne.lng - sw.lng);
     const stretchFactor = Math.max(latDiff, lngDiff) / Math.max(0.00001, Math.min(latDiff, lngDiff));
 
     const safeStretch = Math.min(stretchFactor, 10);
-    if (safeStretch > 5) padding *= 1.4;
+    if (safeStretch > 5) padding *= 1.2;
 
     // clamp
     padding = Math.max(FIT_CONFIG.minPadding, padding);
@@ -3779,20 +3851,19 @@ requestAnimationFrame(() => {
 
     // ===== FIT + retry =====
     function fitWithRetry(retry = 0) {
-
-        map.fitBounds(bounds, {
-            padding: [padding, padding],
-            maxZoom: dynamicMaxZoom, // ✅ ใช้ตัวนี้
-            animate: false
-        });
+map.fitBounds(bounds, {
+    padding: [padding * 1.3, padding * 1.3], // 👈 เพิ่ม
+    maxZoom: dynamicMaxZoom,
+    animate: false
+});
 
         requestAnimationFrame(() => {
 
             const currentBounds = map.getBounds();
             let overflow = false;
 
-            const sampleStep = Math.max(1, Math.floor(validCoords.length / 100));
-const paddedBounds = currentBounds.pad(-0.02);
+           const sampleStep = Math.max(1, Math.floor(validCoords.length / 300));
+const paddedBounds = currentBounds;
 
 for (let i = 0; i < validCoords.length; i += sampleStep) {
     const latlng = L.latLng(validCoords[i][0], validCoords[i][1]);
