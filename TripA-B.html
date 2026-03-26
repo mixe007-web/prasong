@@ -712,7 +712,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡Trip A-B Version:77.77</h2>
+<h2>⚡Trip A-B Version:77.66</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3295,8 +3295,10 @@ let zeroCandidateSince = null;
 let sensorSpeedKmh = 0;
 let smoothLat = null;
 let smoothLon = null;
-function getZeroConfirmMs() {
-    return 30;
+function getZeroConfirmMs(speedKmh) {
+if (speedKmh < 2) return 30;
+if (speedKmh < 5) return 50;
+return 180;
 }
 function normalizeGps(pos) {
     const c = pos?.coords;
@@ -3310,7 +3312,7 @@ function normalizeGps(pos) {
 	if (lastInputTimestamp != null) {
 		dt = (timestamp - lastInputTimestamp) / 1000;
 	}
-	dt = clamp(dt, 0.05, 1.5);
+	dt = clamp(dt, 0.05, 0.8);
 	if (typeof c.speed === "number" && isFinite(c.speed)) {
 		sensorSpeedKmh = Math.max(0, c.speed * 3.6);
     } else if (
@@ -3359,6 +3361,9 @@ if (filteredSpeedKmh < LOW_SPEED_RELEASE) {
 // --- stage 1: base filter ---
 let nextSpeed = filteredSpeedKmh + delta;
 nextSpeed = Math.max(0, nextSpeed);
+if (nextSpeed < 3 && moveMeters < 0.5) {
+    nextSpeed = 0;
+}
 // --- stage 2: slope override
 if (speedSlope < -8 && nextSpeed < 20 && nextSpeed > STOP_LOCK_SPEED) {
     const diff = Math.abs(sensorSpeedKmh - nextSpeed);
@@ -3373,17 +3378,29 @@ else if (nextSpeed < 10) {
         nextSpeed = sensorSpeedKmh;
     }
 }
+// 🔥 HARD ZERO GATE (กันค้าง 1–5 km/h)
+if (sensorSpeedKmh < 3 && moveMeters < 0.6) {
+    sensorSpeedKmh = 0;
+}
 // --- stage 4: stop lock ---
 if (nextSpeed <= STOP_LOCK_SPEED) {
     if (zeroCandidateSince === null) {
         zeroCandidateSince = timestamp;
     }
-    const timeReady = (timestamp - zeroCandidateSince) > getZeroConfirmMs();
-    const noMovement = moveMeters < 0.5;
-    const brakingHard = speedSlope < -15 && nextSpeed < 15;
-    const nearStop = nextSpeed < 1 && moveMeters < 0.35;
 
-    if ((timeReady && noMovement) || brakingHard || nearStop) {
+    const confirmMs = getZeroConfirmMs(nextSpeed);
+    const timeReady = (timestamp - zeroCandidateSince) > confirmMs;
+
+const noMovement = moveMeters < 0.6;
+const veryLowSpeed = nextSpeed < 3.5;
+    const brakingHard = speedSlope < -12 && nextSpeed < 20;
+    const nearStop = nextSpeed < 1.2 && moveMeters < 0.4;
+
+    if (
+        (timeReady && noMovement && veryLowSpeed) ||
+        brakingHard ||
+        nearStop
+    ) {
         nextSpeed = 0;
         sensorSpeedKmh = 0;
     }
