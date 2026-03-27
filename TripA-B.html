@@ -712,7 +712,7 @@ button:disabled {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡Trip A-B Version:77.66</h2>
+<h2>⚡Trip A-B Version:2.66</h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2356,6 +2356,7 @@ let lastMarkerLon = null;
 let justUnlocked = false;
 let lastRenderLat = null;
 let lastRenderLon = null;
+let resumeTime = 0;
 const ZOOM_STABLE_DELAY = 250;
 const MIN_MOVE_FOR_MOTION_M = 0.3;
 const MIN_MOVE_FOR_HISTORY_M = 0.5;
@@ -2365,7 +2366,7 @@ const NAVI_CENTER_OFFSET_RATIO = 0.18;
 const LOW_SPEED_KMH = 10;
 const MIN_MOTION_SPEED = 2;
 const STOP_LOCK_SPEED = 1.5;
-const RESUME_UNLOCK_SPEED = 2.5;
+const RESUME_UNLOCK_SPEED = 3;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio = 0) {
     if (!wrapper) return;
@@ -2524,15 +2525,17 @@ return {
 };
 }
 function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
-	const gpsOk = isFinite(gpsHeading);
-	const motionOk = isFinite(motionHeading);
-	if (!gpsOk && !motionOk) return null;
-	if (!gpsOk) return motionHeading;
-	if (!motionOk) return gpsHeading;
-	const speedW = clamp(speedKmh / 200, 0, 1);
-	let wMotion = lerp(0.65, 0.90, speedW) * clamp(motionConfidence + 0.15, 0, 1);
-	wMotion = clamp(wMotion, 0.45, 0.90);
-	return lerpAngle(gpsHeading, motionHeading, wMotion);
+    const gpsOk = isFinite(gpsHeading) && speedKmh > 5;   // 🔥 เพิ่ม
+    const motionOk = isFinite(motionHeading);
+
+    if (!gpsOk && !motionOk) return null;
+    if (!gpsOk) return motionHeading;
+    if (!motionOk) return gpsHeading;
+
+    const speedW = clamp(speedKmh / 200, 0, 1);
+    let wMotion = lerp(0.7, 0.95, speedW) * clamp(motionConfidence + 0.2, 0, 1);
+
+    return lerpAngle(gpsHeading, motionHeading, wMotion);
 }
 function dynamicLookAhead(speedKmh, curveStrength01, isStopped) {
     if (isStopped) return 0;
@@ -2575,8 +2578,15 @@ function smoothTransformStep(now) {
         movementState = "stopped";
         rotationController.velocity = 0;
     } else if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
-        movementState = "moving";
-    }
+    movementState = "moving";
+
+    resetFollowRotationState(false);
+filteredMotionHeading = null;
+posHistory.length = 0;
+lastHeading = rotationController.lockedHeading;
+    rotationController.current = rotationController.lockedHeading;
+    rotationController.velocity = 0;
+}
 	   // 1 stop
     const isStopped = movementState === "stopped";
     if (isStopped) {
@@ -2596,9 +2606,10 @@ function smoothTransformStep(now) {
 	const motion = getMotionHeadingFromHistory();
 const motionOk =
     movementState === "moving" &&
-    targetSpeed >= MIN_MOTION_SPEED &&
+    targetSpeed >= 3 &&
+    (now - resumeTime > 800) &&   // 🔥 delay 0.8 วิ
     isFinite(motion.heading) &&
-    motion.confidence >= 0.25;
+    motion.confidence >= 0.45;
 	const lowSpeedCurveOk =
     movementState === "moving" &&
     targetSpeed >= 2 &&                 // 🚗 รถติด
@@ -2645,7 +2656,14 @@ let baseHeading = mixHeading(
     motion.confidence,
     targetSpeed
 );
+// ===== HEADING WARMUP GUARD =====
+const isHeadingReliable =
+    targetSpeed > 6 &&
+    (motion.confidence > 0.5 || isFinite(gpsHeading));
 
+if (!isHeadingReliable) {
+    baseHeading = rotationController.lockedHeading ?? baseHeading;
+}
 // low speed curve override
 if (!motionOk && lowSpeedCurveOk) {
     baseHeading = lerpAngle(
@@ -2748,41 +2766,39 @@ const isTurning =
         rotationWrapperCache = ensureRotationWrapper(map);
     }
     const rotWrapper = rotationWrapperCache;
-    if (rotWrapper && autoRotate) {
-		const preStopLock = !rotationController.freeze && targetSpeed < 5 && targetSpeed > 0;
-		if (preStopLock && !lowSpeedCurveOk) {
-			rotationController.lockedHeading = rotationController.lastStableHeading ?? baseHeading;
-			baseHeading = rotationController.lockedHeading;
-		}	
+    if (rotWrapper && autoRotate) {	
 		const shouldFreeze = targetSpeed < STOP_LOCK_SPEED;
-		if (shouldFreeze) {
-			if (!rotationController.freeze) {
-				if (isFinite(gpsHeading) && targetSpeed < STOP_LOCK_SPEED + 2) {
-					const diff = Math.abs(normalizeAngleDifference(gpsHeading, lastHeading));
-					if (diff < 45) {
-						rotationController.lockedHeading = gpsHeading;
-					}
-				} else {
-                    rotationController.lockedHeading = rotationController.current;
-                }
-            }
-            rotationController.freeze = true;
-            rotationController.velocity = 0;
-        } else {
-			if (rotationController.freeze) {
-				if (isFinite(gpsHeading) && targetSpeed > 8) {
-					rotationController.lockedHeading = gpsHeading;
-				} else {
-					rotationController.lockedHeading = rotationController.current;
-				}
-                rotationController.velocity = 0;
-                filteredMotionHeading = null;
-                posHistory.length = 0;
-                justUnlocked = true;
-            }
-            rotationController.freeze = false;
+if (shouldFreeze) {
+    if (!rotationController.freeze) {
+        rotationController.lockedHeading = isFinite(gpsHeading)
+            ? gpsHeading
+            : rotationController.current;
+
+        rotationController.unlockTime = null;
+    }
+    rotationController.freeze = true;
+    rotationController.velocity = 0;
+
+} else {
+
+    if (rotationController.freeze) {
+        if (!rotationController.unlockTime) {
+            rotationController.unlockTime = now;
         }
-		let finalTargetHeading = (rotationController.freeze || preStopLock)
+
+        const UNLOCK_DELAY_MS = 400;
+
+        if (now - rotationController.unlockTime >= UNLOCK_DELAY_MS) {
+            rotationController.freeze = false;
+            rotationController.velocity = 0;
+            filteredMotionHeading = null;
+            posHistory.splice(0, posHistory.length - 1);
+            justUnlocked = true;
+        }
+    }
+
+}
+		let finalTargetHeading = (rotationController.freeze)
 			? rotationController.lockedHeading
 			: normalizeAngle(baseHeading);
 		let blendedHeading = normalizeAngle(baseHeading);
@@ -2818,13 +2834,24 @@ const isTurning =
 				safeBaseHeading,
 				blendFactor
 			);
-			finalTargetHeading = lerpAngle(
-				rotationController.current,
-				blendedHeading,
-				0.9,
-				targetSpeed
-			);
+finalTargetHeading = lerpAngle(
+    rotationController.current,
+    blendedHeading,
+    0.25
+);
 		}
+		const MAX_HEADING_CHANGE = targetSpeed < 10 ? 8 : 25;
+
+let rawDiff = normalizeAngleDifference(
+    finalTargetHeading,
+    rotationController.current
+);
+
+if (Math.abs(rawDiff) > MAX_HEADING_CHANGE) {
+    finalTargetHeading =
+        rotationController.current +
+        Math.sign(rawDiff) * MAX_HEADING_CHANGE;
+}
 		let diff = normalizeAngleDifference(
 			finalTargetHeading,
 			rotationController.current
@@ -3361,9 +3388,7 @@ if (filteredSpeedKmh < LOW_SPEED_RELEASE) {
 // --- stage 1: base filter ---
 let nextSpeed = filteredSpeedKmh + delta;
 nextSpeed = Math.max(0, nextSpeed);
-if (nextSpeed < 3 && moveMeters < 0.5) {
-    nextSpeed = 0;
-}
+
 // --- stage 2: slope override
 if (speedSlope < -8 && nextSpeed < 20 && nextSpeed > STOP_LOCK_SPEED) {
     const diff = Math.abs(sensorSpeedKmh - nextSpeed);
@@ -3378,8 +3403,10 @@ else if (nextSpeed < 10) {
         nextSpeed = sensorSpeedKmh;
     }
 }
-// 🔥 HARD ZERO GATE (กันค้าง 1–5 km/h)
-if (sensorSpeedKmh < 3 && moveMeters < 0.6) {
+
+// 🔥 HARD STOP (จอดจริง = 0 ทันที)
+if (sensorSpeedKmh < 2 && moveMeters < 1.0) {
+    nextSpeed = 0;
     sensorSpeedKmh = 0;
 }
 // --- stage 4: stop lock ---
@@ -3391,15 +3418,12 @@ if (nextSpeed <= STOP_LOCK_SPEED) {
     const confirmMs = getZeroConfirmMs(nextSpeed);
     const timeReady = (timestamp - zeroCandidateSince) > confirmMs;
 
-const noMovement = moveMeters < 0.6;
+const noMovement = moveMeters < 1.2;
 const veryLowSpeed = nextSpeed < 3.5;
     const brakingHard = speedSlope < -12 && nextSpeed < 20;
-    const nearStop = nextSpeed < 1.2 && moveMeters < 0.4;
-
     if (
         (timeReady && noMovement && veryLowSpeed) ||
-        brakingHard ||
-        nearStop
+        brakingHard
     ) {
         nextSpeed = 0;
         sensorSpeedKmh = 0;
