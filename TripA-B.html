@@ -2720,7 +2720,8 @@ function getMotionHeadingFromHistory() {
 		const diff = normalizeAngleDifference(h12, filteredMotionHeading);
 		const absDiff = Math.abs(diff);
 		const deadband =
-		lastGpsSpeedKmh < 5   ? 1.2 :
+			lastGpsSpeedKmh < 3   ? 4.5 :
+			lastGpsSpeedKmh < 5   ? 1.2 :
 			lastGpsSpeedKmh < 10  ? 2.0 :
 			lastGpsSpeedKmh < 40  ? 1.6 :
 			lastGpsSpeedKmh < 80  ? 1.2 :
@@ -2778,6 +2779,7 @@ function isUTurn(turnRateDeg, speedKmh) {
 	const th = speedKmh < 15 ? 55 : 70;
 	return turnRateDeg > th;
 }
+
 // MAIN LOOP
 function smoothTransformStep(now) {
     if (!isTracking || !map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2825,12 +2827,10 @@ function smoothTransformStep(now) {
     }
     if (!isStopped) {
         const last = posHistory[posHistory.length - 1];
-        if (!last ||
-            haversineMeters(last.lat, last.lon, targetLat, targetLon) >= MIN_MOVE_FOR_HISTORY_M
-        ) {
-            pushHistory(targetLat, targetLon, now);
-        }
-    }
+const dynamicMinMove = (targetSpeed < 5) ? 0.3 : MIN_MOVE_FOR_HISTORY_M; // ถ้าช้ากว่า 5 กม./ชม. ให้ใช้ 0.3 เมตร
+if (!last || haversineMeters(last.lat, last.lon, targetLat, targetLon) >= dynamicMinMove ) {
+    pushHistory(targetLat, targetLon, now);
+}
 	const motion = getMotionHeadingFromHistory();
 	const motionOk =
 		movementState === "moving" &&
@@ -2917,9 +2917,10 @@ function smoothTransformStep(now) {
     if (targetSpeed >= LOW_SPEED_KMH && curveStrength01 > 0.14) {
         curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
     }
-    else if (targetSpeed < LOW_SPEED_KMH && !isTurning) {
-        curveMomentum = 0;
-    } else {
+else if (targetSpeed < LOW_SPEED_KMH && !isTurning) {
+    curveMomentum *= 0.85;
+    if(curveMomentum < 0.1) curveMomentum = 0;
+}else {
         curveMomentum *= rotationController.freeze ? 0.6 : 0.78;
     }
     if (rotationController.freeze) {
@@ -3070,7 +3071,7 @@ function smoothTransformStep(now) {
 		if (rotationController.unlockTime && unlockT >= 1) {
 			rotationController.unlockTime = null;
 		}
-		const stiffness = lerp(55, 90, speedNorm);
+		const stiffness = lerp(55, 75, speedNorm);
 		const damping   = lerp(9, 6.5, speedNorm);
         rotationController.velocity += diff * stiffness * dtSec;
         rotationController.velocity *= Math.exp(-damping * dtSec);
