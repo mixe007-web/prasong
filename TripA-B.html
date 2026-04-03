@@ -2779,7 +2779,6 @@ function isUTurn(turnRateDeg, speedKmh) {
 	const th = speedKmh < 15 ? 55 : 70;
 	return turnRateDeg > th;
 }
-
 // MAIN LOOP
 function smoothTransformStep(now) {
     if (!isTracking || !map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2827,10 +2826,11 @@ function smoothTransformStep(now) {
     }
     if (!isStopped) {
         const last = posHistory[posHistory.length - 1];
-const dynamicMinMove = (targetSpeed < 5) ? 0.3 : MIN_MOVE_FOR_HISTORY_M; // ถ้าช้ากว่า 5 กม./ชม. ให้ใช้ 0.3 เมตร
-if (!last || haversineMeters(last.lat, last.lon, targetLat, targetLon) >= dynamicMinMove ) {
-    pushHistory(targetLat, targetLon, now);
-}
+		const dynamicMinMove = (targetSpeed < 5) ? 0.3 : MIN_MOVE_FOR_HISTORY_M; // ถ้าช้ากว่า 5 กม./ชม. ให้ใช้ 0.3 เมตร
+		if (!last || haversineMeters(last.lat, last.lon, targetLat, targetLon) >= dynamicMinMove ) {
+			pushHistory(targetLat, targetLon, now);
+		}
+	}
 	const motion = getMotionHeadingFromHistory();
 	const motionOk =
 		movementState === "moving" &&
