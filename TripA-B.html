@@ -17,736 +17,975 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/bbecquet/Leaflet.RotatedMarker/leaflet.rotatedMarker.js"></script>
 
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
+/* ============================================================
+   CSS VARIABLES — EV COCKPIT THEME
+   ============================================================ */
+:root {
+  --bg-deep:    #050810;
+  --bg-panel:   #0a0f1e;
+  --bg-card:    #0d1428;
+  --bg-glass:   rgba(13,20,40,0.82);
+  --border-dim: rgba(0,200,255,0.12);
+  --border-glow:rgba(0,200,255,0.45);
+  --cyan:       #00c8ff;
+  --cyan-dim:   rgba(0,200,255,0.18);
+  --green:      #00ff88;
+  --green-dim:  rgba(0,255,136,0.15);
+  --amber:      #ffb300;
+  --red:        #ff3d5a;
+  --text-hi:    #e8f4ff;
+  --text-mid:   #7a9ab8;
+  --text-lo:    #3a5068;
+  --font-hud:   'Orbitron', monospace;
+  --font-body:  'Rajdhani', sans-serif;
+  --radius-lg:  20px;
+  --radius-md:  12px;
+  --radius-sm:  8px;
+  --shadow-cyan: 0 0 24px rgba(0,200,255,0.18), 0 2px 8px rgba(0,0,0,0.6);
+  --shadow-glow: 0 0 40px rgba(0,200,255,0.25);
+}
+
+/* ============================================================
+   GLOBAL RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-	font-family: Arial, sans-serif;
-	max-width: 600px;
-	margin: auto;
-	padding: 1em;
-	background: #121212; /* พื้นหลังมืด */
-	color: #e0e0e0; /* ข้อความสีอ่อน */
+  font-family: var(--font-body);
+  background: var(--bg-deep);
+  color: var(--text-hi);
+  min-height: 100vh;
+  padding: 12px;
+  /* subtle grid texture */
+  background-image:
+    linear-gradient(rgba(0,200,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
-.trip-entry {
-	border: 1px solid #ccc;
-	padding: 0.5em; margin: 0.5em 0;
-}
-.trip-entry:hover {
-	background-color: #2a2a2a; /*มีพื้นหลังมืด */
-}
-.trip-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-.scrollable {
-	max-height: 200px; overflow-y: auto;
-	border: 1px solid #ccc;
-	padding: 0.5em;
-}
+
+/* ============================================================
+   MAIN CONTAINER — 3D CARD
+   ============================================================ */
 #uiContainer {
-	max-width: 700px;
-	min-width: 320px;
-	margin: 0 auto;
-	padding: 20px;
-	border: 2px solid #d0e0f0;
-	border-radius: 25px;
-	background-color: #1c1c1c;
-	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-	box-sizing: border-box;
-	position: relative;
-	transform-style: preserve-3d;
-	perspective: 800px;
+  max-width: 680px;
+  min-width: 320px;
+  margin: 0 auto;
+  padding: 18px 16px 24px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glow), inset 0 1px 0 rgba(255,255,255,0.06);
+  position: relative;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transform-style: preserve-3d;
+  perspective: 1200px;
+  /* subtle top highlight line */
 }
+#uiContainer::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  border-radius: 50%;
+}
+
+/* ============================================================
+   APP HEADER
+   ============================================================ */
+.centered-text > h2 {
+  font-family: var(--font-hud);
+  font-size: clamp(13px, 3.5vw, 18px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+  text-align: center;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  text-shadow: 0 0 16px var(--cyan);
+  position: relative;
+}
+.centered-text > h2::after {
+  content: '';
+  display: block;
+  margin: 6px auto 0;
+  width: 60px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+}
+
+/* ============================================================
+   INPUT SECTION
+   ============================================================ */
+.centered-text > div:first-of-type {
+  background: rgba(0,200,255,0.04);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+input[type="text"],
+input[type="number"] {
+  background: rgba(0,0,0,0.45);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  color: var(--text-hi);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+input[type="text"]:focus,
+input[type="number"]:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px var(--cyan-dim);
+}
+input[type="checkbox"] {
+  accent-color: var(--cyan);
+  width: 14px; height: 14px;
+  margin-right: 4px;
+}
+#inputKm1, #inputKm2, #inputKm3 {
+  width: 90px;
+  max-width: 90px;
+}
+h3 {
+  font-family: var(--font-hud);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin: 10px 0 6px;
+  opacity: 0.8;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
 button {
-	padding: 0.5em 1em;
-	margin: 0.3em;
-	font-size: 16px;
-	border-radius: 8px;
-	cursor: pointer;
-	transition: transform 0.3s ease, background-color 0.3s ease;
-	background-color: #333; /* ปรับให้ปุ่มเป็นสีมืด */
-	color: #fff; /* ตัวอักษรสีขาว */
-	border: 1px solid #444;
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-family: var(--font-hud);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 9px 16px;
+  margin: 3px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid var(--border-dim);
+  background: rgba(0,200,255,0.07);
+  color: var(--cyan);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
 }
-button:hover:not(:disabled) {
-	background-color: #555; /* เพิ่มเงาให้ปุ่มเมื่อ hover */
-}
-button:disabled {
-	background-color: #ccc;
-	cursor: not-allowed;
-}
-#speedometer-top {
-	display: flex;
-	justify-content: flex-start;
-	gap: 30px;
-	margin-bottom: 30px;
-	flex-wrap: wrap;
-}
-#speedometer {
-	flex: 1;
-	min-width: 300px;
-	background-color: #2a2a2a;/* ทำให้ Speedometer มีพื้นหลังมืด */
-	padding: 20px 30px;
-	border-radius: 30px;
-	text-align: center;
-	font-family: Arial, sans-serif;
-	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	gap: 5px;
-	color: #e0e0e0; /* ข้อความสีอ่อน */
-}
-#speedometer:hover {
-	transform: scale(1.02);
-	box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
-}
-#digitalSpeed {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	font-weight: bold;
-	color: #00bcd4; /* ตัวอักษรสีฟ้าอ่อน */
-	font-size: clamp(26px, 4vw, 38px);
-	text-align: center;
-	margin: 0;
-}
-#energyPer100km {
-	background-color: #2a2a2a; /*มีพื้นหลังมืด */
-	padding: 5px 10px;
-	border-radius: 30px;
-	font-family: Arial, sans-serif;
-	font-weight: bold;
-	text-align: center;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	display: inline-block;
-	width: 100%;
-	max-width: 100%;
-	font-size: clamp(14px, 2.5vw, 30px);
-	color: #00e676; /* ข้อความสีเขียว */
-}
-#avgEfficiencyPerPercent {
-	background-color: #2a2a2a;
-	padding: 5px 10px;
-	border-radius: 30px;
-	font-family: Arial, sans-serif;
-	font-weight: bold;
-	text-align: center;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	display: inline-block;
-	width: 100%;
-	max-width: 100%;
-	font-size: clamp(12px, 2vw, 26px); /* เล็กกว่า #energyPer100km */
-	color: #00e676;
-}
-#energySOCGroup {
-	display: flex;
-	justify-content: space-between;
-	width: 100%; 
-	gap: 0px;
-	margin-top: 5px;
-}
-.info-box.small-box {
-	background-color: #2a2a2a; /*มีพื้นหลังมืด */
-	padding: 10px 0px;
-	border-radius: 15px;
-	font-size: 14px;
-	flex: 1;
-	text-align: center;
-	color: #fff; /* ข้อความในกล่องเป็นสีขาว */
-}
-#efficiencyContainer {
-	flex: 1 1 auto; /* ขยายเต็มพื้นที่ที่เหลือ */
-	height: 25px;
-	background: #ccc;
-	border-radius: 10px;
-	overflow: hidden;
-	position: relative;
-	margin: 0; /* เว้นช่องว่างซ้ายขวา */
-}
-#efficiencyPerPercentBar {
-	height: 100%;
-	width: 0%;
-	text-align: center;
-	line-height: 25px;
-	font-weight: bold;
-	color: white;
-	border-radius: 10px;
-	font-size: 10px;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-#efficiencyPerPercentBar {
-	transition: width 0.3s ease, background-color 0.3s ease;
-}
-.info-box .value {
-	font-weight: bold;
-	font-size: 15px;
-	line-height: 1.2;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-#socDisplay {
-	background: none;
-}
-#socDisplay > .label {
-	display: none;
-}
-#batteryContainer {
-	height: 40px;
-	width: 100%;
-	max-width: 400px;
-	margin: 0 auto;
-	display: flex;
-	flex-direction: row-reverse;
-	justify-content: center;
-	align-items: center;
-	border: 2px solid #333;
-	border-radius: 8px;
-	padding: 4px;
-	box-sizing: border-box;
-	position: relative;
-	background-color: #333; /* พื้นหลังแบตเตอรี่ */
-	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-.battery-bar {
-	flex: 1;
-	height: 60%;
-	margin: 0 2px;
-	background-color: #555; /* สีของบาร์แบตเตอรี่ */
-	border-radius: 3px;
-	transition: background-color 0.3s, transform 0.3s;
-	transform: perspective(500px) rotateX(20deg);
-}
-.battery-bar:hover {
-	transform: perspective(500px) rotateX(0deg);
-}
-#socPercent {
-	font-size: 20px;
-	font-weight: bold;
-	color: red;
-	pointer-events: none;
-	user-select: none;
-	position: static;
-	transform: none;
-	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-@keyframes blink {
-	0%, 100% { opacity: 1; }
-	50% { opacity: 0; }
-}
-.blinking {
-	animation: blink 1s infinite;
-	background-color: red !important;
-}
-#energyPer100km.energyPer100kmSpan-good {
-	color: green !important;
-}
-#energyPer100km.energyPer100kmSpan-medium {
-	color: orange !important;
-}
-#energyPer100km.energyPer100kmSpan-poor {
-	color: red !important;
-}
-.speed-low {
-	color: green !important;
-}
-.speed-medium {
-	color: orange !important;
-}
-.speed-high {
-	color: red !important;
-}
-.efficiency-good {
-	color: green !important;font-weight: bold;
-}
-.efficiency-medium {
-	color: orange !important;font-weight: bold;
-}
-.efficiency-poor {color: red !important;font-weight: bold;
-}
-@media (max-width: 480px) {
-	#speedometer-top {
-		flex-direction: column;
-		align-items: center;
-	}
-	#speedometer {
-		width: 100%;
-		max-width: 100%;
-		min-width: auto;
-		box-sizing: border-box;
-		padding: 15px 10px;
-	}
-	#socDisplay {
-		margin-top: 20px;
-		width: 80%;
-		min-width: auto;
-		background-color: #212121; /* พื้นหลัง SOC */
-	}
-	#uiContainer {
-		padding: 15px;
-	}
-#digitalSpeed {
-	font-size: clamp(20px, 3.6vw, 34px);
-}
-	.battery-bar {
-		height: 50%;
-	}
-	#socPercent {
-		font-size: 16px;
-	}
-	button {
-		width: 100%;
-		font-size: 14px;
-	}
-	.info-box {
-		padding: 8px 10px;
-	}
-}
-.map-modal {
-	display: none;
-	position: fixed;
-	z-index: 1001;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	overflow: auto;
-	background-color: rgba(0, 0, 0, 0.8); /* ฉากหลังมืด */
-}
-.map-modal-content {
-	background-color: #212121; /* สีพื้นหลังของ Modal */
-	margin: 50px auto;
-	padding: 20px;
-	border: 1px solid #888;
-	width: 90%;
-	max-width: 800px;
-	border-radius: 10px;
-	position: relative;
-}
-.close-map-modal {
-	color: #aaa;
-	float: right;
-	font-size: 28px;
-	font-weight: bold;
-	cursor: pointer;
-}
-.close-map-modal:hover {
-	color: red;
-}
-.leaflet-div-icon {
-	font-size: 24px;
-	text-align: center;
-	line-height: 30px;
-}
-.trip-entry .leaflet-container {
-	width: 100%;
-	height: 300px;
-}
-
-.vehicle-marker {
-    /* Leaflet จัดตำแหน่งเอง */
-}
-
-.vehicle-inner {
-    width: 32px; /* BASE_ICON_SIZE */
-    height: 32px;
-    transform-origin: center center;
-    --marker-rotate: 0deg;
-    --marker-scale: 1;
-    transform: rotate(var(--marker-rotate)) scale(var(--marker-scale));
-	will-change: transform;
-}
-
-.vehicle-inner img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-    pointer-events: none;
-}
-#map-container {
-	position: relative;
-	width: 100%;
-	height: 200px;
-	overflow: hidden;
-}
-#map {
-	position: absolute;
-	top: -50%;
-	left: -50%;
-	width: 200%;
-	height: 200%;
-	will-change: transform;
-	transform-style: preserve-3d;
-	backface-visibility: hidden;
-}
-.leaflet-rotate-pane {
-	transition: none !important;
-}
-
-.leaflet-map-pane {
-	will-change: transform;
-	transform-style: preserve-3d;
-	backface-visibility: hidden;
-}
-.leaflet-control-attribution {
-	display: none !important;
-}
-.leaflet-rotate-wrapper {
+button::before {
+  content: '';
   position: absolute;
   inset: 0;
-  transform-origin: 50% 50%;
+  background: linear-gradient(135deg, rgba(0,200,255,0.1) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+button:hover:not(:disabled)::before { opacity: 1; }
+button:hover:not(:disabled) {
+  border-color: var(--cyan);
+  box-shadow: 0 0 14px var(--cyan-dim), inset 0 1px 0 rgba(255,255,255,0.08);
+  transform: translateY(-1px);
+  color: #fff;
+}
+button:active:not(:disabled) { transform: translateY(0); }
+button:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+  color: var(--text-lo);
+}
+
+/* START button */
+#startBtn {
+  background: linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,200,255,0.08));
+  border-color: rgba(0,255,136,0.4);
+  color: var(--green);
+}
+#startBtn:hover:not(:disabled) {
+  border-color: var(--green);
+  box-shadow: 0 0 18px rgba(0,255,136,0.25);
+  color: #fff;
+}
+/* STOP button */
+#stopBtn {
+  background: linear-gradient(135deg, rgba(255,61,90,0.15), rgba(255,100,50,0.08));
+  border-color: rgba(255,61,90,0.35);
+  color: var(--red);
+}
+#stopBtn:hover:not(:disabled) {
+  border-color: var(--red);
+  box-shadow: 0 0 18px rgba(255,61,90,0.25);
+  color: #fff;
+}
+
+/* ============================================================
+   SPEEDOMETER CARD
+   ============================================================ */
+#speedometer-top {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+#speedometer {
+  flex: 1;
+  min-width: 280px;
+  background: linear-gradient(160deg, rgba(0,200,255,0.05) 0%, rgba(0,0,0,0) 60%);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-lg);
+  padding: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  position: relative;
+  transition: box-shadow 0.3s;
+}
+#speedometer::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-glow), transparent);
+}
+
+/* ============================================================
+   MAP CONTAINER
+   ============================================================ */
+#map-container {
+  position: relative;
+  width: 100%;
+  height: 370px;
+  overflow: hidden;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: 1px solid var(--border-dim);
+}
+#map {
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
   will-change: transform;
-  pointer-events: none; /* ให้ทะลุ */
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
-
-/* ให้ทุก pane ข้างในรับ event ได้ */
-.leaflet-rotate-wrapper .leaflet-pane {
-  pointer-events: auto;
-}
-
-#wltpKm {
-	font-weight: bold;
-}
+/* GPS Follow Button */
 .map-gps-btn {
-	position: absolute;
-	top: 20px;
-	right: 30px;
-	width: 30px;
-	height: 30px;
-	border-radius: 50%;
-	background-color: rgba(255, 255, 255, 0.8);
-	border: 1px solid #ccc;
-	box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-	z-index: 9999;
-	padding: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-	transition: background-color 0.2s ease;
-}
-.map-gps-btn img {
-	width: 18px;
-	height: 18px;
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(5,8,16,0.75);
+  border: 1px solid var(--border-glow) !important;
+  box-shadow: 0 0 12px var(--cyan-dim);
+  z-index: 9999;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+  margin: 0;
 }
 .map-gps-btn:hover {
-	background-color: rgba(240, 240, 240, 0.9);
+  background: rgba(0,200,255,0.2) !important;
+  box-shadow: 0 0 20px var(--cyan-dim) !important;
+  transform: scale(1.1) !important;
 }
-#inputKm1,
-#inputKm2,
-#inputKm3 {
-	width: 50%;
-	max-width: 100px;
-	box-sizing: border-box;
+.map-gps-btn img { width: 18px; height: 18px; }
+
+/* ============================================================
+   SPEED DISPLAY
+   ============================================================ */
+.label {
+  font-family: var(--font-hud);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  text-align: center;
+  margin-top: 8px;
+}
+#digitalSpeed {
+  font-family: var(--font-hud);
+  font-weight: 900;
+  font-size: clamp(32px, 7vw, 52px);
+  text-align: center;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  margin: 0 auto;
+  text-shadow: 0 0 24px currentColor;
+  transition: color 0.3s, text-shadow 0.3s;
+  white-space: nowrap;
+}
+/* speed color classes — keep JS unchanged */
+.speed-low  { color: var(--green) !important; text-shadow: 0 0 20px rgba(0,255,136,0.6) !important; }
+.speed-medium { color: var(--amber) !important; text-shadow: 0 0 20px rgba(255,179,0,0.6) !important; }
+.speed-high { color: var(--red) !important; text-shadow: 0 0 20px rgba(255,61,90,0.6) !important; }
+
+/* ============================================================
+   ENERGY DISPLAY
+   ============================================================ */
+#energyPer100km {
+  background: rgba(0,255,136,0.06);
+  border: 1px solid rgba(0,255,136,0.15);
+  border-radius: 30px;
+  padding: 5px 12px;
+  font-family: var(--font-hud);
+  font-weight: 600;
+  font-size: clamp(12px, 2.8vw, 22px);
+  text-align: center;
+  color: var(--green);
+  display: block;
+  width: 100%;
+  letter-spacing: 0.04em;
+  transition: color 0.3s;
+}
+#energyPer100km.energyPer100kmSpan-good  { color: var(--green) !important; border-color: rgba(0,255,136,0.3) !important; }
+#energyPer100km.energyPer100kmSpan-medium{ color: var(--amber) !important; border-color: rgba(255,179,0,0.3) !important; }
+#energyPer100km.energyPer100kmSpan-poor  { color: var(--red)   !important; border-color: rgba(255,61,90,0.3) !important; }
+
+#avgEfficiencyPerPercent {
+  background: rgba(0,200,255,0.05);
+  border: 1px solid var(--border-dim);
+  border-radius: 30px;
+  padding: 4px 12px;
+  font-family: var(--font-hud);
+  font-weight: 400;
+  font-size: clamp(10px, 2vw, 15px);
+  text-align: center;
+  color: var(--cyan);
+  display: block;
+  width: 100%;
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   ENERGY / SOC STAT BOXES
+   ============================================================ */
+#energySOCGroup {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 0 10px;
+}
+.info-box.small-box {
+  background: rgba(0,200,255,0.05);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 8px 4px;
+  flex: 1;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.info-box.small-box:hover {
+  border-color: var(--border-glow);
+  box-shadow: 0 0 10px var(--cyan-dim);
+}
+.info-box.small-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  opacity: 0.4;
+}
+.info-box .label {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  margin-top: 0;
+  margin-bottom: 2px;
+}
+.info-box .value {
+  font-family: var(--font-hud);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--cyan);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
+   EFFICIENCY BAR
+   ============================================================ */
+#efficiencyContainer {
+  flex: 1 1 auto;
+  height: 22px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 11px;
+  overflow: hidden;
+  border: 1px solid var(--border-dim);
+  position: relative;
+}
+#efficiencyPerPercentBar {
+  height: 100%;
+  width: 0%;
+  border-radius: 11px;
+  font-family: var(--font-hud);
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  line-height: 22px;
+  letter-spacing: 0.05em;
+  transition: width 0.5s cubic-bezier(.4,0,.2,1), background-color 0.4s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+/* ============================================================
+   BATTERY DISPLAY (SOC)
+   ============================================================ */
+#socDisplay {
+  background: none;
+  padding: 8px 10px 2px;
+}
+#socDisplay > .label { display: none; }
+
+#batteryContainer {
+  height: 38px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-sm);
+  padding: 5px;
+  background: rgba(0,0,0,0.5);
+  box-shadow: 0 0 12px var(--cyan-dim), inset 0 1px 0 rgba(0,200,255,0.08);
+  position: relative;
+}
+.battery-bar {
+  flex: 1;
+  height: 65%;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.08);
+  transition: background-color 0.35s, box-shadow 0.35s, transform 0.25s;
+  transform: perspective(300px) rotateX(18deg);
+}
+.battery-bar:hover {
+  transform: perspective(300px) rotateX(0deg) scaleY(1.1);
+}
+
+#socPercent {
+  font-family: var(--font-hud);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--green);
+  pointer-events: none;
+  user-select: none;
+  text-shadow: 0 0 12px rgba(0,255,136,0.6);
+  letter-spacing: 0.02em;
 }
 #wltpKmValue {
-	color: black;
-	font-weight: bold;
+  font-family: var(--font-hud);
+  font-size: 10px;
+  color: var(--cyan) !important;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
-.blinking-red {
-	color: red !important;
-	animation: blink-red 1s infinite;
+#wltpKmLabel {
+  font-size: 9px;
+  color: var(--text-mid) !important;
+  letter-spacing: 0.08em;
 }
-@keyframes blink-red {
-	0%, 100% { opacity: 1; }
-	50% { opacity: 0.4; }
+
+/* ============================================================
+   TRIP INFO SECTION
+   ============================================================ */
+#tripInfoSection {
+  background: rgba(0,200,255,0.03);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-top: 8px;
 }
-/* ================= Trip Recorder Panel ================= */
+#tripInfoSection p {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-mid);
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(0,200,255,0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  letter-spacing: 0.02em;
+}
+#tripInfoSection p:last-child { border-bottom: none; }
+#tripInfoSection span[id] {
+  font-family: var(--font-hud);
+  font-size: 12px;
+  color: var(--cyan);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* Trip info toggle button */
+#toggleTripInfoBtn {
+  background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,200,255,0.06)) !important;
+  border-color: rgba(0,255,136,0.3) !important;
+  color: var(--green) !important;
+  font-size: 10px !important;
+}
+#toggleTripInfoBtn:hover:not(:disabled) {
+  border-color: var(--green) !important;
+  box-shadow: 0 0 14px rgba(0,255,136,0.2) !important;
+  color: #fff !important;
+}
+
+/* ============================================================
+   HISTORY SECTION
+   ============================================================ */
+.scrollable {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  background: rgba(0,0,0,0.2);
+}
+.scrollable::-webkit-scrollbar { width: 4px; }
+.scrollable::-webkit-scrollbar-track { background: transparent; }
+.scrollable::-webkit-scrollbar-thumb {
+  background: var(--border-glow);
+  border-radius: 2px;
+}
+
+.trip-entry {
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin: 5px 0;
+  font-size: 12px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.trip-entry:hover {
+  background: rgba(0,200,255,0.05);
+  border-color: var(--border-glow);
+}
+.trip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-family: var(--font-hud);
+  font-size: 11px;
+  color: var(--cyan);
+}
+
+/* ============================================================
+   MAP MODAL
+   ============================================================ */
+.map-modal {
+  display: none;
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  background: rgba(2,4,12,0.88);
+  backdrop-filter: blur(6px);
+  overflow: auto;
+}
+.map-modal-content {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-lg);
+  margin: 40px auto;
+  padding: 20px;
+  width: 90%;
+  max-width: 820px;
+  position: relative;
+  box-shadow: var(--shadow-glow);
+}
+.close-map-modal {
+  position: absolute;
+  top: 12px; right: 16px;
+  font-family: var(--font-hud);
+  font-size: 20px;
+  color: var(--text-mid);
+  cursor: pointer;
+  transition: color 0.2s;
+  line-height: 1;
+  float: none;
+}
+.close-map-modal:hover { color: var(--red); }
+
+/* ============================================================
+   TRIP RECORDER PANEL
+   ============================================================ */
 #tripRecorderPanel {
-	position: fixed;
-	top: 0;
-	right: 0;
-	width: 380px;
-	max-width: 95%;
-	height: 100%;
-	background-color: #1c1c1c;
-	color: #e0e0e0;
-	padding: 20px;
-	overflow-y: auto;
-	transition: transform 0.3s ease;
-	z-index: 9999;
-	font-family: 'Rubik', sans-serif;
-	box-sizing: border-box;
-	transform: translateX(100%);
-	display: none;
+  position: fixed;
+  top: 0; right: 0;
+  width: 380px; max-width: 95%;
+  height: 100%;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-glow);
+  box-shadow: -8px 0 40px rgba(0,0,0,0.6);
+  color: var(--text-hi);
+  padding: 20px 16px;
+  overflow-y: auto;
+  transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+  z-index: 9999;
+  font-family: var(--font-body);
+  box-sizing: border-box;
+  transform: translateX(100%);
+  display: none;
 }
+#tripRecorderPanel::-webkit-scrollbar { width: 4px; }
+#tripRecorderPanel::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 2px; }
 #tripRecorderPanel.open {
-	display: block;
-	transform: translateX(0);
+  display: block;
+  transform: translateX(0);
 }
+#tripRecorderPanel h2 {
+  font-family: var(--font-hud);
+  font-size: 14px;
+  color: var(--cyan);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px var(--cyan);
+  margin-bottom: 12px;
+}
+#tripRecorderPanel h3 {
+  color: var(--cyan);
+  opacity: 0.7;
+  margin: 14px 0 6px;
+}
+
 .trips-container .trip-card {
-	background-color: #222;
-	border-radius: 12px;
-	padding: 15px;
-	margin-bottom: 15px;
-	box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-	border: 1px solid #444;
+  background: rgba(0,200,255,0.04);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.trips-container .trip-card:hover {
+  border-color: var(--border-glow);
+  box-shadow: 0 0 12px var(--cyan-dim);
 }
 .trip-card h4 {
-	margin: 0 0 10px 0;
-	font-size: 1.1rem;
-	color: #fff;
+  font-family: var(--font-hud);
+  font-size: 12px;
+  color: var(--cyan);
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
 }
-/* ================= General Trip Row ================= */
 .trip-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	margin-bottom: 8px;
-	flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  flex-wrap: wrap;
+  font-size: 12px;
 }
 .trip-row label {
-	flex: 0 0 90px; /* ปรับให้เล็กลงสำหรับมือถือ */
+  flex: 0 0 90px;
+  color: var(--text-mid);
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
-/* ================= Battery Row ================= */
 .trip-row.battery-wrapper {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	flex-wrap: nowrap;
+  display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
 }
 .battery-bar-container {
-	width: 50px;
-	height: 20px;
-	border: 2px solid #666;
-	border-radius: 4px;
-	background: #222;
-	overflow: hidden;
-	flex: 0 0 auto;
+  width: 50px; height: 18px;
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  background: rgba(0,0,0,0.4);
+  overflow: hidden; flex: 0 0 auto;
 }
 .battery-bar-fill {
-	height: 100%;
-	width: 0%;
-	background: linear-gradient(to top, #0f0 0%, #0c0 100%);
-	transition: width 0.3s ease, background 0.3s ease;
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--green), #00e066);
+  transition: width 0.4s ease, background 0.3s;
 }
 .trip-row.battery-wrapper input {
-	width: 40px;
-	flex: 0 0 40px;
-	padding: 4px 6px;
-	border-radius: 6px;
-	border: 1px solid #666;
-	background-color: #333;
-	color: #fff;
-	text-align: right;
-	font-size: 0.9rem;
+  width: 40px; flex: 0 0 40px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border-dim);
+  background: rgba(0,0,0,0.4);
+  color: var(--text-hi);
+  font-family: var(--font-hud);
+  font-size: 11px;
+  text-align: right;
 }
 .trip-row.battery-wrapper span.percent {
-	width: 45px;
-	flex: 0 0 45px; /* พอดีกับ % */
-	text-align: left;
-	font-weight: bold;
-	color: #0f0;
+  width: 40px; flex: 0 0 40px;
+  font-family: var(--font-hud);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green);
 }
-/* ================= Info Row (Distance) (SOC) ================= */
 .trip-row.info-Distance {
-	display: flex;
-	align-items: center;
-	justify-content: flex-start;
-	gap: 20px; /* ช่องว่างระหว่าง SOC และ Distance */
-	flex-wrap: nowrap; /* บังคับให้อยู่บรรทัดเดียว */
+  display: flex; align-items: center;
+  justify-content: flex-start; gap: 16px; flex-wrap: nowrap;
 }
 .trip-row.info-Distance label {
-	flex: 0 0 auto;
-	font-weight: bold;
-	color: #fff;
-	min-width: 110px;
+  flex: 0 0 auto; font-weight: 600; min-width: 100px;
+  font-family: var(--font-hud); font-size: 10px; color: var(--text-mid);
 }
 .trip-row.info-Distance span {
-	flex: 0 0 auto;
-	color: #0f0;
-	min-width: 70px;
-	text-align: left;
+  flex: 0 0 auto; font-family: var(--font-hud); font-size: 12px;
+  color: var(--green); min-width: 70px;
 }
-/* ================= Buttons ================= */
 .trip-card .button-row {
-	margin-top: 10px;
-	display: flex;
-	gap: 10px;
-	flex-wrap: wrap;
+  margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;
 }
 .trip-card button {
-	flex: 1 0 45%;
-	padding: 6px 0;
-	border-radius: 6px;
-	border: none;
-	cursor: pointer;
-	background-color: #007bff;
-	color: #fff;
-	font-weight: bold;
-	transition: background 0.2s ease;
+  flex: 1 0 45%;
+  padding: 7px 0;
+  font-size: 10px;
+  letter-spacing: 0.06em;
 }
-.trip-card button.saved { background-color: #555; }
-/* ================= test history record ================= */
-.trip-history-record span.field-name {
-	color: #fff;
-	font-weight: bold;
+.trip-card button.saved {
+  background: rgba(255,255,255,0.05) !important;
+  border-color: var(--border-dim) !important;
+  color: var(--text-mid) !important;
 }
-.trip-history-record span.field-value {
-	color: #0f0;
-	font-weight: bold;
-}
-/* ================= Trip History Record ================= */
+
+/* ============================================================
+   TRIP HISTORY RECORD
+   ============================================================ */
 .trip-history-record {
-	background-color: #222;
-	border-radius: 8px;
-	padding: 8px 12px;
-	margin-bottom: 8px;
-	box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-	border: 1px solid #444;
-	display: flex;
-	flex-direction: column; /* stack header + details */
-	gap: 4px;
+  background: rgba(0,200,255,0.03);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 7px;
+  display: flex; flex-direction: column; gap: 3px;
+  transition: border-color 0.2s;
 }
-/* header: Trip xx + Delete button */
+.trip-history-record:hover { border-color: var(--border-glow); }
 .trip-history-record .record-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	color: #0f0;
-	font-weight: bold;
-	font-size: 0.9rem;
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--font-hud); font-size: 10px;
+  color: var(--cyan); letter-spacing: 0.06em;
 }
-/* Delete button */
 .trip-history-record .deleteBtn {
-	background-color: #c00;
-	color: #fff;
-	border: none;
-	border-radius: 4px;
-	padding: 2px 6px;
-	font-size: 0.75rem;
-	cursor: pointer;
-	transition: background 0.2s ease, transform 0.2s ease;
+  background: rgba(255,61,90,0.15);
+  color: var(--red);
+  border: 1px solid rgba(255,61,90,0.3);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-family: var(--font-hud);
+  font-size: 9px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: all 0.2s;
 }
 .trip-history-record .deleteBtn:hover {
-	background-color: #f33;
-	transform: scale(1.05);
+  background: rgba(255,61,90,0.3);
+  transform: scale(1.05);
+  border-color: var(--red);
 }
-/* Details ของบันทึก */
-.trip-history-record .record-details {
-	display: flex;
-	flex-direction: column; /* stack เป็นบรรทัดเดียวกัน */
-	gap: 2px;
-}
+.trip-history-record .record-details { display: flex; flex-direction: column; gap: 2px; }
 .trip-history-record .field-name {
-	color: #fff;
-	font-weight: bold;
+  color: var(--text-mid); font-size: 11px; font-weight: 500;
 }
 .trip-history-record .field-value {
-	color: #0f0;
-	font-weight: bold;
-	margin-left: 4px;
+  font-family: var(--font-hud); font-size: 11px;
+  color: var(--green); font-weight: 600; margin-left: 4px;
 }
-/* Responsive มือถือ */
 @media(max-width: 500px){
-	.trip-history-record .record-header {
-		flex-direction: column; /* stack ข้อความ + ปุ่ม */
-		align-items: flex-start;
-		gap: 4px;
-	}
-	.trip-history-record .deleteBtn {
-		font-size: 0.7rem;
-		padding: 1px 5px;
-	}
+  .trip-history-record .record-header { flex-direction: column; align-items: flex-start; gap: 4px; }
 }
-/* ================= Progress Bar ================= */
+
+/* ============================================================
+   PROGRESS BAR
+   ============================================================ */
 .progress-bar-container {
-	background: #333;
-	border-radius: 6px;
-	height: 10px;
-	width: 100%;
-	margin-top: 5px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px; height: 8px; width: 100%; margin-top: 5px;
 }
 .progress-bar {
-	height: 100%;
-	border-radius: 6px;
-	background: linear-gradient(to right, #0f0, #0c0);
-	width: 0%;
-	transition: width 0.3s ease;
+  height: 100%; border-radius: 6px;
+  background: linear-gradient(90deg, var(--green), var(--cyan));
+  width: 0%; transition: width 0.4s ease;
+  box-shadow: 0 0 6px rgba(0,255,136,0.4);
 }
-.trip-row span.used,
-.trip-row span.distance { font-weight: bold; color: #0f0; }
-/* ================= Responsive Mobile ================= */
+.trip-row span.used, .trip-row span.distance {
+  font-family: var(--font-hud); font-size: 12px;
+  font-weight: 700; color: var(--green);
+}
+
+/* ============================================================
+   VEHICLE MARKER (unchanged logic)
+   ============================================================ */
+.vehicle-marker { }
+.vehicle-inner {
+  width: 32px; height: 32px;
+  transform-origin: center center;
+  --marker-rotate: 0deg;
+  --marker-scale: 1;
+  transform: rotate(var(--marker-rotate)) scale(var(--marker-scale));
+  will-change: transform;
+}
+.vehicle-inner img {
+  width: 100%; height: 100%;
+  object-fit: contain; display: block; pointer-events: none;
+}
+
+/* ============================================================
+   LEAFLET / MAP INTERNALS (unchanged)
+   ============================================================ */
+.leaflet-rotate-pane { transition: none !important; }
+.leaflet-map-pane {
+  will-change: transform;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+.leaflet-control-attribution { display: none !important; }
+.leaflet-rotate-wrapper {
+  position: absolute; inset: 0;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  pointer-events: none;
+}
+.leaflet-rotate-wrapper .leaflet-pane { pointer-events: auto; }
+.leaflet-div-icon { font-size: 24px; text-align: center; line-height: 30px; }
+.trip-entry .leaflet-container { width: 100%; height: 300px; }
+
+/* ============================================================
+   BLINK ANIMATIONS
+   ============================================================ */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.blinking {
+  animation: blink 1s infinite;
+  background-color: var(--red) !important;
+}
+.blinking-red {
+  color: var(--red) !important;
+  animation: blink-red 1s infinite;
+}
+@keyframes blink-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ============================================================
+   WLTP VALUES
+   ============================================================ */
+#wltpKm { font-weight: bold; }
+span[id^="wltpSegment"] {
+  font-family: var(--font-hud);
+  font-size: 11px;
+  color: var(--cyan);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   RESPONSIVE — MOBILE
+   ============================================================ */
+@media (max-width: 480px) {
+  body { padding: 6px; }
+  #uiContainer { padding: 12px 10px 16px; border-radius: 16px; }
+  #speedometer-top { flex-direction: column; }
+  #speedometer { min-width: auto; width: 100%; }
+  #map-container { height: 300px; }
+  #digitalSpeed { font-size: clamp(28px, 9vw, 44px) !important; }
+  button { width: 100%; font-size: 11px; }
+  .info-box { padding: 6px 4px; }
+  #socDisplay { padding: 6px 6px 0; }
+  #batteryContainer { height: 32px; }
+  #socPercent { font-size: 15px; }
+  .trip-row.battery-wrapper { gap: 4px; }
+  .trip-row.battery-wrapper label { width: 80px; flex: 0 0 80px; }
+  .trip-row.battery-wrapper input { width: 36px; flex: 0 0 36px; }
+  .trip-row.battery-wrapper span.percent { width: 36px; flex: 0 0 36px; }
+  .trip-row.info-wrapper { gap: 8px; }
+  .trip-row.info-wrapper label { min-width: 88px; font-size: 10px; }
+  .trip-row.info-wrapper span { min-width: 60px; font-size: 10px; }
+  .trip-card button { flex: 1 0 100%; }
+}
 @media(max-width: 500px){
-	.trip-row.battery-wrapper {
-		gap: 4px;
-	}
-	.trip-row.battery-wrapper label {
-		width: 80px;
-		flex: 0 0 80px;
-	}
-	.trip-row.battery-wrapper input {
-		width: 40px;
-		flex: 0 0 40px;
-	}
-	.trip-row.battery-wrapper span.percent {
-		width: 40px;
-		flex: 0 0 40px;
-	}
-	.trip-row.info-wrapper {
-		gap: 10px;
-	}
-	.trip-row.info-wrapper label {
-		min-width: 90px;
-		font-size: 0.85rem;
-	}
-	.trip-row.info-wrapper span {
-		min-width: 60px;
-		font-size: 0.85rem;
-	}
-	.trip-card button {
-		flex: 1 0 100%;
-	}
+  #tripInfoSection p { font-size: 11px; flex-direction: column; align-items: flex-start; gap: 1px; }
+  #tripInfoSection span[id] { font-size: 11px; }
 }
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡Trip A-B Version:2.66</h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v45.67</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
 		<input type="text" id="plateNumber" placeholder="เที่ยวสาว" />
 	</div>
-	<h3>Distance(NEDC/km)</h3>
-	<div>
-		<label>Part 1:</label>
-		<input type="number" id="inputKm1" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment1"> <span id="wltpSegment1"> </span> </label><br>
+	<h3>Distance (NEDC/km)</h3>
+	<div style="display:flex;flex-direction:column;gap:6px;">
+		<div style="display:flex;align-items:center;gap:8px;">
+			<label style="min-width:46px;margin:0">Part 1</label>
+			<input type="number" id="inputKm1" placeholder="602">
+			<label style="margin:0;display:flex;align-items:center;gap:4px;font-size:12px;">
+				<input type="checkbox" id="chkSegment1"> <span id="wltpSegment1"></span>
+			</label>
+		</div>
+		<div style="display:flex;align-items:center;gap:8px;">
+			<label style="min-width:46px;margin:0">Part 2</label>
+			<input type="number" id="inputKm2" placeholder="602">
+			<label style="margin:0;display:flex;align-items:center;gap:4px;font-size:12px;">
+				<input type="checkbox" id="chkSegment2"> <span id="wltpSegment2"></span>
+			</label>
+		</div>
+		<div style="display:flex;align-items:center;gap:8px;">
+			<label style="min-width:46px;margin:0">Part 3</label>
+			<input type="number" id="inputKm3" placeholder="602">
+			<label style="margin:0;display:flex;align-items:center;gap:4px;font-size:12px;">
+				<input type="checkbox" id="chkSegment3"> <span id="wltpSegment3"></span>
+			</label>
+		</div>
 	</div>
-	<div>
-		<label>Part 2:</label>
-		<input type="number" id="inputKm2" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment2"> <span id="wltpSegment2"></span> </label><br>
-	</div>
-	<div>
-		<label>Part 3:</label>
-		<input type="number" id="inputKm3" placeholder="เช่น 1-602km"><label><input type="checkbox" id="chkSegment3"> <span id="wltpSegment3"></span> </label><br>
-	</div>
-	<div style="margin-top:10px;">
-		<button id="tripRecorderBtn">Trip Recorder</button>
-		<button id="startBtn">Trip Start </button>
-		<button id="stopBtn" disabled>Stop Trip</button>
+	<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px;">
+		<button id="tripRecorderBtn">📋 Trip Recorder</button>
+		<button id="startBtn">▶ Trip Start</button>
+		<button id="stopBtn" disabled>■ Stop Trip</button>
 	</div>
 <!-- ================= Trip Recorder Panel ================= -->
 	<div id="tripRecorderPanel">
-		<h2>Trip Recorder</h2>
-		<div style="text-align: center; margin-bottom: 10px;">
-			<button id="backToMainBtn"> <= Trip A-B</button>
+		<h2>📋 Trip Recorder</h2>
+		<div style="text-align: center; margin-bottom: 12px;">
+			<button id="backToMainBtn">← Trip A-B</button>
 		</div>
 		<div class="trips-container" id="trips"></div>
 		<h3>History</h3>
-		<div style="text-align: center; margin-bottom: 10px;">
+		<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
 			<button id="tripToggleBtn">History All</button>
-			<button id="tripDeleteAllBtn">Delete all history</button>
+			<button id="tripDeleteAllBtn" style="border-color:rgba(255,61,90,0.3);color:var(--red);">Delete All</button>
 		</div>
 		<div id="tripHistory"></div>
 	</div>
@@ -755,21 +994,22 @@ button:disabled {
 			<div id="map-container" style="position: relative; width: 100%; height: 370px; overflow: hidden;">
 				<div id="map"></div>
 				<button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
-				<img src="https://img.icons8.com/fluency/48/place-marker.png" alt="ติดตาม GPS">
+				<img src="https://img.icons8.com/fluency/48/place-marker.png" alt="GPS">
 				</button>
 			</div>
-			<div>
+			<div style="padding:10px 14px 0;">
 				<div class="label">Speed</div>
 				<div id="digitalSpeed">0 km/h</div>
 				<div class="label">Average Energy</div>
-				<div id="energyPer100km">0.00 kWh/100km</div><div id="avgEfficiencyPerPercent">Avg: 0.000 km / 1%</div>
-				<div id="energySOCGroup" style="display: flex; justify-content: space-between; align-items: center;">
+				<div id="energyPer100km">0.00 kWh/100km</div>
+				<div id="avgEfficiencyPerPercent">Avg: 0.000 km / 1%</div>
+				<div id="energySOCGroup" style="display: flex; justify-content: space-between; align-items: center; margin-top:8px;">
 					<div class="info-box small-box">
 						<div class="label">Energy/Trip</div>
 						<div class="value" id="energyConsumption">0 kWh</div>
 					</div>
-					<div class="info-box small-box">
-						<div class="label"></div>
+					<div class="info-box small-box" style="flex:1.4;margin:0 6px;">
+						<div class="label">Efficiency</div>
 						<div id="efficiencyContainer">
 							<div id="efficiencyPerPercentBar"></div>
 						</div>
@@ -781,7 +1021,7 @@ button:disabled {
 				</div>
 			</div>
 			<div id="socDisplay" style="position: relative; width: 100%; text-align: center;">
-				<div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+				<div style="display: flex; justify-content: center; align-items: center; gap: 12px; padding:0 10px;">
 					<div id="batteryContainer">
 						<div class="battery-bar"></div>
 						<div class="battery-bar"></div>
@@ -797,48 +1037,44 @@ button:disabled {
 					<div style="display: flex; flex-direction: column; align-items: center;">
 						<span id="socPercent" style="font-size: 18px;">0.00%</span>
 						<div style="display: flex; flex-direction: column; align-items: center;">
-							<span id="wltpKmValue" style="font-size: 11px; color: white; font-weight: bold;">0 km</span>
-							<span id="wltpKmLabel" style="font-size: 11px; color: white;">(WLTP)</span>
+							<span id="wltpKmValue" style="font-size: 10px;">0 km</span>
+							<span id="wltpKmLabel" style="font-size: 9px;">(WLTP)</span>
 						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
-	<h3 style="display:flex; justify-content:space-between; align-items:center;">
-	<button id="toggleTripInfoBtn"
-		style="background:#28a745;color:#fff;border:none;
-		padding:5px 10px;border-radius:5px;cursor:pointer;">
-		Trip Information ▼
-	</button>
+	<h3 style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+	<button id="toggleTripInfoBtn">Trip Information ▼</button>
 </h3>
 	<div id="tripInfoSection" style="display:none;">
-		<p>ระยะทาง (กม.): <span id="distance">0.000</span> km</p>
-		<p>พลังงานรีเจน: <span id="totalRegenEnergy">0.00</span> kWh</p>
-		<p>เวลาที่รถหยุดนิ่ง: <span id="idleTimeDisplay">00:00:00</span></p>
-		<p>เวลาที่ใช้เดินทาง: <span id="elapsedTime">00:00:00</span></p>
-		<p>ความเร็วสูงสุด (กม./ชม.): <span id="maxSpeed">0.0</span> km/h</p>
-		<p>ความเร็วเฉลี่ย (กม./ชม.): <span id="avgSpeed">0.0</span> km/h</p>
-		<p>พิกัดเริ่มต้น: <span id="startTime">-</span> , <span id="startCoord">-</span></p>
-		<p>พิกัดสิ้นสุด: <span id="endTime">-</span> , <span id="endCoord">-</span></p>
-	<h3 style="display: flex; align-items: center; justify-content: space-between;">
-		<button id="toggleTripHistory" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
-			History
+		<p><span>ระยะทาง</span><span id="distance">0.000</span> km</p>
+		<p><span>พลังงานรีเจน</span><span id="totalRegenEnergy">0.00</span> kWh</p>
+		<p><span>เวลาหยุดนิ่ง</span><span id="idleTimeDisplay">00:00:00</span></p>
+		<p><span>เวลาเดินทาง</span><span id="elapsedTime">00:00:00</span></p>
+		<p><span>ความเร็วสูงสุด</span><span id="maxSpeed">0.0</span> km/h</p>
+		<p><span>ความเร็วเฉลี่ย</span><span id="avgSpeed">0.0</span> km/h</p>
+		<p><span>เริ่มต้น</span><span id="startTime">-</span> · <span id="startCoord">-</span></p>
+		<p><span>สิ้นสุด</span><span id="endTime">-</span> · <span id="endCoord">-</span></p>
+	<h3 style="display: flex; align-items: center; justify-content: space-between; margin-top:10px;">
+		<button id="toggleTripHistory" style="background:rgba(0,200,255,0.08);border-color:rgba(0,200,255,0.3);color:var(--cyan);">
+			History ▼
 		</button>
 	</h3>
 	<div id="tripHistorySection" style="display: none;">
-		<div>
-			<button id="showLast2Btn">History</button>
-			<button id="showAllBtn">History All</button>
-			<button onclick="clearAllTrips()">Delete all History</button>
+		<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+			<button id="showLast2Btn">Recent</button>
+			<button id="showAllBtn">All History</button>
+			<button onclick="clearAllTrips()" style="border-color:rgba(255,61,90,0.3);color:var(--red);">Delete All</button>
 		</div>
-		<div id="historyContainer" class="scrollable" style="margin-top:10px;"></div>
+		<div id="historyContainer" class="scrollable" style="margin-top:8px;"></div>
 	</div>
 	<div id="mapModal" class="map-modal">
 		<div class="map-modal-content">
-			<span class="close-map-modal">&times;</span>
-			<div id="leafletMap" style="height: 500px;"></div>
-			<div id="mapTripInfo" style="margin-top: 10px; font-size: 14px;"></div>
+			<span class="close-map-modal">✕</span>
+			<div id="leafletMap" style="height: 500px; border-radius:12px; overflow:hidden;"></div>
+			<div id="mapTripInfo" style="margin-top: 12px; font-size: 13px; font-family: var(--font-body);"></div>
 		</div>
 	</div>
 	</div>
@@ -1451,7 +1687,8 @@ function animateDigitalSpeed(timestamp) {
     dt = Math.min(Math.max(dt, 0.01), 0.1);
     const targetSpeed = filteredSpeedKmh;
     const targetDigit = Math.round(targetSpeed * 10);
-    if (targetSpeed <= 1.5 && shownSpeed <= 8) {
+    // 🔥 UX FIX: snap 0 ทันทีเมื่อรถจอดจริง (filteredSpeedKmh = 0) หรือใกล้ 0
+    if (targetSpeed <= 2) {
         displayedSpeed = 0;
         shownSpeed = 0;
         digitalSpeed.textContent = "0.0 km/h";
@@ -1459,7 +1696,7 @@ function animateDigitalSpeed(timestamp) {
         digitalSpeed.classList.add('speed-low');
         speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
         return;
-    }
+		}
     displayedSpeed = targetSpeed;
     let diff = targetDigit - shownSpeed;
     let rate;
@@ -2034,7 +2271,7 @@ const endIcon = L.divIcon({
 });
 // ✅ showLeafletMapFromTrip
 function showLeafletMapFromTrip(trip) {
-	if (!trip?.path?.length) return alert("Trip นี้ไม่มีข้อมูลตำแหน่ง");
+	//if (!trip?.path?.length) return alert("Trip นี้ไม่มีข้อมูลตำแหน่ง");
 	const mapModal = document.getElementById('mapModal');
 	const tripInfo = document.getElementById("mapTripInfo");
 	const mapContainer = document.getElementById("leafletMap");
@@ -2192,7 +2429,7 @@ function normalizeAngle(deg) {
 }
 let lastZoomLevel = null;
 function calculateTargetZoom(speedKmh) {
-    const hysteresis = 8;
+    const hysteresis = 4;
     if (lastZoomLevel === null) {
         if (speedKmh < 20) lastZoomLevel = 17;
         else if (speedKmh < 110) lastZoomLevel = 16;
@@ -2308,7 +2545,7 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 	if (isFinite(lon)) smoothTransformTarget.lon = lon;
 	smoothTransformTarget.heading = headingDeg;
 	smoothTransformTarget.speedKmh = speedKmh;
-	const zoomSmoothFactor = 0.15;
+	const zoomSmoothFactor = 0.45;
 	smoothedSpeedForZoom = lerp(smoothedSpeedForZoom, speedKmh, zoomSmoothFactor);
 	smoothTransformTarget.zoom = clamp(calculateTargetZoom(smoothedSpeedForZoom), 0, 22);
 	smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
@@ -2365,8 +2602,8 @@ const HISTORY_MAX = 6;
 const NAVI_CENTER_OFFSET_RATIO = 0.18;
 const LOW_SPEED_KMH = 10;
 const MIN_MOTION_SPEED = 2;
-const STOP_LOCK_SPEED = 1.5;
-const RESUME_UNLOCK_SPEED = 3;
+const STOP_LOCK_SPEED = 2.5;
+const RESUME_UNLOCK_SPEED = 4;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio = 0) {
     if (!wrapper) return;
@@ -2399,8 +2636,8 @@ function resetFollowRotationState(full = false) {
 	smoothedCenterLon = null;
 	smoothedLookAhead = null;
 	panVelLat = 0;
-panVelLon = 0;
-justUnlocked = false;
+	panVelLon = 0;
+	justUnlocked = false;
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
@@ -2443,35 +2680,29 @@ function projectAhead(lat, lng, headingDeg, distanceMeters) {
 }
 function pushHistory(lat, lon, t) {
     if (!isFinite(lat) || !isFinite(lon)) return;
-
     const latNum = Number(lat);
     const lonNum = Number(lon);
-
     if (!isFinite(latNum) || !isFinite(lonNum)) return;
-
     posHistory.push({
         lat: latNum,
         lon: lonNum,
         t: Number(t) || 0
     });
-
     while (posHistory.length > HISTORY_MAX) posHistory.shift();
 }
 function getMotionHeadingFromHistory() {
 	if (posHistory.length < 3) return { heading: null, turnRate: 0, confidence: 0 };
-
-const p0 = posHistory[posHistory.length - 3];
-const p1 = posHistory[posHistory.length - 2];
-const p2 = posHistory[posHistory.length - 1];
-
-if (
-    !p0 || !p1 || !p2 ||
-    !isFinite(p0.lat) || !isFinite(p0.lon) ||
-    !isFinite(p1.lat) || !isFinite(p1.lon) ||
-    !isFinite(p2.lat) || !isFinite(p2.lon)
-) {
-    return { heading: null, turnRate: 0, confidence: 0 };
-}
+	const p0 = posHistory[posHistory.length - 3];
+	const p1 = posHistory[posHistory.length - 2];
+	const p2 = posHistory[posHistory.length - 1];
+	if (
+		!p0 || !p1 || !p2 ||
+		!isFinite(p0.lat) || !isFinite(p0.lon) ||
+		!isFinite(p1.lat) || !isFinite(p1.lon) ||
+		!isFinite(p2.lat) || !isFinite(p2.lon)
+	) {
+		return { heading: null, turnRate: 0, confidence: 0 };
+	}
 	const d01 = haversineMeters(p0.lat, p0.lon, p1.lat, p1.lon);
 	const d12 = haversineMeters(p1.lat, p1.lon, p2.lat, p2.lon);
 	if (d01 < MIN_MOVE_FOR_MOTION_M || d12 < MIN_MOVE_FOR_MOTION_M) {
@@ -2482,59 +2713,54 @@ if (
 	const delta = normalizeAngleDifference(h12, h01);
 	const absTurn = Math.abs(delta);
 	const confidence = clamp((Math.min(d01, d12) - MIN_MOVE_FOR_MOTION_M) / 4.0, 0, 1);
-	// ----- Adaptive Motion Heading Stabilizer -----
-let finalHeading = h12;
-if (filteredMotionHeading == null) {
-    filteredMotionHeading = h12;
-} else {
-    const diff = normalizeAngleDifference(h12, filteredMotionHeading);
-    const absDiff = Math.abs(diff);
-    // 🔹 1) Speed adaptive deadband
-    const deadband =
-	lastGpsSpeedKmh < 5   ? 1.2 :
-        lastGpsSpeedKmh < 10  ? 2.0 :
-        lastGpsSpeedKmh < 40  ? 1.6 :
-        lastGpsSpeedKmh < 80  ? 1.2 :
-        lastGpsSpeedKmh < 130 ? 0.8 :
-                                0.6;
-    if (absDiff < deadband) {
-    } else {
-        const turning =
-            absTurn > 6 || isUTurn(absTurn, lastGpsSpeedKmh);
-        let response;
-        if (turning) {
-            response = 0.65;
-        } else {
-            response =
-                lastGpsSpeedKmh < 15 ? 0.18 :
-                lastGpsSpeedKmh < 60 ? 0.25 :
-                lastGpsSpeedKmh < 120 ? 0.32 :
-                                        0.38;
-        }
-        filteredMotionHeading =
-            normalizeAngle(
-                filteredMotionHeading + diff * response
-            );
-    }
-}
-finalHeading = filteredMotionHeading;
-return {
-    heading: finalHeading,
-    turnRate: absTurn,
-    confidence
-};
+	let finalHeading = h12;
+	if (filteredMotionHeading == null) {
+		filteredMotionHeading = h12;
+	} else {
+		const diff = normalizeAngleDifference(h12, filteredMotionHeading);
+		const absDiff = Math.abs(diff);
+		const deadband =
+		lastGpsSpeedKmh < 5   ? 1.2 :
+			lastGpsSpeedKmh < 10  ? 2.0 :
+			lastGpsSpeedKmh < 40  ? 1.6 :
+			lastGpsSpeedKmh < 80  ? 1.2 :
+			lastGpsSpeedKmh < 130 ? 0.8 :
+									0.6;
+		if (absDiff < deadband) {
+		} else {
+			const turning =
+				absTurn > 6 || isUTurn(absTurn, lastGpsSpeedKmh);
+			let response;
+			if (turning) {
+				response = lastGpsSpeedKmh < 8 ? 0.80 : 0.72;
+			} else {
+				response =
+					lastGpsSpeedKmh < 15 ? 0.30 :
+					lastGpsSpeedKmh < 60 ? 0.38 :
+					lastGpsSpeedKmh < 120 ? 0.45 :
+											0.52;
+			}
+			filteredMotionHeading =
+				normalizeAngle(
+					filteredMotionHeading + diff * response
+				);
+		}
+	}
+	finalHeading = filteredMotionHeading;
+	return {
+		heading: finalHeading,
+		turnRate: absTurn,
+		confidence
+	};
 }
 function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
-    const gpsOk = isFinite(gpsHeading) && speedKmh > 5;   // 🔥 เพิ่ม
+    const gpsOk = isFinite(gpsHeading) && speedKmh > 5;
     const motionOk = isFinite(motionHeading);
-
     if (!gpsOk && !motionOk) return null;
     if (!gpsOk) return motionHeading;
     if (!motionOk) return gpsHeading;
-
     const speedW = clamp(speedKmh / 200, 0, 1);
     let wMotion = lerp(0.7, 0.95, speedW) * clamp(motionConfidence + 0.2, 0, 1);
-
     return lerpAngle(gpsHeading, motionHeading, wMotion);
 }
 function dynamicLookAhead(speedKmh, curveStrength01, isStopped) {
@@ -2552,7 +2778,6 @@ function isUTurn(turnRateDeg, speedKmh) {
 	const th = speedKmh < 15 ? 55 : 70;
 	return turnRateDeg > th;
 }
-
 // MAIN LOOP
 function smoothTransformStep(now) {
     if (!isTracking || !map || !vehicleMarker || smoothTransformTarget.lat === null) {
@@ -2577,16 +2802,20 @@ function smoothTransformStep(now) {
     if (movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
         movementState = "stopped";
         rotationController.velocity = 0;
-    } else if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
-    movementState = "moving";
-
-    resetFollowRotationState(false);
-filteredMotionHeading = null;
-posHistory.length = 0;
-lastHeading = rotationController.lockedHeading;
-    rotationController.current = rotationController.lockedHeading;
-    rotationController.velocity = 0;
-}
+	} else if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
+		movementState = "moving";
+		resumeTime = now;
+		const savedHeading = rotationController.lockedHeading;
+		resetFollowRotationState(false);
+		filteredMotionHeading = null;
+		posHistory.length = 0;
+		lastHeading = savedHeading;
+		rotationController.current = savedHeading;
+		rotationController.lockedHeading = savedHeading;
+		rotationController.lastStableHeading = savedHeading;
+		rotationController.velocity = 0;
+		hasInitialHeading = true;
+	}
 	   // 1 stop
     const isStopped = movementState === "stopped";
     if (isStopped) {
@@ -2594,7 +2823,6 @@ lastHeading = rotationController.lockedHeading;
         posHistory.splice(0, posHistory.length - 1);
         filteredMotionHeading = null;
     }
-
     if (!isStopped) {
         const last = posHistory[posHistory.length - 1];
         if (!last ||
@@ -2604,25 +2832,24 @@ lastHeading = rotationController.lockedHeading;
         }
     }
 	const motion = getMotionHeadingFromHistory();
-const motionOk =
-    movementState === "moving" &&
-    targetSpeed >= 3 &&
-    (now - resumeTime > 800) &&   // 🔥 delay 0.8 วิ
-    isFinite(motion.heading) &&
-    motion.confidence >= 0.45;
-	const lowSpeedCurveOk =
-    movementState === "moving" &&
-    targetSpeed >= 2 &&                 // 🚗 รถติด
-    targetSpeed < 5 &&
-    isFinite(motion.heading) &&
-    motion.confidence >= 0.55 &&        // 🔥 ต้องมั่นใจสูง
-    Math.abs(motion.turnRate) > 12;     // 🔥 ต้องมีโค้งจริง
-const turnRateForCurve =
-    (motionOk || lowSpeedCurveOk) ? motion.turnRate : 0;
-
-const curveStrength01 = targetSpeed < MIN_MOTION_SPEED
-    ? 0
-    : computeCurveStrength(turnRateForCurve, targetSpeed);
+	const motionOk =
+		movementState === "moving" &&
+		targetSpeed >= 3 &&
+		(now - resumeTime > 500) &&
+		isFinite(motion.heading) &&
+		motion.confidence >= 0.45;
+		const lowSpeedCurveOk =
+		movementState === "moving" &&
+		targetSpeed >= 2 &&
+		targetSpeed < 8 &&
+		isFinite(motion.heading) &&
+		motion.confidence >= 0.40 &&
+		Math.abs(motion.turnRate) > 8;
+	const turnRateForCurve =
+		(motionOk || lowSpeedCurveOk) ? motion.turnRate : 0;
+	const curveStrength01 = targetSpeed < MIN_MOTION_SPEED
+		? 0
+		: computeCurveStrength(turnRateForCurve, targetSpeed);
     /// 2) Marker Position Smoothing
     if (smoothedLat === null) {
         smoothedLat = targetLat;
@@ -2648,57 +2875,45 @@ const curveStrength01 = targetSpeed < MIN_MOTION_SPEED
     const gpsHeading = isFinite(targetHeading)
         ? ((targetHeading + 360) % 360)
         : null;
-
-    // 🔥 ใช้ motion เฉพาะตอนเป็นโค้งจริง
-let baseHeading = mixHeading(
-    gpsHeading,
-    motion.heading,
-    motion.confidence,
-    targetSpeed
-);
-// ===== HEADING WARMUP GUARD =====
-const isHeadingReliable =
-    targetSpeed > 6 &&
-    (motion.confidence > 0.5 || isFinite(gpsHeading));
-
-if (!isHeadingReliable) {
-    baseHeading = rotationController.lockedHeading ?? baseHeading;
-}
-// low speed curve override
-if (!motionOk && lowSpeedCurveOk) {
-    baseHeading = lerpAngle(
-        rotationController.current,
-        motion.heading,
-        0.35
-    );
-}
-
-// stabilize low speed
-if (!rotationController.freeze && targetSpeed < 8) {
-    const ref = rotationController.lastStableHeading ?? baseHeading;
-    const diff = Math.abs(
-        normalizeAngleDifference(baseHeading, ref)
-    );
-const unstable =
-    (!motionOk && !lowSpeedCurveOk) || diff > 25;
-
-    if (unstable) {
-        const t = clamp((targetSpeed - 0.5) / 7.5, 0, 1);
-        baseHeading = lerpAngle(ref, baseHeading, t * 0.6);
-    }
-}
-    if (!isFinite(baseHeading) && posHistory.length >= 2) {
-        const p1 = posHistory[posHistory.length - 2];
-        const p2 = posHistory[posHistory.length - 1];
-        baseHeading = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
-    }
-	if (!isFinite(baseHeading)) {
-		baseHeading = rotationController.lockedHeading ?? lastHeading ?? 0;
+	let baseHeading = mixHeading(
+		gpsHeading,
+		motion.heading,
+		motion.confidence,
+		targetSpeed
+	);
+	const isHeadingReliable =
+		targetSpeed > 6 &&
+		(motion.confidence > 0.5 || isFinite(gpsHeading));
+	if (!isHeadingReliable && !lowSpeedCurveOk) {
+		baseHeading = rotationController.lockedHeading ?? baseHeading;
 	}
+	if (!motionOk && lowSpeedCurveOk) {
+		baseHeading = lerpAngle(
+			rotationController.current,
+			motion.heading,
+			0.55
+		);
+	}
+	if (!rotationController.freeze && targetSpeed < 8) {
+	const ref = rotationController.lastStableHeading ?? baseHeading;
+		const unstable = !motionOk && !lowSpeedCurveOk;
+	if (unstable) {
+		const t = clamp((targetSpeed - 0.5) / 6.0, 0, 1);
+		baseHeading = lerpAngle(ref, baseHeading, t * 0.65);
+	}
+	}
+		if (!isFinite(baseHeading) && posHistory.length >= 2) {
+			const p1 = posHistory[posHistory.length - 2];
+			const p2 = posHistory[posHistory.length - 1];
+			baseHeading = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
+		}
+		if (!isFinite(baseHeading)) {
+			baseHeading = rotationController.lockedHeading ?? lastHeading ?? 0;
+		}
     /// 4) Curve Model
-const isTurning =
-    (motionOk || lowSpeedCurveOk) &&
-    (motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
+	const isTurning =
+		(motionOk || lowSpeedCurveOk) &&
+		(motion.turnRate > 18 || isUTurn(motion.turnRate, targetSpeed));
     if (targetSpeed >= LOW_SPEED_KMH && curveStrength01 > 0.14) {
         curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
     }
@@ -2709,7 +2924,7 @@ const isTurning =
     }
     if (rotationController.freeze) {
         baseHeading = rotationController.lockedHeading;
-    } else if (isFinite(baseHeading) && targetSpeed > 5) {
+	} else if (isFinite(baseHeading) && (targetSpeed > 5 || lowSpeedCurveOk)) {
 		lastHeading = baseHeading;
 	}
     if (!isFinite(baseHeading)) {
@@ -2732,10 +2947,13 @@ const isTurning =
 			lastAppliedZoom = targetZoom;
 		}
 		const PAN_EPS = 3e-7;
-		const zoomLambda = 4.5;
+		const zoomLambda = 12.0;
 		const zoomT = 1 - Math.exp(-zoomLambda * dtSec);
+		const zoomDir = targetZoom - lastAppliedZoom;
 		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
-		const zoomLevel = Math.round(lastAppliedZoom);
+		const zoomLevel = zoomDir < 0
+			? Math.floor(lastAppliedZoom)
+			: Math.ceil(lastAppliedZoom);
 		const panLambda = lerp(2.2, 3.6, speedNorm);
 		const panT = 1 - Math.exp(-panLambda * dtSec);
 		const camLat = renderLat;
@@ -2767,37 +2985,32 @@ const isTurning =
     }
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {	
-		const shouldFreeze = targetSpeed < STOP_LOCK_SPEED;
-if (shouldFreeze) {
-    if (!rotationController.freeze) {
-        rotationController.lockedHeading = isFinite(gpsHeading)
-            ? gpsHeading
-            : rotationController.current;
+		const shouldFreeze = movementState === "stopped" || targetSpeed < STOP_LOCK_SPEED;
+		if (shouldFreeze) {
+			if (!rotationController.freeze) {
+				rotationController.lockedHeading = isFinite(gpsHeading)
+					? gpsHeading
+					: rotationController.current;
+				rotationController.unlockTime = null;
+			}
+			rotationController.freeze = true;
+			rotationController.velocity = 0;
+		} else {
+			if (rotationController.freeze) {
+				if (!rotationController.unlockTime) {
+					rotationController.unlockTime = now;
+				}
+				const UNLOCK_DELAY_MS = 600;
+				if (now - rotationController.unlockTime >= UNLOCK_DELAY_MS) {
+					rotationController.freeze = false;
+					rotationController.velocity = 0;
+					filteredMotionHeading = null;
+					posHistory.splice(0, posHistory.length - 1);
+					justUnlocked = true;
+				}
+			}
 
-        rotationController.unlockTime = null;
-    }
-    rotationController.freeze = true;
-    rotationController.velocity = 0;
-
-} else {
-
-    if (rotationController.freeze) {
-        if (!rotationController.unlockTime) {
-            rotationController.unlockTime = now;
-        }
-
-        const UNLOCK_DELAY_MS = 400;
-
-        if (now - rotationController.unlockTime >= UNLOCK_DELAY_MS) {
-            rotationController.freeze = false;
-            rotationController.velocity = 0;
-            filteredMotionHeading = null;
-            posHistory.splice(0, posHistory.length - 1);
-            justUnlocked = true;
-        }
-    }
-
-}
+		}
 		let finalTargetHeading = (rotationController.freeze)
 			? rotationController.lockedHeading
 			: normalizeAngle(baseHeading);
@@ -2813,45 +3026,42 @@ if (shouldFreeze) {
 		}
 		if (rotationController.freeze) {
 			finalTargetHeading = rotationController.lockedHeading;
-
 		} else {
 			let blendFactor = 1;
 			if (rotationController.unlockTime) {
 				blendFactor = unlockT;
 			}
 			if (!rotationController.freeze && targetSpeed < 10) {
-				const slowT = clamp((targetSpeed - 2) / 8, 0, 1);
-				blendFactor *= lerp(0.65, 1, slowT);
+				const slowT = clamp((targetSpeed - 1.5) / 6, 0, 1);
+				blendFactor *= lerp(0.75, 1, slowT);
 			}
 			const safeBaseHeading = lerpAngle(
 				rotationController.current,
 				baseHeading,
-				clamp(targetSpeed / 20, 0.1, 1)
+				clamp(targetSpeed / 12, 0.15, 1)
 			);
-
 			blendedHeading = lerpAngle(
 				rotationController.lockedHeading,
 				safeBaseHeading,
 				blendFactor
 			);
-finalTargetHeading = lerpAngle(
-    rotationController.current,
-    blendedHeading,
-    0.25
-);
+			finalTargetHeading = lerpAngle(
+				rotationController.current,
+				blendedHeading,
+				clamp(0.25 + targetSpeed / 160, 0.25, 0.65)
+			);
 		}
-		const MAX_HEADING_CHANGE = targetSpeed < 10 ? 8 : 25;
-
-let rawDiff = normalizeAngleDifference(
-    finalTargetHeading,
-    rotationController.current
-);
-
-if (Math.abs(rawDiff) > MAX_HEADING_CHANGE) {
-    finalTargetHeading =
-        rotationController.current +
-        Math.sign(rawDiff) * MAX_HEADING_CHANGE;
-}
+		const isActiveTurn = (motionOk || lowSpeedCurveOk) && motion.turnRate > 40;
+		const MAX_HEADING_CHANGE = isActiveTurn ? 60 : targetSpeed < 5 ? 15 : targetSpeed < 10 ? 20 : 35;
+		let rawDiff = normalizeAngleDifference(
+			finalTargetHeading,
+			rotationController.current
+		);
+		if (Math.abs(rawDiff) > MAX_HEADING_CHANGE) {
+			finalTargetHeading =
+				rotationController.current +
+				Math.sign(rawDiff) * MAX_HEADING_CHANGE;
+		}
 		let diff = normalizeAngleDifference(
 			finalTargetHeading,
 			rotationController.current
@@ -2860,8 +3070,8 @@ if (Math.abs(rawDiff) > MAX_HEADING_CHANGE) {
 		if (rotationController.unlockTime && unlockT >= 1) {
 			rotationController.unlockTime = null;
 		}
-		const stiffness = lerp(24, 55, speedNorm);
-		const damping   = lerp(11, 7.5, speedNorm);
+		const stiffness = lerp(55, 90, speedNorm);
+		const damping   = lerp(9, 6.5, speedNorm);
         rotationController.velocity += diff * stiffness * dtSec;
         rotationController.velocity *= Math.exp(-damping * dtSec);
         rotationController.current =
@@ -2979,7 +3189,7 @@ function removeRotationWrapper(targetMap = map) {
 		const parent = wrapper.parentNode;
 		parent.insertBefore(paneRoot, wrapper);
 	}
-  try { wrapper.remove(); } catch (e) {}
+	try { wrapper.remove(); } catch (e) {}
 }
 // Reset Map Rotation
 function resetMapRotation(callback = null) {
@@ -3010,7 +3220,6 @@ function getReliableHeading(speedKmh, gpsHeading) {
 
     return lastReliableHeading;
 }
-
 function clearWatchId() {
 	if (watchId !== null) {
 		try { navigator.geolocation.clearWatch(watchId); } catch(e) {}
@@ -3059,11 +3268,11 @@ function initMap(lat, lon) {
 		zoomSnap: 1,
 		zoomDelta: 1
 	});
-L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
-    keepBuffer: 12,
-    updateWhenIdle: true,
-    updateWhenZooming: false
-}).addTo(map);
+	L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
+		keepBuffer: 12,
+		updateWhenIdle: true,
+		updateWhenZooming: false
+	}).addTo(map);
     routeLayer = L.layerGroup().addTo(map);
     vehicleMarker = L.marker([lat, lon], {icon: vehicleIcon, interactive: false}).addTo(map);
     map.whenReady(() => {
@@ -3163,7 +3372,6 @@ let lastRouteLon = null;
 function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     if (!map || !vehicleMarker) return;
     if (!isFinite(lat) || !isFinite(lon)) return;
-
     lastGpsLat = lat;
     lastGpsLng = lon;
     lastGpsSpeedKmh = speedKmh;
@@ -3172,7 +3380,6 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
     const lastCoord = pathCoordinates[pathCoordinates.length - 1];
 	if (!lastCoord || getDistanceFromLatLonInKm(lastCoord[0], lastCoord[1], lat, lon) >= MIN_DIST_KM) {
 		pathCoordinates.push([lat, lon, speedKmh || 0, now]);
-
 		if (pathCoordinates.length > 30000) {
 			pathCoordinates.shift();
 		}
@@ -3370,70 +3577,64 @@ function normalizeGps(pos) {
 		sensorSpeedKmh = 0;
 	}
     let delta = sensorSpeedKmh - filteredSpeedKmh;
-	const MAX_ACCEL_MS2 = 12.0;   // ~0-100 EV ปกติ
-	const MAX_DECEL_MS2 = 12.0;   // เบรกแรง
-	const maxUp = MAX_ACCEL_MS2 * 3.6 * dt;     // m/s² → km/h/s
+	const MAX_ACCEL_MS2 = 12.0;
+	const MAX_DECEL_MS2 = 12.0;
+	const maxUp = MAX_ACCEL_MS2 * 3.6 * dt;
 	const maxDown = MAX_DECEL_MS2 * 3.6 * dt;
-const LOW_SPEED_RELEASE = 10; // km/h
-
-if (filteredSpeedKmh < LOW_SPEED_RELEASE) {
-    delta = sensorSpeedKmh - filteredSpeedKmh;
-} else {
-    if (delta > 0) {
-        delta = Math.min(delta, maxUp);
-    } else {
-        delta = Math.max(delta, -maxDown);
-    }
-}
-// --- stage 1: base filter ---
-let nextSpeed = filteredSpeedKmh + delta;
-nextSpeed = Math.max(0, nextSpeed);
-
-// --- stage 2: slope override
-if (speedSlope < -8 && nextSpeed < 20 && nextSpeed > STOP_LOCK_SPEED) {
-    const diff = Math.abs(sensorSpeedKmh - nextSpeed);
-    if (diff > 1.5) {
-        nextSpeed = sensorSpeedKmh;
-    }
-}
-// --- stage 3: low-speed sync ---
-else if (nextSpeed < 10) {
-    const diffLow = Math.abs(sensorSpeedKmh - nextSpeed);
-    if (diffLow > 1.5) {
-        nextSpeed = sensorSpeedKmh;
-    }
-}
-
-// 🔥 HARD STOP (จอดจริง = 0 ทันที)
-if (sensorSpeedKmh < 2 && moveMeters < 1.0) {
-    nextSpeed = 0;
-    sensorSpeedKmh = 0;
-}
-// --- stage 4: stop lock ---
-if (nextSpeed <= STOP_LOCK_SPEED) {
-    if (zeroCandidateSince === null) {
-        zeroCandidateSince = timestamp;
-    }
-
-    const confirmMs = getZeroConfirmMs(nextSpeed);
-    const timeReady = (timestamp - zeroCandidateSince) > confirmMs;
-
-const noMovement = moveMeters < 1.2;
-const veryLowSpeed = nextSpeed < 3.5;
-    const brakingHard = speedSlope < -12 && nextSpeed < 20;
-    if (
-        (timeReady && noMovement && veryLowSpeed) ||
-        brakingHard
-    ) {
-        nextSpeed = 0;
-        sensorSpeedKmh = 0;
-    }
-} else {
-    zeroCandidateSince = null;
-}
-
-// commit ทีเดียว
-filteredSpeedKmh = nextSpeed;
+	const LOW_SPEED_RELEASE = 10;
+	if (filteredSpeedKmh < LOW_SPEED_RELEASE) {
+		delta = sensorSpeedKmh - filteredSpeedKmh;
+	} else {
+		if (delta > 0) {
+			delta = Math.min(delta, maxUp);
+		} else {
+			delta = Math.max(delta, -maxDown);
+		}
+	}
+	// --- stage 1: base filter ---
+	let nextSpeed = filteredSpeedKmh + delta;
+	nextSpeed = Math.max(0, nextSpeed);
+	// --- stage 2: slope override
+	if (speedSlope < -8 && nextSpeed < 20 && nextSpeed > STOP_LOCK_SPEED) {
+		const diff = Math.abs(sensorSpeedKmh - nextSpeed);
+		if (diff > 1.5) {
+			nextSpeed = sensorSpeedKmh;
+		}
+	}
+	// --- stage 3: low-speed sync ---
+	else if (nextSpeed < 10) {
+		const diffLow = Math.abs(sensorSpeedKmh - nextSpeed);
+		if (diffLow > 1.5) {
+			nextSpeed = sensorSpeedKmh;
+		}
+	}
+	// 🔥 HARD STOP (จอดจริง = 0 ทันที)
+	if (sensorSpeedKmh < 2 && moveMeters < 1.0) {
+		nextSpeed = 0;
+		sensorSpeedKmh = 0;
+	}
+	// --- stage 4: stop lock ---
+	if (nextSpeed <= STOP_LOCK_SPEED) {
+		if (zeroCandidateSince === null) {
+			zeroCandidateSince = timestamp;
+		}
+		const confirmMs = getZeroConfirmMs(nextSpeed);
+		const timeReady = (timestamp - zeroCandidateSince) > confirmMs;
+		const noMovement = moveMeters < 1.2;
+		const veryLowSpeed = nextSpeed < 3.5;
+		const brakingHard = speedSlope < -12 && nextSpeed < 20;
+		if (
+			(timeReady && noMovement && veryLowSpeed) ||
+			brakingHard
+		) {
+			nextSpeed = 0;
+			sensorSpeedKmh = 0;
+		}
+	} else {
+		zeroCandidateSince = null;
+	}
+	// commit ทีเดียว
+	filteredSpeedKmh = nextSpeed;
 	const speedKmh = filteredSpeedKmh;
     const heading = (isFinite(c.heading) && c.heading >= 0)
             ? (c.heading % 360)
@@ -3459,7 +3660,6 @@ filteredSpeedKmh = nextSpeed;
 			}
 		}
 	}
-
     lastRawGpsLat = finalLat;
     lastRawGpsLon = finalLon;
 	lastInputGpsLat = lat;
@@ -3823,117 +4023,100 @@ function stopTracking() {
 		validCoords = reduced;
 	}
 	if (validCoords.length === 1) {
-    map.setView([validCoords[0][0], validCoords[0][1]], 17);
-    drawHistoryRoute(validCoords);
-    enableMapInteraction();
-    return;
-}
+		map.setView([validCoords[0][0], validCoords[0][1]], 17);
+		drawHistoryRoute(validCoords);
+		enableMapInteraction();
+		return;
+	}
 	if (validCoords.length === 0) return;
-
-requestAnimationFrame(() => {
-    hardClearMapRotation(map);
-    setMapPaneTransformOriginToCenter(map);
-    // ================= CONFIG =================
-const FIT_CONFIG = {
-    paddingRatio: 0.12, 
-    minPadding: 60,
-    maxPadding: 500,   
-    maxZoom: 17,
-    retryLimit: 4,
-    overflowFactor: 1.3
-};
-
-    // ===== bounds =====
-    let bounds = L.latLngBounds(validCoords);
-    if (!bounds.isValid()) {
-        enableMapInteraction();
-        return;
-    }
-
-    // ===== distance =====
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    const diagonalMeters = ne.distanceTo(sw);
-    const distanceMeters = diagonalMeters;
-bounds = bounds.pad(
-    distanceMeters > 500000 ? 0.30 :   // > 500 km
-    distanceMeters > 100000 ? 0.18 :   // > 100 km
-    distanceMeters > 10000  ? 0.12 :   // > 10 km
-    0.08                                // < 10 km
-);
-    // ===== dynamic zoom =====
-    const dynamicMaxZoom =
-    distanceMeters > 1000000 ? 8  :  // > 1000 km
-    distanceMeters > 500000  ? 10 :  // > 500 km
-    distanceMeters > 200000  ? 12 :  // > 200 km
-    FIT_CONFIG.maxZoom;               // < 200 km = 17
-
-    // ===== padding =====
-    const mapSize = map.getSize();
-    let padding = Math.min(mapSize.x, mapSize.y) * FIT_CONFIG.paddingRatio;
-if (distanceMeters < 2000) padding *= 1.4;        // ระยะสั้น → เผื่อเยอะ
-else if (distanceMeters < 20000) padding *= 1.3;  // ระยะกลาง
-else if (distanceMeters < 200000) padding *= 1.2; // เริ่มไกล
-else if (distanceMeters < 800000) padding *= 1.1; // ไกล
-else padding *= 1.05;                             // ไกลมาก (ไม่ต้องเยอะ)
-    // stretch
-    const latDiff = Math.abs(ne.lat - sw.lat);
-    const lngDiff = Math.abs(ne.lng - sw.lng);
-    const stretchFactor = Math.max(latDiff, lngDiff) / Math.max(0.00001, Math.min(latDiff, lngDiff));
-
-    const safeStretch = Math.min(stretchFactor, 10);
-    if (safeStretch > 5) padding *= 1.2;
-
-    // clamp
-    padding = Math.max(FIT_CONFIG.minPadding, padding);
-    padding = Math.min(FIT_CONFIG.maxPadding, padding);
-
-    map.invalidateSize();
-
-    // ===== FIT + retry =====
-    function fitWithRetry(retry = 0) {
-map.fitBounds(bounds, {
-    padding: [padding * 1.3, padding * 1.3], // 👈 เพิ่ม
-    maxZoom: dynamicMaxZoom,
-    animate: false
-});
-
-        requestAnimationFrame(() => {
-
-            const currentBounds = map.getBounds();
-            let overflow = false;
-
-           const sampleStep = Math.max(1, Math.floor(validCoords.length / 300));
-const paddedBounds = currentBounds;
-
-for (let i = 0; i < validCoords.length; i += sampleStep) {
-    const latlng = L.latLng(validCoords[i][0], validCoords[i][1]);
-    if (!paddedBounds.contains(latlng)) {
-        overflow = true;
-        break;
-    }
-}
-
-            if (overflow && retry < FIT_CONFIG.retryLimit) {
-                padding = Math.min(
-                    padding * FIT_CONFIG.overflowFactor,
-                    FIT_CONFIG.maxPadding
-                );
-                fitWithRetry(retry + 1);
-                return;
-            }
-
-            if (routeLayer) routeLayer.clearLayers();
-            drawHistoryRoute(validCoords);
-
-            requestAnimationFrame(() => {
-                enableMapInteraction();
-            });
-        });
-    }
-
-    fitWithRetry();
-});
+	requestAnimationFrame(() => {
+		hardClearMapRotation(map);
+		setMapPaneTransformOriginToCenter(map);
+		// ================= CONFIG =================
+		const FIT_CONFIG = {
+			paddingRatio: 0.12, 
+			minPadding: 60,
+			maxPadding: 500,   
+			maxZoom: 17,
+			retryLimit: 4,
+			overflowFactor: 1.3
+		};
+		let bounds = L.latLngBounds(validCoords);
+		if (!bounds.isValid()) {
+			enableMapInteraction();
+			return;
+		}
+		// ===== distance =====
+		const ne = bounds.getNorthEast();
+		const sw = bounds.getSouthWest();
+		const diagonalMeters = ne.distanceTo(sw);
+		const distanceMeters = diagonalMeters;
+		bounds = bounds.pad(
+			distanceMeters > 500000 ? 0.30 :
+			distanceMeters > 100000 ? 0.18 :
+			distanceMeters > 10000  ? 0.12 :
+			0.08 
+		);
+		// ===== dynamic zoom =====
+		const dynamicMaxZoom =
+		distanceMeters > 1000000 ? 8  :
+		distanceMeters > 500000  ? 10 :
+		distanceMeters > 200000  ? 12 :
+		FIT_CONFIG.maxZoom;
+		// ===== padding =====
+		const mapSize = map.getSize();
+		let padding = Math.min(mapSize.x, mapSize.y) * FIT_CONFIG.paddingRatio;
+		if (distanceMeters < 2000) padding *= 1.4; 
+		else if (distanceMeters < 20000) padding *= 1.3; 
+		else if (distanceMeters < 200000) padding *= 1.2; 
+		else if (distanceMeters < 800000) padding *= 1.1; 
+		else padding *= 1.05; 
+		// stretch
+		const latDiff = Math.abs(ne.lat - sw.lat);
+		const lngDiff = Math.abs(ne.lng - sw.lng);
+		const stretchFactor = Math.max(latDiff, lngDiff) / Math.max(0.00001, Math.min(latDiff, lngDiff));
+		const safeStretch = Math.min(stretchFactor, 10);
+		if (safeStretch > 5) padding *= 1.2;
+		// clamp
+		padding = Math.max(FIT_CONFIG.minPadding, padding);
+		padding = Math.min(FIT_CONFIG.maxPadding, padding);
+		map.invalidateSize();
+		// ===== FIT + retry =====
+		function fitWithRetry(retry = 0) {
+			map.fitBounds(bounds, {
+				padding: [padding * 1.3, padding * 1.3],
+				maxZoom: dynamicMaxZoom,
+				animate: false
+			});
+			requestAnimationFrame(() => {
+				const currentBounds = map.getBounds();
+				let overflow = false;
+				const sampleStep = Math.max(1, Math.floor(validCoords.length / 300));
+				const paddedBounds = currentBounds;
+				for (let i = 0; i < validCoords.length; i += sampleStep) {
+					const latlng = L.latLng(validCoords[i][0], validCoords[i][1]);
+					if (!paddedBounds.contains(latlng)) {
+						overflow = true;
+						break;
+					}
+				}
+				if (overflow && retry < FIT_CONFIG.retryLimit) {
+					padding = Math.min(
+						padding * FIT_CONFIG.overflowFactor,
+						FIT_CONFIG.maxPadding
+					);
+					fitWithRetry(retry + 1);
+					return;
+				}
+				if (routeLayer) routeLayer.clearLayers();
+				drawHistoryRoute(validCoords);
+				requestAnimationFrame(() => {
+					enableMapInteraction();
+				});
+			});
+		}
+		fitWithRetry();
+	});
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
