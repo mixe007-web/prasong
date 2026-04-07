@@ -940,7 +940,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v45.67</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v11.12</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2610,11 +2610,18 @@ function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio
     const container = wrapper.closest('.leaflet-container');
     if (!container) return;
     const offsetPx = container.clientHeight * offsetRatio;
-    const transform =
-        `translate3d(${panX}px, ${panY + offsetPx}px, 0px) ` +
-        `rotate(${rotationDeg}deg)`;
+    // ปัดทศนิยมให้เหลือ 4 ตำแหน่ง ลด string ที่เปลี่ยนแปลงน้อยมาก → ลด repaint
+    const rot = rotationDeg.toFixed(4);
+    const tx  = panX.toFixed(3);
+    const ty  = (panY + offsetPx).toFixed(3);
+    const transform = `translate3d(${tx}px,${ty}px,0px) rotate(${rot}deg)`;
     if (transform === lastAppliedTransform) return;
     lastAppliedTransform = transform;
+    // will-change: transform ช่วยให้ browser จอง GPU layer ไว้
+    if (!wrapper._willChangeSet) {
+        wrapper.style.willChange = 'transform';
+        wrapper._willChangeSet = true;
+    }
     wrapper.style.transform = transform;
 }
 // ===== helpers (local) =====
@@ -2799,7 +2806,8 @@ function smoothTransformStep(now) {
     }
     const prevFrameTime = smoothTransformTarget.lastFrameTime;
     let dtSec = (now - prevFrameTime) / 1000;
-    dtSec = clamp(dtSec, 0.001, 0.05);
+    // เพิ่ม upper clamp จาก 50ms → 80ms เพื่อลด jerk เวลา frame drop
+    dtSec = clamp(dtSec, 0.001, 0.08);
     if (movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
         movementState = "stopped";
         rotationController.velocity = 0;
@@ -3034,26 +3042,20 @@ else if (targetSpeed < LOW_SPEED_KMH && !isTurning) {
 			}
 			if (!rotationController.freeze && targetSpeed < 10) {
 				const slowT = clamp((targetSpeed - 1.5) / 6, 0, 1);
-				blendFactor *= lerp(0.75, 1, slowT);
+				blendFactor *= lerp(0.85, 1, slowT);
 			}
-			const safeBaseHeading = lerpAngle(
-				rotationController.current,
-				baseHeading,
-				clamp(targetSpeed / 12, 0.15, 1)
-			);
-			blendedHeading = lerpAngle(
-				rotationController.lockedHeading,
-				safeBaseHeading,
-				blendFactor
-			);
+			// ลด blending layer จาก 3 ชั้น → 2 ชั้น เพื่อลด phase lag
+			// เพิ่ม response factor จาก 0.25-0.65 → 0.45-0.85 ให้ติดมือขึ้น
+			const responseT = clamp(0.45 + targetSpeed / 100, 0.45, 0.85);
 			finalTargetHeading = lerpAngle(
 				rotationController.current,
-				blendedHeading,
-				clamp(0.25 + targetSpeed / 160, 0.25, 0.65)
+				baseHeading,
+				blendFactor * responseT
 			);
 		}
 		const isActiveTurn = (motionOk || lowSpeedCurveOk) && motion.turnRate > 40;
-		const MAX_HEADING_CHANGE = isActiveTurn ? 60 : targetSpeed < 5 ? 15 : targetSpeed < 10 ? 20 : 35;
+		// MAX_HEADING_CHANGE: เพิ่มขึ้นให้หมุนได้เร็วขึ้น ลด jerk เวลาเลี้ยวเร็ว
+		const MAX_HEADING_CHANGE = isActiveTurn ? 90 : targetSpeed < 5 ? 20 : targetSpeed < 10 ? 30 : 55;
 		let rawDiff = normalizeAngleDifference(
 			finalTargetHeading,
 			rotationController.current
@@ -3071,8 +3073,9 @@ else if (targetSpeed < LOW_SPEED_KMH && !isTurning) {
 		if (rotationController.unlockTime && unlockT >= 1) {
 			rotationController.unlockTime = null;
 		}
-		const stiffness = lerp(55, 75, speedNorm);
-		const damping   = lerp(9, 6.5, speedNorm);
+		// stiffness/damping: เพิ่ม stiffness มาก ลด damping → ติดมือขึ้น ไม่ลากช้า
+		const stiffness = lerp(110, 160, speedNorm);
+		const damping   = lerp(11, 8, speedNorm);
         rotationController.velocity += diff * stiffness * dtSec;
         rotationController.velocity *= Math.exp(-damping * dtSec);
         rotationController.current =
@@ -3092,11 +3095,11 @@ else if (targetSpeed < LOW_SPEED_KMH && !isTurning) {
 			);
 		if (vehicleMarker?.setRotationAngle) {
 			let markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
-			if (Math.abs(markerDiff) < 0.4) {
+			if (Math.abs(markerDiff) < 0.3) {
 				markerDiff = 0;
 			}
-			const markerFollow = 0.9
-			const markerFollowRate = markerFollow * clamp(dtSec * 60, 0, 1);
+			const markerFollow = 0.96
+			const markerFollowRate = markerFollow * clamp(dtSec * 90, 0, 1);
 			const damping = 0.7;
 			lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate * damping);
 				vehicleMarker.setRotationAngle(lastMarkerAngle);
@@ -3702,6 +3705,111 @@ function updateSpeedSlope(currentSpeed, currentTimestamp) {
     lastGpsSpeed = currentSpeed;
     lastSpeedSlopeTimestamp = currentTimestamp;
 }
+	// ============================================================
+//  GPS RESILIENCE — Dead Reckoning + Weak Signal Indicator
+// ============================================================
+let _gpsLostSince = null;
+let _drInterval = null;
+const GPS_WEAK_TIMEOUT_SEC = 60; // หยุด trip ถ้า GPS หายนานเกิน 60 วินาที
+// แสดง/ซ่อน indicator สัญญาณ GPS อ่อน
+function _showGpsWeakIndicator(show, lostSec = 0) {
+	let el = document.getElementById('_gpsWeakBadge');
+	if (!el) {
+		el = document.createElement('div');
+		el.id = '_gpsWeakBadge';
+		el.style.cssText = `
+			position:fixed; top:8px; left:50%; transform:translateX(-50%);
+			background:rgba(255,100,0,0.92); color:#fff;
+			font-family:var(--font-hud,monospace); font-size:12px; font-weight:700;
+			letter-spacing:0.08em; padding:6px 18px; border-radius:20px;
+			z-index:99999; pointer-events:none; text-align:center;
+			box-shadow:0 0 16px rgba(255,100,0,0.5);
+			transition: opacity 0.4s;
+		`;
+		document.body.appendChild(el);
+	}
+	if (show) {
+		const s = Math.round(lostSec);
+		el.textContent = `⚠ GPS สัญญาณหาย — Dead Reckoning (${s}s)`;
+		el.style.opacity = '1';
+		el.style.display = 'block';
+	} else {
+		el.style.opacity = '0';
+		setTimeout(() => { if (el) el.style.display = 'none'; }, 400);
+	}
+}
+
+// Dead Reckoning: ประมาณระยะทางและ log ตำแหน่งระหว่างที่ GPS หาย
+// รันด้วย interval แยก (browser ส่ง error callback ครั้งเดียว ไม่ loop)
+let _drLastTime = null;
+let _drTimerId = null;
+const DR_INTERVAL_MS = 500; // อัปเดตทุก 0.5 วินาที
+
+function _runDeadReckoning() {
+	if (!isTracking) return;
+	const now = performance.now();
+	// ถ้า GPS หายนานเกินไป → หยุด trip
+	if (_gpsLostSince && (now - _gpsLostSince) / 1000 > GPS_WEAK_TIMEOUT_SEC) {
+		alert(`GPS หายนานเกิน ${GPS_WEAK_TIMEOUT_SEC} วินาที — บันทึก Trip อัตโนมัติ`);
+		stopTracking();
+		return;
+	}
+	if (_drLastTime === null) { _drLastTime = now; return; }
+	const dtSec = Math.min((now - _drLastTime) / 1000, 2.0);
+	_drLastTime = now;
+	const spd = filteredSpeedKmh || 0;
+	if (spd < 1 || !isFinite(lastGpsLat) || !isFinite(lastGpsLng)) return;
+	// ประมาณตำแหน่งใหม่จากทิศและความเร็ว
+	const distKm = (spd * dtSec) / 3600;
+	const heading = isFinite(lastGpsHeading) ? lastGpsHeading : 0;
+	const [estLat, estLon] = projectAhead(lastGpsLat, lastGpsLng, heading, distKm * 1000);
+	// อัปเดตระยะทาง
+	if (isFinite(distKm) && distKm > 0 && distKm < 0.2) {
+		cumulativeDistance += distKm;
+		totalDistance += distKm;
+		updateEnergyConsumptionRealTime(distKm, spd);
+		distanceSpan.textContent = cumulativeDistance.toFixed(3);
+		// เลื่อนตำแหน่ง marker บนแผนที่
+		lastGpsLat = estLat;
+		lastGpsLng = estLon;
+		if (map && vehicleMarker) {
+			updateRoute(estLat, estLon, spd, heading);
+		}
+	}
+}
+
+function _startDeadReckoningLoop() {
+	if (_drTimerId !== null) return; // ป้องกันรันซ้ำ
+	_drLastTime = null;
+	_drTimerId = setInterval(() => {
+		if (!isTracking || _gpsLostSince === null) {
+			_stopDeadReckoningLoop();
+			return;
+		}
+		// อัปเดต indicator แสดงเวลาที่หาย
+		const lostSec = (performance.now() - _gpsLostSince) / 1000;
+		_showGpsWeakIndicator(true, lostSec);
+		_runDeadReckoning();
+	}, DR_INTERVAL_MS);
+}
+
+function _stopDeadReckoningLoop() {
+	if (_drTimerId !== null) {
+		clearInterval(_drTimerId);
+		_drTimerId = null;
+	}
+	_drLastTime = null;
+}
+
+// เรียกเมื่อ GPS กลับมา — รีเซ็ต state
+function _onGpsRestored() {
+	if (_gpsLostSince !== null) {
+		_gpsLostSince = null;
+		_stopDeadReckoningLoop();
+		_showGpsWeakIndicator(false);
+	}
+}
+// ============================================================														  
 function startTracking() {
 	if (isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
 	if (!plateInput.value.trim()) { alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม'); plateInput.focus(); return; }
@@ -3719,6 +3827,10 @@ function startTracking() {
 	lastInputTimestamp = null;
 	smoothLat = null;
 	smoothLon = null;
+		_gpsLostSince = null;
+	_drLastTime = null;
+	_stopDeadReckoningLoop();					  
+	_showGpsWeakIndicator(false);				  					  
 	autoFollow = true;
 	autoRotate = true;
 	lastAcceptedGpsTime = 0;
@@ -3834,6 +3946,7 @@ function startTracking() {
 	// --- Watch position ---
 	watchId = navigator.geolocation.watchPosition((pos) => {
 		if (!isTracking) return;
+		_onGpsRestored(); // GPS กลับมาแล้ว — ล้าง dead-reckoning state																					   
 		const gps = normalizeGps(pos);
 		if (!gps) return;
 		const {
@@ -3929,10 +4042,22 @@ function startTracking() {
 		});
 	},
 	(err) => {
-		alert("ไม่สามารถรับตำแหน่งได้: " + err.message);
-		stopTracking();
-		isTracking = false;
-	},{ enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+		// PERMISSION_DENIED (code 1) = ผู้ใช้ปฏิเสธ → หยุดทันที
+		if (err.code === 1) {
+			alert("ไม่ได้รับอนุญาตเข้าถึง GPS: " + err.message);
+			stopTracking();
+			isTracking = false;
+			return;
+		}
+		// POSITION_UNAVAILABLE (code 2) หรือ TIMEOUT (code 3)
+		// = อุโมงค์ / ใต้สะพาน / สัญญาณหาย → ทนต่อไป
+		const now = performance.now();
+		_gpsLostSince = _gpsLostSince || now;
+		const lostSec = (now - _gpsLostSince) / 1000;
+		_showGpsWeakIndicator(true, lostSec);
+		// Dead-reckoning: เริ่ม loop ประมาณตำแหน่ง+ระยะต่อจากความเร็วล่าสุด
+		_startDeadReckoningLoop();
+	},{ enableHighAccuracy: true, maximumAge: 0, timeout: Infinity }
 	);
 }
 function stopTracking() {
