@@ -940,7 +940,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v11.12</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v01.02</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1532,7 +1532,6 @@ function getEfficiencyPerPercent(speedKmh) {
 	const MAX_EFF = 6.02; // สูงสุดที่ต้องการ
 	if (speedKmh <= points[0].speed) return Math.min(points[0].efficiency, MAX_EFF);
 	if (speedKmh >= points[points.length - 1].speed) return Math.min(points[points.length - 1].efficiency, MAX_EFF);
-
 	for (let i = 1; i < points.length; i++) {
 		const p1 = points[i - 1];
 		const p2 = points[i];
@@ -1870,7 +1869,6 @@ let startSOCOfSegment = [0, 0, 0];
 function kmToSOC(km) {
 	return parseFloat(((km / 602) * 100).toFixed(2));
 }
-
 function updateSOCLogic() {
 	const inputKm = [
 		parseFloat(document.getElementById("inputKm1").value) || 0,
@@ -1888,7 +1886,6 @@ function updateSOCLogic() {
 		socUsedInSegment[0],
 		socUsedInSegment[0] + socUsedInSegment[1]
 	];
-
 	let socRemaining = 0;
 	if (useSeg1) {
 		const socUsed = Math.max(batterySOCUsed - totalSOCUsedBeforeSegment[0], 0);
@@ -1995,7 +1992,6 @@ function updateBatteryBars(socValue) {
 		bars[targetBar1].classList.add("blinking");
 		bars[targetBar2].classList.add("blinking");
 	}
-
 	const socPercent = document.getElementById("socPercent");
 	socPercent.textContent = `${clampedSOC.toFixed(2)}%`;
 	socPercent.style.color = barColor; 
@@ -2003,7 +1999,6 @@ function updateBatteryBars(socValue) {
 	const wltpKmValueElem = document.getElementById("wltpKmValue");
 	const wltpKmLabelElem = document.getElementById("wltpKmLabel");
 	wltpKmValueElem.classList.remove("blinking-red");
-
 	if (clampedSOC > 0) {
 		wltpKmValueElem.textContent = `${wltpKm.toFixed(3)} km`;
 		wltpKmLabelElem.textContent = `(WLTP)`;
@@ -2044,14 +2039,12 @@ function getDynamicRegenEfficiency(speedKmh, deltaAlt) {
 	} else {
 		speedFactor = 1.0;
 	}
-
 	let slopeFactor = 1.0;
 	if (deltaAlt < -1) {
 		slopeFactor = 1.1 + Math.min(Math.abs(deltaAlt) / 20, 0.2);
 	} else if (deltaAlt > 1) {
 		slopeFactor = 0.9;
 	}
-
 	let eff = baseEff * speedFactor * slopeFactor;
 	eff = Math.min(Math.max(eff, minEff), maxEff);
 	return eff;
@@ -2727,9 +2720,9 @@ function getMotionHeadingFromHistory() {
 		const diff = normalizeAngleDifference(h12, filteredMotionHeading);
 		const absDiff = Math.abs(diff);
 		const deadband =
-			lastGpsSpeedKmh < 3   ? 4.5 :
-			lastGpsSpeedKmh < 5   ? 1.2 :
-			lastGpsSpeedKmh < 10  ? 2.0 :
+			lastGpsSpeedKmh < 3   ? 8.0 :
+			lastGpsSpeedKmh < 5   ? 3.5 :
+			lastGpsSpeedKmh < 10  ? 2.5 :
 			lastGpsSpeedKmh < 40  ? 1.6 :
 			lastGpsSpeedKmh < 80  ? 1.2 :
 			lastGpsSpeedKmh < 130 ? 0.8 :
@@ -2851,8 +2844,8 @@ function smoothTransformStep(now) {
 		targetSpeed >= 2 &&
 		targetSpeed < 8 &&
 		isFinite(motion.heading) &&
-		motion.confidence >= 0.40 &&
-		Math.abs(motion.turnRate) > 8;
+		motion.confidence >= 0.55 &&
+		Math.abs(motion.turnRate) > 12;
 	const turnRateForCurve =
 		(motionOk || lowSpeedCurveOk) ? motion.turnRate : 0;
 	const curveStrength01 = targetSpeed < MIN_MOTION_SPEED
@@ -3743,7 +3736,8 @@ function _showGpsWeakIndicator(show, lostSec = 0) {
 // รันด้วย interval แยก (browser ส่ง error callback ครั้งเดียว ไม่ loop)
 let _drLastTime = null;
 let _drTimerId = null;
-const DR_INTERVAL_MS = 500; // อัปเดตทุก 0.5 วินาที
+let _drDistanceAccum = 0;
+const DR_INTERVAL_MS = 200; // อัปเดตทุก 0.5 วินาที
 
 function _runDeadReckoning() {
 	if (!isTracking) return;
@@ -3757,11 +3751,29 @@ function _runDeadReckoning() {
 	if (_drLastTime === null) { _drLastTime = now; return; }
 	const dtSec = Math.min((now - _drLastTime) / 1000, 2.0);
 	_drLastTime = now;
-	const spd = filteredSpeedKmh || 0;
+	// ลดความเร็วลงเรื่อยๆ เมื่อไม่มี GPS
+const decay = 0.92;
+filteredSpeedKmh *= decay;
+
+if (filteredSpeedKmh < 1) filteredSpeedKmh = 0;
+
+const spd = filteredSpeedKmh;
 	if (spd < 1 || !isFinite(lastGpsLat) || !isFinite(lastGpsLng)) return;
 	// ประมาณตำแหน่งใหม่จากทิศและความเร็ว
 	const distKm = (spd * dtSec) / 3600;
-	const heading = isFinite(lastGpsHeading) ? lastGpsHeading : 0;
+
+_drDistanceAccum += distKm;
+
+// จำกัดไม่ให้ DR เกิน 500 เมตร
+if (_drDistanceAccum > 0.5) {
+    return;
+}
+	const motion = getMotionHeadingFromHistory();
+
+const heading =
+    isFinite(motion.heading)
+        ? motion.heading
+        : (isFinite(lastGpsHeading) ? lastGpsHeading : 0);
 	const [estLat, estLon] = projectAhead(lastGpsLat, lastGpsLng, heading, distKm * 1000);
 	// อัปเดตระยะทาง
 	if (isFinite(distKm) && distKm > 0 && distKm < 0.2) {
@@ -3805,8 +3817,13 @@ function _stopDeadReckoningLoop() {
 function _onGpsRestored() {
 	if (_gpsLostSince !== null) {
 		_gpsLostSince = null;
+		_drDistanceAccum = 0;
 		_stopDeadReckoningLoop();
 		_showGpsWeakIndicator(false);
+		smoothedLat = lastGpsLat;
+		smoothedLon = lastGpsLng;
+		posHistory.length = 0;
+		filteredMotionHeading = null;
 	}
 }
 // ============================================================														  
@@ -3827,7 +3844,7 @@ function startTracking() {
 	lastInputTimestamp = null;
 	smoothLat = null;
 	smoothLon = null;
-		_gpsLostSince = null;
+	_gpsLostSince = null;
 	_drLastTime = null;
 	_stopDeadReckoningLoop();					  
 	_showGpsWeakIndicator(false);				  					  
@@ -3949,6 +3966,11 @@ function startTracking() {
 		_onGpsRestored(); // GPS กลับมาแล้ว — ล้าง dead-reckoning state																					   
 		const gps = normalizeGps(pos);
 		if (!gps) return;
+		if (gps.accuracy && gps.accuracy > 20) {
+    _gpsLostSince = _gpsLostSince || performance.now();
+    _startDeadReckoningLoop();
+    return;
+}
 		const {
 			latitude,
 			longitude,
