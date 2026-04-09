@@ -940,7 +940,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v33.55</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v88.88</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2716,12 +2716,13 @@ function getMotionHeadingFromHistory() {
 		const diff = normalizeAngleDifference(h12, filteredMotionHeading);
 		const absDiff = Math.abs(diff);
 		const deadband =
-			lastGpsSpeedKmh < 3   ? 8.0 :
-			lastGpsSpeedKmh < 5   ? 3.5 :
-			lastGpsSpeedKmh < 10  ? 2.5 :
-			lastGpsSpeedKmh < 40  ? 1.6 :
-			lastGpsSpeedKmh < 80  ? 1.2 :
-			lastGpsSpeedKmh < 130 ? 0.8 :
+			lastGpsSpeedKmh < 2   ? 20.0 :  // แทบหยุดหรือออกตัว — กันสั่นมาก
+			lastGpsSpeedKmh < 3   ? 12.0 :  // ความเร็วต่ำมาก
+			lastGpsSpeedKmh < 5   ? 6.0  :
+			lastGpsSpeedKmh < 10  ? 3.0  :
+			lastGpsSpeedKmh < 40  ? 1.8  :
+			lastGpsSpeedKmh < 80  ? 1.2  :
+			lastGpsSpeedKmh < 130 ? 0.8  :
 									0.6;
 		if (absDiff < deadband) {
 		} else {
@@ -2756,8 +2757,12 @@ function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
     if (!gpsOk && !motionOk) return null;
     if (!gpsOk) return motionHeading;
     if (!motionOk) return gpsHeading;
+    // Bug Fix #4: ลด motion weight ที่ speed ต่ำ — GPS heading แม่นกว่า motion history ตอนออกตัว
+    // เดิม lerp(0.7, 0.95) → motion dominant แม้แต่ที่ speed 0
+    // แก้: lerp(0.35, 0.88) → GPS dominant ตอน speed ต่ำ, motion dominant เมื่อ speed สูงและ confident
     const speedW = clamp(speedKmh / 200, 0, 1);
-    let wMotion = lerp(0.7, 0.95, speedW) * clamp(motionConfidence + 0.2, 0, 1);
+    const confidenceBoost = clamp(motionConfidence + 0.1, 0, 1); // ลด boost จาก +0.2 → +0.1
+    let wMotion = lerp(0.35, 0.88, speedW) * confidenceBoost;
     return lerpAngle(gpsHeading, motionHeading, wMotion);
 }
 function dynamicLookAhead(speedKmh, curveStrength01, isStopped) {
@@ -2805,7 +2810,12 @@ function smoothTransformStep(now) {
 		const savedHeading = rotationController.lockedHeading;
 		resetFollowRotationState(false);
 		filteredMotionHeading = null;
-		posHistory.length = 0;
+		// Bug Fix #5: เก็บ 2 จุดล่าสุดของ posHistory ไว้ (ไม่ clear หมด)
+		// เพื่อให้ heading fusion rebuild เร็วขึ้น — motionOk ต้องการ 3 จุด
+		// ถ้า clear หมด ต้องรอสะสมใหม่ทั้งหมดใน 500ms+ แรก
+		if (posHistory.length > 2) {
+			posHistory.splice(0, posHistory.length - 2);
+		}
 		lastHeading = savedHeading;
 		rotationController.current = savedHeading;
 		rotationController.lockedHeading = savedHeading;
@@ -2836,11 +2846,11 @@ function smoothTransformStep(now) {
 		motion.confidence >= 0.45;
 		const lowSpeedCurveOk =
 		movementState === "moving" &&
-		targetSpeed >= 2 &&
+		targetSpeed >= 3 &&
 		targetSpeed < 8 &&
 		isFinite(motion.heading) &&
-		motion.confidence >= 0.55 &&
-		Math.abs(motion.turnRate) > 12;
+		motion.confidence >= 0.65 &&   // เพิ่ม 0.55→0.65 — ต้องมั่นใจกว่าเดิม
+		Math.abs(motion.turnRate) > 18; // เพิ่ม 12→18 — ต้องเลี้ยวชัดกว่าจึงจะหมุน
 	const turnRateForCurve =
 		(motionOk || lowSpeedCurveOk) ? motion.turnRate : 0;
 	const curveStrength01 = targetSpeed < MIN_MOTION_SPEED
@@ -2893,8 +2903,9 @@ function smoothTransformStep(now) {
 	const ref = rotationController.lastStableHeading ?? baseHeading;
 		const unstable = !motionOk && !lowSpeedCurveOk;
 	if (unstable) {
+		// ยิ่งความเร็วต่ำ ยิ่งล็อคหัวไว้มากขึ้น — ลด blend เพื่อกันหมุนเอง
 		const t = clamp((targetSpeed - 0.5) / 6.0, 0, 1);
-		baseHeading = lerpAngle(ref, baseHeading, t * 0.65);
+		baseHeading = lerpAngle(ref, baseHeading, t * 0.45); // ลด 0.65→0.45
 	}
 	}
 		if (!isFinite(baseHeading) && posHistory.length >= 2) {
@@ -2981,12 +2992,15 @@ function smoothTransformStep(now) {
     }
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {	
-		const shouldFreeze = movementState === "stopped" || targetSpeed < STOP_LOCK_SPEED;
+		// Bug Fix #6: ใช้ movementState เป็น source of truth เดียว
+		// เดิม: movementState==="stopped" || targetSpeed < STOP_LOCK_SPEED → อาจ freeze ค้าง
+		// เมื่อ targetSpeed ขึ้นแล้วแต่ movementState ยัง "stopped" (update ต่างรอบกัน)
+		const shouldFreeze = movementState === "stopped";
 		if (shouldFreeze) {
 			if (!rotationController.freeze) {
-				rotationController.lockedHeading = isFinite(gpsHeading)
-					? gpsHeading
-					: rotationController.current;
+				// Bug Fix #7: ใช้ rotationController.current (smooth heading) เป็น lockedHeading
+				// เดิมใช้ gpsHeading (raw) → ที่ speed ต่ำ GPS heading ไม่แม่น → lock ผิดทิศ
+				rotationController.lockedHeading = rotationController.current;
 				rotationController.unlockTime = null;
 			}
 			rotationController.freeze = true;
@@ -3039,7 +3053,7 @@ function smoothTransformStep(now) {
 			);
 		}
 		const isActiveTurn = (motionOk || lowSpeedCurveOk) && motion.turnRate > 40;
-		const MAX_HEADING_CHANGE = isActiveTurn ? 90 : targetSpeed < 5 ? 20 : targetSpeed < 10 ? 30 : 55;
+		const MAX_HEADING_CHANGE = isActiveTurn ? 90 : targetSpeed < 3 ? 10 : targetSpeed < 5 ? 18 : targetSpeed < 10 ? 28 : 55;
 		let rawDiff = normalizeAngleDifference(
 			finalTargetHeading,
 			rotationController.current
@@ -3081,7 +3095,7 @@ function smoothTransformStep(now) {
 			if (Math.abs(markerDiff) < 0.3) {
 				markerDiff = 0;
 			}
-			const markerFollow = 0.96
+			const markerFollow = 0.88
 			const markerFollowRate = markerFollow * clamp(dtSec * 90, 0, 1);
 			const damping = 0.7;
 			lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate * damping);
@@ -3532,7 +3546,7 @@ function normalizeGps(pos) {
 	if (lastInputTimestamp != null) {
 		dt = (timestamp - lastInputTimestamp) / 1000;
 	}
-	dt = clamp(dt, 0.05, 0.8);
+	dt = clamp(dt, 0.05, 2.0);
 	if (typeof c.speed === "number" && isFinite(c.speed)) {
 		sensorSpeedKmh = Math.max(0, c.speed * 3.6);
     } else if (
@@ -3541,17 +3555,18 @@ function normalizeGps(pos) {
         lastInputTimestamp != null
     ) {
         if (dt > 0.05) {
-            const distMeters = haversineMeters(
-                lastInputGpsLat,
-                lastInputGpsLon,
-                lat,
-                lon
-            );
+			// Bug Fix: ใช้ lastRawGpsLat (filtered) แทน lastInputGpsLat (raw)
+			// เพื่อให้ speed fallback สอดคล้องกับ moveMeters ที่คำนวณจาก lastRawGpsLat
+			const refLat = lastRawGpsLat ?? lastInputGpsLat;
+			const refLon = lastRawGpsLon ?? lastInputGpsLon;
+            const distMeters = haversineMeters(refLat, refLon, lat, lon);
             sensorSpeedKmh = (distMeters / dt) * 3.6;
         }
     }
 	let moveMeters = 0;
-	if (lastInputGpsLat != null && lastInputGpsLon != null) {
+	if (lastRawGpsLat != null && lastRawGpsLon != null) {
+		moveMeters = haversineMeters(lastRawGpsLat, lastRawGpsLon, lat, lon);
+	} else if (lastInputGpsLat != null && lastInputGpsLon != null) {
 		moveMeters = haversineMeters(lastInputGpsLat, lastInputGpsLon, lat, lon);
 	}
 	if (sensorSpeedKmh < 0.5) {
@@ -3603,7 +3618,8 @@ function normalizeGps(pos) {
 		const timeReady = (timestamp - zeroCandidateSince) > confirmMs;
 		const noMovement = moveMeters < 1.2;
 		const veryLowSpeed = nextSpeed < 3.5;
-		const brakingHard = speedSlope < -12 && nextSpeed < 20;
+		const currentSpeedSlope = speedSlope; // fallback ค่า global
+		const brakingHard = currentSpeedSlope < -12 && nextSpeed < 20 && moveMeters < 2.0;
 		if (
 			(timeReady && noMovement && veryLowSpeed) ||
 			brakingHard
@@ -3616,6 +3632,13 @@ function normalizeGps(pos) {
 	}
 	filteredSpeedKmh = nextSpeed;
 	const speedKmh = filteredSpeedKmh;
+	// Bug Fix #3: คำนวณ currentSlope ในรอบปัจจุบัน (ไม่ใช่ speedSlope global ที่ stale 1 cycle)
+	// speedSlope global ถูก update หลัง normalizeGps() return → brakingHard ใน stop-lock ใช้ค่าเก่า
+	
+	if (lastInputTimestamp != null && dt > 0.05) {
+		const rawSlope = (filteredSpeedKmh - (lastGpsSpeed ?? filteredSpeedKmh)) / dt;
+		currentSpeedSlope = clamp(rawSlope, -120, 120);
+	}
     const heading = (isFinite(c.heading) && c.heading >= 0)
             ? (c.heading % 360)
             : null;
@@ -3636,14 +3659,20 @@ function normalizeGps(pos) {
 				)
 			);
 			if (speedKmh < 8) {
+				// ความเร็วต่ำ: reject ถ้าเคลื่อนมากกว่าที่ฟิสิกส์อนุญาต (GPS jump)
 				const maxPossibleMove = (speedKmh / 3.6) * Math.max(dt, 0.2) * 2.5;
 				if (moveFromLastRaw > Math.max(maxPossibleMove, dynamicGate)) {
 					finalLat = lastRawGpsLat;
 					finalLon = lastRawGpsLon;
 				}
-			} else if (moveFromLastRaw < dynamicGate) {
-				finalLat = lastRawGpsLat;
-				finalLon = lastRawGpsLon;
+			} else {
+				// ความเร็วปกติ: reject ถ้าเคลื่อน *น้อยเกิน* noise floor (GPS drift ขณะวิ่ง)
+				// และ reject ถ้าเคลื่อน *มากเกิน* ที่ความเร็วปัจจุบันจะทำได้ (GPS jump)
+				const maxExpectedMove = (speedKmh / 3.6) * Math.max(dt, 0.5) * 3.0;
+				if (moveFromLastRaw < dynamicGate || moveFromLastRaw > maxExpectedMove) {
+					finalLat = lastRawGpsLat;
+					finalLon = lastRawGpsLon;
+				}
 			}
 		}
 	}
@@ -3693,7 +3722,8 @@ function updateSpeedSlope(currentSpeed, currentTimestamp) {
 // ============================================================
 let _gpsLostSince = null;
 let _drInterval = null;
-const GPS_WEAK_TIMEOUT_SEC = 60;
+const GPS_WEAK_TIMEOUT_SEC = 300; // เพิ่มจาก 60→300s (5 นาที) รองรับอุโมงค์ยาว
+const GPS_AUTO_STOP_SEC = 600;    // หยุดอัตโนมัติเฉพาะเมื่อหายนาน 10 นาที (ไม่ใช่ 60s)
 function _showGpsWeakIndicator(show, lostSec = 0) {
 	let el = document.getElementById('_gpsWeakBadge');
 	if (!el) {
@@ -3728,8 +3758,9 @@ const DR_INTERVAL_MS = 200;
 function _runDeadReckoning() {
 	if (!isTracking) return;
 	const now = performance.now();
-	if (_gpsLostSince && (now - _gpsLostSince) / 1000 > GPS_WEAK_TIMEOUT_SEC) {
-		alert(`GPS หายนานเกิน ${GPS_WEAK_TIMEOUT_SEC} วินาที — บันทึก Trip อัตโนมัติ`);
+	if (_gpsLostSince && (now - _gpsLostSince) / 1000 > GPS_AUTO_STOP_SEC) {
+		// หายนานมากจริงๆ (10 นาที) — บันทึก Trip อัตโนมัติ แต่ไม่ interrupt ขณะขับ
+		console.warn(`[GPS] หายนานเกิน ${GPS_AUTO_STOP_SEC}s — auto-stop`);
 		stopTracking();
 		return;
 	}
@@ -3942,12 +3973,12 @@ function startTracking() {
 	// --- Watch position ---
 	watchId = navigator.geolocation.watchPosition((pos) => {
 		if (!isTracking) return;
-		_onGpsRestored();																			   
 		const gps = normalizeGps(pos);
 		if (!gps) return;
-		if (gps.accuracy && gps.accuracy > 20) {
+		if (gps.accuracy && gps.accuracy > 35) {  // ขยาย 20→35m รองรับอุโมงค์/ใต้สะพาน/ที่จอดรถในตึก
 			_gpsLostSince = _gpsLostSince || performance.now();
 			_startDeadReckoningLoop();
+			if (_drDistanceAccum > 0.25) _drDistanceAccum = 0;
 			if (gps.speedKmh > STOP_LOCK_SPEED && isFinite(gps.latitude) && isFinite(gps.longitude)) {
 				updateSpeed(gps.speedKmh);
 				if (autoFollow && map && vehicleMarker) {
@@ -3956,6 +3987,7 @@ function startTracking() {
 			}
 			return;
 		}
+		_onGpsRestored();		   
 		const {
 			latitude,
 			longitude,
@@ -4212,19 +4244,24 @@ function stopTracking() {
 		map.invalidateSize();
 		// ===== FIT + retry =====
 		function fitWithRetry(retry = 0) {
+			// ใช้ padding ที่ใหญ่ขึ้นเพื่อกัน overflow — asymmetric (ซ้าย/ขวา มากกว่า บน/ล่าง)
+			const hPad = padding * 1.6;
+			const vPad = padding * 1.4;
 			map.fitBounds(bounds, {
-				padding: [padding * 1.3, padding * 1.3],
+				paddingTopLeft:     [hPad, vPad],
+				paddingBottomRight: [hPad, vPad],
 				maxZoom: dynamicMaxZoom,
 				animate: false
 			});
 			requestAnimationFrame(() => {
 				const currentBounds = map.getBounds();
+				// ขยาย currentBounds เล็กน้อยก่อน check — Leaflet tile rounding อาจทำให้ off-by-pixel
+				const safeB = currentBounds.pad(0.04);
 				let overflow = false;
 				const sampleStep = Math.max(1, Math.floor(validCoords.length / 300));
-				const paddedBounds = currentBounds;
 				for (let i = 0; i < validCoords.length; i += sampleStep) {
 					const latlng = L.latLng(validCoords[i][0], validCoords[i][1]);
-					if (!paddedBounds.contains(latlng)) {
+					if (!safeB.contains(latlng)) {
 						overflow = true;
 						break;
 					}
