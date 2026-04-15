@@ -3714,7 +3714,6 @@ let _drDistanceAccum = 0;
 let _drLat = null;
 let _drLon = null;
 let drBlend = 1;
-let _drHeading = null;
 const DR_INTERVAL_MS = 200;
 function _runDeadReckoning() {
     if (!isTracking) return;
@@ -3869,7 +3868,6 @@ function _onGpsRestored() {
         _drDistanceAccum = 0;
         _drLat = null;
         _drLon = null;
-        _drHeading = null;
         _stopDeadReckoningLoop();
         _showGpsWeakIndicator(false);
         resetFollowRotationState();
@@ -4029,7 +4027,7 @@ function startTracking() {
 			: 0;
 		const isLowMovement = moveMetersLocal < Math.max(0.5, gps.accuracy * 0.1);
 const badSignal =
-    gps.accuracy > 80 ||   // จาก 50 → 80
+    gps.accuracy > 80 ||
     (isLowMovement && gps.speedKmh > 25);
 		if (badSignal) {
 			if (_gpsLostSince === null) {
