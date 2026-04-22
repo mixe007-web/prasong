@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.00</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.09</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2453,19 +2453,15 @@ let vehicleMarker = null;
 let routeLayer = null;
 let watchId = null;
 let pathCoordinates = [];
-let pathCoordinatesRender = [];
 let routeBatchLayers = [];
 let isTracking = false;
 let lastGpsLat = null;
 let lastGpsLng = null;
 let lastGpsHeading = 0;
 let lastGpsSpeedKmh = 0;
-let lastGpsAccuracy = 5;
 let autoFollow = true;
 let autoRotate = true;
 let smoothedSpeedForZoom = 0;
-let lastGpsTimestamp = null;
-let gpsIntervalSec = 1;
 const BASE_ZOOM = 17;
 const BASE_ICON_SIZE = 32;
 const POLYLINE_BATCH_SIZE = 200;
@@ -2535,7 +2531,7 @@ function normalizeAngle(deg) {
 }
 let lastZoomLevel = null;
 function calculateTargetZoom(speedKmh) {
-    const hysteresis = 4;
+    const hysteresis = 8;
     if (lastZoomLevel === null) {
         if (speedKmh < 20) lastZoomLevel = 17;
         else if (speedKmh < 110) lastZoomLevel = 16;
@@ -2652,7 +2648,7 @@ function applySmoothTransform(lat, lon, headingDeg, speedKmh, callback = null, i
 	smoothTransformTarget.heading = headingDeg;
 	smoothTransformTarget.speedKmh = speedKmh;
 	smoothTransformTarget.isStopped = isStopped;
-	const zoomSmoothFactor = 0.75;
+	const zoomSmoothFactor = 0.40;
 	smoothedSpeedForZoom = lerp(smoothedSpeedForZoom, speedKmh, zoomSmoothFactor);
 	smoothTransformTarget.zoom = clamp(calculateTargetZoom(smoothedSpeedForZoom), 0, 22);
 	smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
@@ -2721,16 +2717,11 @@ function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio
     const container = wrapper.closest('.leaflet-container');
     if (!container) return;
     const offsetPx = container.clientHeight * offsetRatio;
-    const rot = rotationDeg.toFixed(4);
-const tx = clamp(panX, -1000, 1000).toFixed(3);
-const ty = clamp(panY + offsetPx, -1000, 1000).toFixed(3);
-    const transform = `translate3d(${tx}px,${ty}px,0px) rotate(${rot}deg)`;
+    const transform =
+        `translate3d(${panX}px, ${panY + offsetPx}px, 0px) ` +
+        `rotate(${rotationDeg}deg)`;
     if (transform === lastAppliedTransform) return;
     lastAppliedTransform = transform;
-    if (!wrapper._willChangeSet) {
-        wrapper.style.willChange = 'transform';
-        wrapper._willChangeSet = true;
-    }
     wrapper.style.transform = transform;
 }
 // ===== helpers (local) =====
@@ -2794,108 +2785,79 @@ function projectAhead(lat, lng, headingDeg, distanceMeters) {
 	return clampLatLng(rad2deg(φ2), rad2deg(λ2));
 }
 function pushHistory(lat, lon, t) {
-    if (!isFinite(lat) || !isFinite(lon)) return;
-    const latNum = Number(lat);
-    const lonNum = Number(lon);
-    if (!isFinite(latNum) || !isFinite(lonNum)) return;
-	const last = posHistory[posHistory.length - 1];
-	if (last) {
-		const dt = (t - last.t) / 1000;
-		if (dt < 0.25) return;
-		const move = haversineMeters(last.lat, last.lon, lat, lon);
-		const minMove = clamp((lastGpsAccuracy ?? 5) * 0.5, 0.5, 5);
-if (move < minMove) return;
-	}
-    posHistory.push({
-        lat: latNum,
-        lon: lonNum,
-        t: Number(t) || 0
-    });
-    while (posHistory.length > HISTORY_MAX) posHistory.shift();
+	if (!isFinite(lat) || !isFinite(lon)) return;
+	posHistory.push({ lat, lon, t });
+	while (posHistory.length > HISTORY_MAX) posHistory.shift();
 }
 function getMotionHeadingFromHistory() {
-	if (posHistory.length < 3) {
-		return { heading: null, turnRate: 0, confidence: 0 };
-	}
+	if (posHistory.length < 3) return { heading: null, turnRate: 0, confidence: 0 };
 	const p0 = posHistory[posHistory.length - 3];
 	const p1 = posHistory[posHistory.length - 2];
 	const p2 = posHistory[posHistory.length - 1];
-	if (!p0 || !p1 || !p2) {
-		return { heading: null, turnRate: 0, confidence: 0 };
-	}
-	if (haversineMeters(p0.lat, p0.lon, p2.lat, p2.lon) < 1.5) {
-		return { heading: null, turnRate: 0, confidence: 0 };
-	}
 	const d01 = haversineMeters(p0.lat, p0.lon, p1.lat, p1.lon);
 	const d12 = haversineMeters(p1.lat, p1.lon, p2.lat, p2.lon);
 	if (d01 < MIN_MOVE_FOR_MOTION_M || d12 < MIN_MOVE_FOR_MOTION_M) {
 		return { heading: null, turnRate: 0, confidence: 0 };
 	}
-	let sumX = 0, sumY = 0;
-	let totalDist = 0;
-	for (let i = 1; i < posHistory.length; i++) {
-		const pA = posHistory[i - 1];
-		const pB = posHistory[i];
-		const h = deg2rad(bearingDeg(pA.lat, pA.lon, pB.lat, pB.lon));
-		const w = 1 + i * 0.5;
-		sumX += Math.cos(h) * w;
-		sumY += Math.sin(h) * w;
-		totalDist += haversineMeters(pA.lat, pA.lon, pB.lat, pB.lon);
-	}
-	const avgHeading = normalizeAngle(rad2deg(Math.atan2(sumY, sumX)));
-	const h1 = bearingDeg(p0.lat, p0.lon, p1.lat, p1.lon);
-	const h2 = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
-	const absTurn = Math.abs(normalizeAngleDifference(h2, h1));
-	const confidence = clamp(totalDist / 12, 0, 1);
-	if (lastGpsSpeedKmh < 2) {
-		return { heading: null, turnRate: 0, confidence: 0 };
-	}
-	if (filteredMotionHeading == null) {
-		filteredMotionHeading = avgHeading;
-	} else {
-		const diff = normalizeAngleDifference(avgHeading, filteredMotionHeading);
-		const absDiff = Math.abs(diff);
-const deadband =
-    lastGpsSpeedKmh < 2 ? 10.0 :
-    lastGpsSpeedKmh < 5 ? 3.5 :
-    lastGpsSpeedKmh < 10 ? 2.5 :
-    lastGpsSpeedKmh < 40 ? 1.2 :
-    lastGpsSpeedKmh < 80 ? 0.8 :
-    0.5;
+	const h01 = bearingDeg(p0.lat, p0.lon, p1.lat, p1.lon);
+	const h12 = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
+	const delta = normalizeAngleDifference(h12, h01);
+	const absTurn = Math.abs(delta);
+	const confidence = clamp((Math.min(d01, d12) - MIN_MOVE_FOR_MOTION_M) / 8.0, 0, 1);
+	// ----- Adaptive Motion Heading Stabilizer -----
+let finalHeading = h12;
+if (filteredMotionHeading == null) {
+    filteredMotionHeading = h12;
+} else {
 
-		const adaptiveDeadband = deadband * (1 - confidence * 0.6);
+    const diff = normalizeAngleDifference(h12, filteredMotionHeading);
+    const absDiff = Math.abs(diff);
 
-		if (absDiff < adaptiveDeadband) {
-			motionHoldTime += 1;
-			if (motionHoldTime > 3) {
-			}
-		} else {
-			motionHoldTime = 0;
-			const turning = absTurn > 6 || isUTurn(absTurn, lastGpsSpeedKmh);
-			const followRate =
-				lastGpsSpeedKmh < 10 ? 0.18 :
-				lastGpsSpeedKmh < 40 ? 0.25 :
-				lastGpsSpeedKmh < 80 ? 0.32 : 0.4;
-			filteredMotionHeading = normalizeAngle(
-				filteredMotionHeading + diff * followRate
-			);
-		}
-	}
-	return {
-		heading: filteredMotionHeading,
-		turnRate: absTurn,
-		confidence
-	};
+    // 🔹 1) Speed adaptive deadband
+    const speedFactor = clamp(lastGpsSpeedKmh / 120, 0, 1);
+    const deadband =
+        lastGpsSpeedKmh < 10  ? 2.5 :
+        lastGpsSpeedKmh < 40  ? 1.6 :
+        lastGpsSpeedKmh < 80  ? 1.2 :
+        lastGpsSpeedKmh < 130 ? 0.8 :
+                                0.6;
+    if (absDiff < deadband) {
+    } else {
+        const turning =
+            absTurn > 6 || isUTurn(absTurn, lastGpsSpeedKmh);
+        let response;
+        if (turning) {
+            response = 0.65;
+        } else {
+            response =
+                lastGpsSpeedKmh < 15 ? 0.18 :
+                lastGpsSpeedKmh < 60 ? 0.25 :
+                lastGpsSpeedKmh < 120 ? 0.32 :
+                                        0.38;
+        }
+        filteredMotionHeading =
+            normalizeAngle(
+                filteredMotionHeading + diff * response
+            );
+    }
+}
+finalHeading = filteredMotionHeading;
+return {
+    heading: finalHeading,
+    turnRate: absTurn,
+    confidence
+};
 }
 function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
-    const gpsOk = isFinite(gpsHeading) && speedKmh > 8;
-    const motionOk = isFinite(motionHeading) && motionConfidence >= 0.45 && speedKmh > 2;
+	const gpsOk = isFinite(gpsHeading);
+	const motionOk = isFinite(motionHeading);
 	if (!gpsOk && !motionOk) return null;
 	if (!gpsOk) return motionHeading;
 	if (!motionOk) return gpsHeading;
-    const speedW = clamp(speedKmh / 200, 0, 1);
-    let wMotion = lerp(0.1, 0.75, speedW) * motionConfidence;
-    return lerpAngle(gpsHeading, motionHeading, wMotion);
+	const speedW = clamp(speedKmh / 200, 0, 1);
+	let wMotion = lerp(0.85, 0.70, speedW) * clamp(motionConfidence + 0.15, 0, 1);
+	wMotion = clamp(wMotion, 0.45, 0.90);
+	return lerpAngle(gpsHeading, motionHeading, wMotion);
 }
 function computeCurveStrength(turnRateDeg, speedKmh) {
 	const t = clamp((turnRateDeg - 3) / 14, 0, 1);
@@ -2960,7 +2922,7 @@ function smoothTransformStep(now) {
         smoothedLat = targetLat;
         smoothedLon = targetLon;
     }
-	const speedNorm = clamp(targetSpeed / 160, 0, 1);
+	const speedNorm = clamp(targetSpeed / 140, 0, 1);
 	const acc = lastGpsAccuracy ?? 5;
 const accFactor = clamp(acc / 15, 0.7, 2.5);
 const lambdaBase = lerp(3.2, 6.2, speedNorm);
@@ -3175,8 +3137,8 @@ let finalTargetHeading = normalizeAngle(baseHeading);
 			rotationController.current
 		);
 		if (Math.abs(diff) < 0.3) diff = 0;
-		const stiffness = lerp(125, 180, speedNorm);
-		const damping   = lerp(9.5, 6.0, speedNorm);
+		const stiffness = lerp(8, 18, speedNorm);
+		const damping   = lerp(11, 8.5, speedNorm);
         rotationController.velocity += diff * stiffness * dtSec;
         rotationController.velocity *= Math.exp(-damping * dtSec);
         rotationController.current = normalizeAngle(rotationController.current + rotationController.velocity * dtSec);
@@ -3194,31 +3156,14 @@ let finalTargetHeading = normalizeAngle(baseHeading);
 				autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
 			);
 			
-		if (vehicleMarker?.setRotationAngle) {
-			let markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
-			if (Math.abs(markerDiff) < 0.3) {
-				markerDiff = 0;
-			}
-			const markerFollow = targetSpeed < 10 ? 0.45 : targetSpeed < 40 ? 0.60 : 0.72;
-			const markerFollowRate = markerFollow * clamp(dtSec * 90, 0, 1);
-			const markerDamping = 0.7;
-			lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate * markerDamping);
+			if (vehicleMarker?.setRotationAngle) {
+				const markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
+				const markerFollow = targetSpeed < 10 ? 0.45 : targetSpeed < 40 ? 0.60 : 0.72;
+				const markerFollowRate = markerFollow * clamp(dtSec * 60, 0, 1);
+				lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate);
 				vehicleMarker.setRotationAngle(lastMarkerAngle);
-		}
-		const MARKER_EPS = 0.25;
-		if (
-			!lastMarkerLat ||
-			haversineMeters(
-				lastMarkerLat,
-				lastMarkerLon,
-				appliedMapLat,
-				appliedMapLon
-			) > MARKER_EPS
-		){
-			vehicleMarker.setLatLng([appliedMapLat, appliedMapLon]);
-			lastMarkerLat = appliedMapLat;
-			lastMarkerLon = appliedMapLon;
-		}
+			}
+
 	} else if (rotWrapper && !autoRotate) {
 		rotationController.current = 0;
 		rotationController.velocity = 0;
@@ -3617,6 +3562,7 @@ function clearTrackingMapObjects() {
 	pathCoordinatesRender = [];
 	posHistory.length = 0;
 }
+
 let lastInputTimestamp = null;
 let lastRawGpsLat = null;
 let lastRawGpsLon = null;
@@ -3627,16 +3573,21 @@ let zeroCandidateSince = null;
 let sensorSpeedKmh = 0;
 let smoothLat = null;
 let smoothLon = null;
-const GPS_CONFIG = {
-    STOP_SPEED_KMH: 1.2,
-    STOP_MOVE_M: 0.2,
-    DRIFT_FACTOR: 0.15,
-    MAX_ACCEL_MS2: 5.0,   // realistic car accel
-    MAX_DECEL_MS2: 10.0,   // realistic braking
-    LOW_SPEED_SMOOTH: 12,
+let filteredLat = null;
+let filteredLon = null;
+let stopStartTime = null;
+
+const CFG = {
     DT_MIN: 0.05,
-    DT_MAX: 2.0,
-    HEADING_SMOOTH: 0.2
+    DT_MAX: 1.5,
+    MAX_ACCEL: 4.0,     // m/s²
+    MAX_DECEL: 8.0,
+    STOP_SPEED: 1.0,    // km/h
+    STOP_TIME_MS: 1200,
+    ACCURACY_TRUST: 25, // meters
+    DRIFT_SOFT_GAIN: 0.25,
+    LOW_SPEED: 10,
+    HIGH_SPEED: 60
 };
 
 function normalizeGps(pos) {
@@ -3647,122 +3598,128 @@ function normalizeGps(pos) {
     const lon = c.longitude;
     if (!isFinite(lat) || !isFinite(lon)) return null;
 
+    const accuracy = isFinite(c.accuracy) ? c.accuracy : 10;
     const timestamp = pos.timestamp;
-    const accuracy = isFinite(c.accuracy) ? c.accuracy : null;
 
     // --- dt ---
     let dt = 0.2;
-    if (isFinite(timestamp) && isFinite(lastInputTimestamp)) {
-        dt = (timestamp - lastInputTimestamp) / 1000;
+    if (lastTimestamp != null) {
+        dt = (timestamp - lastTimestamp) / 1000;
     }
-    dt = clamp(dt, GPS_CONFIG.DT_MIN, GPS_CONFIG.DT_MAX);
+    dt = clamp(dt, CFG.DT_MIN, CFG.DT_MAX);
 
-    // --- speed ---
-    let sensorSpeedKmh = 0;
+    // --- raw speed ---
+    let rawSpeed = 0;
 
     if (isFinite(c.speed)) {
-        sensorSpeedKmh = Math.max(0, c.speed * 3.6);
-    } else if (lastInputGpsLat != null) {
-        const dist = haversineMeters(
-            lastInputGpsLat,
-            lastInputGpsLon,
-            lat,
-            lon
-        );
-        sensorSpeedKmh = (dist / dt) * 3.6;
+        rawSpeed = Math.max(0, c.speed * 3.6);
+    } else if (filteredLat != null) {
+        const d = haversineMeters(filteredLat, filteredLon, lat, lon);
+        rawSpeed = (d / dt) * 3.6;
     }
 
-    // --- movement ---
-    let moveMeters = 0;
-    if (lastRawGpsLat != null) {
-        moveMeters = haversineMeters(
-            lastRawGpsLat,
-            lastRawGpsLon,
-            lat,
-            lon
-        );
+    // --- accel clamp ---
+    let dv = rawSpeed - filteredSpeedKmh;
+
+    const maxUp = CFG.MAX_ACCEL * 3.6 * dt;
+    const maxDown = CFG.MAX_DECEL * 3.6 * dt;
+
+    if (dv > 0) dv = Math.min(dv, maxUp);
+    else dv = Math.max(dv, -maxDown);
+
+    filteredSpeedKmh = Math.max(0, filteredSpeedKmh + dv);
+
+    // --- stop detection with hysteresis ---
+    if (filteredSpeedKmh < CFG.STOP_SPEED) {
+        if (!stopStartTime) stopStartTime = timestamp;
+    } else {
+        stopStartTime = null;
     }
 
-    // --- STOP state ---
-    const isStopping =
-        sensorSpeedKmh < GPS_CONFIG.STOP_SPEED_KMH &&
-        moveMeters < GPS_CONFIG.STOP_MOVE_M;
+    const isStopped =
+        stopStartTime &&
+        (timestamp - stopStartTime > CFG.STOP_TIME_MS);
 
-if (isStopping && filteredSpeedKmh < 3) {
-    filteredSpeedKmh = 0;
-}
+    // --- accuracy weight ---
+    const accWeight = clamp(
+        1 - accuracy / CFG.ACCURACY_TRUST,
+        0.15,
+        0.9
+    );
 
-    // --- accel limit ---
-    let delta = sensorSpeedKmh - filteredSpeedKmh;
+    // --- speed-based smoothing ---
+    const speedFactor = clamp(
+        filteredSpeedKmh / CFG.HIGH_SPEED,
+        0.1,
+        1.0
+    );
 
-    const maxUp = GPS_CONFIG.MAX_ACCEL_MS2 * 3.6 * dt;
-    const maxDown = GPS_CONFIG.MAX_DECEL_MS2 * 3.6 * dt;
+    let alpha = accWeight * speedFactor;
 
-    if (delta > 0) delta = Math.min(delta, maxUp);
-    else delta = Math.max(delta, -maxDown);
+    // low speed = more smoothing
+    if (filteredSpeedKmh < CFG.LOW_SPEED) {
+        alpha *= 0.5;
+    }
 
-    let nextSpeed = Math.max(0, filteredSpeedKmh + delta);
+    // --- initialize ---
+    if (filteredLat == null) {
+        filteredLat = lat;
+        filteredLon = lon;
+    }
 
-    // --- smoothing ---
-    if (sensorSpeedKmh < GPS_CONFIG.LOW_SPEED_SMOOTH) {
-        nextSpeed = lerp(filteredSpeedKmh, sensorSpeedKmh, 0.9);
-    } 
-    filteredSpeedKmh = nextSpeed;
+    // --- prediction (current → raw) ---
+    let nextLat = lerp(filteredLat, lat, alpha);
+    let nextLon = lerp(filteredLon, lon, alpha);
 
-    // --- heading  ---
+    // --- soft drift gate ---
+    const drift = haversineMeters(filteredLat, filteredLon, lat, lon);
+
+    const maxDrift = Math.max(accuracy * 1.5, 5);
+
+    if (drift > maxDrift) {
+        // instead of snap → pull gently
+        nextLat = lerp(nextLat, filteredLat, CFG.DRIFT_SOFT_GAIN);
+        nextLon = lerp(nextLon, filteredLon, CFG.DRIFT_SOFT_GAIN);
+    }
+
+    // --- stop freeze (soft) ---
+    if (isStopped) {
+        nextLat = lerp(nextLat, filteredLat, 0.85);
+        nextLon = lerp(nextLon, filteredLon, 0.85);
+        filteredSpeedKmh = 0;
+    }
+
+    // --- commit ---
+    filteredLat = nextLat;
+    filteredLon = nextLon;
+    lastTimestamp = timestamp;
+
+    // --- heading (smoothed) ---
     let heading = null;
-if (isFinite(c.heading) && c.heading >= 0) {
-    heading = c.heading % 360;
-}
+    if (isFinite(c.heading) && c.heading >= 0) {
+        const rawHeading = c.heading % 360;
 
-    // --- position filtering ---
-    let finalLat = lat;
-    let finalLon = lon;
-
-    if (lastRawGpsLat != null) {
-        const move = haversineMeters(
-            lastRawGpsLat,
-            lastRawGpsLon,
-            lat,
-            lon
-        );
-
-        if (filteredSpeedKmh <= GPS_CONFIG.STOP_SPEED_KMH) {
-            const driftAllow = Math.max(
-                0.5,
-                (accuracy ?? 5) * GPS_CONFIG.DRIFT_FACTOR
-            );
-
-            if (move < driftAllow) {
-                finalLat = lastRawGpsLat;
-                finalLon = lastRawGpsLon;
-            }
+        if (!normalizeGps._heading) {
+            normalizeGps._heading = rawHeading;
         } else {
-            const maxMove =
-                (filteredSpeedKmh / 3.6) * Math.max(dt, 0.5) * 3;
-
-            if (move > maxMove * 1.3) {
-                finalLat = lastRawGpsLat;
-                finalLon = lastRawGpsLon;
-            }
+            normalizeGps._heading = lerpAngle(
+                normalizeGps._heading,
+                rawHeading,
+                0.2
+            );
         }
-    }
 
-    // --- update state ---
-    lastRawGpsLat = finalLat;
-    lastRawGpsLon = finalLon;
-    lastInputGpsLat = lat;
-    lastInputGpsLon = lon;
-    lastInputTimestamp = timestamp;
+        heading = normalizeGps._heading;
+    }
 
     return {
-        latitude: finalLat,
-        longitude: finalLon,
+        latitude: filteredLat,
+        longitude: filteredLon,
         speedKmh: filteredSpeedKmh,
         heading,
         accuracy,
         timestamp,
-		isStopped: isStopping,
+        isStopped,
         altitude: c.altitude ?? null,
         altitudeAccuracy: c.altitudeAccuracy ?? null
     };
