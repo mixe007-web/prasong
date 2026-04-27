@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v11.00</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v19.95</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2649,7 +2649,10 @@ function applySmoothTransform(lat, lon, headingDeg = null, speedKmh = 0, callbac
 	smoothTransformTarget.lon = lon;
 	smoothTransformTarget.heading = headingDeg;
 	smoothTransformTarget.speedKmh = speedKmh;
-	const zoomSmoothFactor = 0.15;
+	const zoomSmoothFactor =
+    speedKmh < 20 ? 0.45 :
+    speedKmh < 60 ? 0.25 :
+    0.15;
 	smoothedSpeedForZoom = lerp(smoothedSpeedForZoom, speedKmh, zoomSmoothFactor);
 	smoothTransformTarget.zoom = clamp(calculateTargetZoom(smoothedSpeedForZoom), 0, 22);
 	smoothTransformTarget.iconSize = calculateIconSize(speedKmh);
@@ -3042,7 +3045,10 @@ if (isStopped && isFinite(lockedHeading)) {
 			lastAppliedZoom = targetZoom;
 		}
 		const PAN_EPS = 1e-6;
-		const zoomLambda = 12.0;
+		const zoomLambda =
+    targetSpeed < 20 ? 20 :
+    targetSpeed < 60 ? 14 :
+    10;
 		const safeDt = Math.min(dtSec, 0.05);
 		const zoomT = 1 - Math.exp(-zoomLambda * safeDt / 3);
 		const zoomDir = targetZoom - lastAppliedZoom;
@@ -3083,8 +3089,10 @@ const HEADING_DEADBAND =
     targetSpeed < 10 ? 0.15 :
     targetSpeed < 40 ? 0.12 :
     0.08;
+
 if (isStopped && hasLockedHeading) {
     rotationController.freeze = true;
+	 rotationController.velocity = 0;
     rotationController.current = lockedHeading;
 } else {
     if (rotationController.freeze) {
@@ -3095,20 +3103,31 @@ if (isStopped && hasLockedHeading) {
 let finalTargetHeading = rotationController.freeze && isFinite(lockedHeading)
     ? lockedHeading
     : normalizeAngle(baseHeading);
-        finalTargetHeading = normalizeAngle(finalTargetHeading);
-        let diff = normalizeAngleDifference(
-            finalTargetHeading,
-            rotationController.current
-        );
-        if (Math.abs(diff) < HEADING_DEADBAND) {
-            diff = 0;
-        }
-const turnBoost = isTurning ? 1.4 : 1.0;
-const stiffness = lerp(18, 42, speedNorm) * turnBoost;
-const damping = lerp(8, 5.2, speedNorm);
-rotationController.velocity += diff * stiffness * dtSec;
-rotationController.velocity *= Math.exp(-damping * dtSec);
-rotationController.current += rotationController.velocity * dtSec;
+
+finalTargetHeading = normalizeAngle(finalTargetHeading);
+
+let diff = normalizeAngleDifference(
+    finalTargetHeading,
+    rotationController.current
+);
+if (rotationController.freeze) {
+    diff = 0;
+}
+if (Math.abs(diff) < HEADING_DEADBAND) {
+    diff = 0;
+}
+if (!rotationController.freeze) {
+    const turnBoost = isTurning ? 1.4 : 1.0;
+    const stiffness = lerp(18, 42, speedNorm) * turnBoost;
+    const damping = lerp(8, 5.2, speedNorm);
+
+    rotationController.velocity += diff * stiffness * dtSec;
+    rotationController.velocity *= Math.exp(-damping * dtSec);
+    rotationController.current += rotationController.velocity * dtSec;
+} else {
+    rotationController.velocity = 0;
+    rotationController.current = finalTargetHeading;
+}
 		if (Math.abs(diff) < 0.05 &&
 			Math.abs(rotationController.velocity) < 0.002) {
 				rotationController.current = finalTargetHeading;
@@ -3154,15 +3173,15 @@ rotationController.current += rotationController.velocity * dtSec;
     if (appliedIconSize === null) {
         appliedIconSize = targetIconSize;
     }
-    const iconLambda = 10; // ปรับได้ (8–14)
-const iconSmooth = 1 - Math.exp(-iconLambda * dtSec);
+    const iconSmooth = clamp(dtSec * 12, 0, 1);
     appliedIconSize = lerp(appliedIconSize, targetIconSize, iconSmooth);
     if (lastIconSize === null) {
         lastIconSize = appliedIconSize;
     }
     if (Math.abs(appliedIconSize - lastIconSize) >= 0.005) {
         lastIconSize = appliedIconSize;
-        const inner = vehicleMarker?._icon?.querySelector(".vehicle-inner");
+        const inner =
+            vehicleMarker?._icon?.querySelector(".vehicle-inner");
         if (inner) {
             const scale = appliedIconSize / BASE_ICON_SIZE;
             inner.style.setProperty("--marker-scale", scale);
@@ -3550,7 +3569,9 @@ let sensorSpeedKmh = 0;
 let smoothLat = null;
 let smoothLon = null;
 const ZERO_CONFIRM_MS = 250;
-
+const HARD_STOP_SPEED = 0.8;
+const HARD_STOP_DIST = 0.25;
+const HARD_STOP_CONFIRM_MS = 180;
 function normalizeGps(pos) {
     const c = pos?.coords;
     if (!c) return null;
@@ -3608,13 +3629,13 @@ const maxAccelDown = 160;
     }
 filteredSpeedKmh += delta * 1.2;
 filteredSpeedKmh = Math.max(0, filteredSpeedKmh);
-if (filteredSpeedKmh <= STOP_LOCK_SPEED * 1.3 && moveMeters < 0.4) {
+if (sensorSpeedKmh < HARD_STOP_SPEED && moveMeters < HARD_STOP_DIST) {
 
     if (zeroCandidateSince === null) {
         zeroCandidateSince = timestamp;
     }
 
-    if (timestamp - zeroCandidateSince > ZERO_CONFIRM_MS) {
+    if (timestamp - zeroCandidateSince > HARD_STOP_CONFIRM_MS) {
         filteredSpeedKmh = 0;
         sensorSpeedKmh = 0;
     }
