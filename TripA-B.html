@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.07</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.66</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2963,7 +2963,7 @@ function smoothTransformStep(now) {
 			hasLockedHeading = false;
 		}
 		if (!hasLockedHeading &&
-			(now - lockReadySince > 350) &&
+			(now - lockReadySince > 120) &&
 			headingStable
 		) {
 			lockedHeading = computedHeading;
@@ -3147,8 +3147,8 @@ function smoothTransformStep(now) {
         }
     }
 	// 11. DWG line
-	lastRenderLat = renderLat;
-	lastRenderLon = renderLon;
+	lastRenderLat = appliedMapLat;
+	lastRenderLon = appliedMapLon;
 	if (lastRenderLat !== null && lastRenderLon !== null) {
 		const lastCoord = pathCoordinatesRender[pathCoordinatesRender.length - 1];
 		const SMOOTH_MIN_DIST = clamp(targetSpeed * 0.02, 0.5, 3);
@@ -3161,7 +3161,7 @@ function smoothTransformStep(now) {
 				targetSpeed || 0,
 				Date.now()
 			]);
-			const DRAW_INTERVAL = 150;
+			const DRAW_INTERVAL = 120;
 			if (now - lastPolylineTime > DRAW_INTERVAL) {
 				addRealtimePolylineSegment(lastRenderLat, lastRenderLon, targetSpeed);
 				lastPolylineTime = now;
@@ -3358,7 +3358,7 @@ function addRealtimePolylineSegment(lat, lon, speedKmh) {
     const currentColor = currentPolyline?.options?.color ? String(currentPolyline.options.color).toLowerCase() : null;
     if (!currentPolyline || currentColor !== normalizedNewColor) {
         currentPolyline = L.polyline([[prev[0], prev[1]], [curr[0], curr[1]]], {
-            color, weight: 4, opacity: 0.95, interactive: false, smoothFactor: 2.0
+            color, weight: 4, opacity: 0.95, interactive: false, smoothFactor: 1.5
         }).addTo(routeLayer);
         currentBatch.push(currentPolyline);
     } else {
@@ -3577,8 +3577,8 @@ function normalizeGps(pos) {
 		sensorSpeedKmh = (moveMeters / dt) * 3.6;
 	}
     let delta = sensorSpeedKmh - filteredSpeedKmh;
-	const maxAccelUp = 90;
-	const maxAccelDown = 160;
+	const maxAccelUp = 95;
+	const maxAccelDown = 180;
     if (delta > 0) {
         delta = Math.min(delta, maxAccelUp * dt);
     } else {
@@ -3780,29 +3780,29 @@ function startTracking() {
 			startTimeSpan.textContent = new Date(pos.timestamp).toLocaleString();
 			tripStartTime = pos.timestamp;
 			    // --- Save trip skeleton ---
-		saveTripToStorage({
-		plateNumber: plateInput.value.trim(),
-		startTime: tripStartTime,
-		endTime: tripStartTime,
-		startCoord: coordText,
-		endCoord: coordText,
-		distance: 0,
-		maxSpeed: 0,
-		avgSpeed: 0,
-		elapsedTime: 0,
-		energyUsedWh: 0,
-		energyUsed: 0,
-		avgEnergyPerKm: 0,
-		energyConsumption: 0,
-		batterySOCUsedPercent: 0,
-		idleEnergyUsedWh: 0,
-		energyPer100km: 0,
-		idleTimeFormatted: "00:00:00",
-		idleTimeSeconds: 0,
-		totalRegenEnergy: 0,
-		avgEfficiencyPerPercent: 0,
-		path: [],
-	});
+			saveTripToStorage({
+				plateNumber: plateInput.value.trim(),
+				startTime: tripStartTime,
+				endTime: tripStartTime,
+				startCoord: coordText,
+				endCoord: coordText,
+				distance: 0,
+				maxSpeed: 0,
+				avgSpeed: 0,
+				elapsedTime: 0,
+				energyUsedWh: 0,
+				energyUsed: 0,
+				avgEnergyPerKm: 0,
+				energyConsumption: 0,
+				batterySOCUsedPercent: 0,
+				idleEnergyUsedWh: 0,
+				energyPer100km: 0,
+				idleTimeFormatted: "00:00:00",
+				idleTimeSeconds: 0,
+				totalRegenEnergy: 0,
+				avgEfficiencyPerPercent: 0,
+				path: [],
+			});
 		},
 		(err) => {
 			alert("ไม่สามารถรับตำแหน่งเริ่มต้นได้: " + err.message);
@@ -3989,50 +3989,7 @@ function stopTracking() {
 	}
 	updateIdleDisplay();
 	updateEfficiency();
-	const finalAvgEfficiency = stopAvgEfficiencyTracking();
-	const finalTrip = {
-		plateNumber: plateInput.value.trim(),
-		startTime: tripStartTime,
-		endTime: Date.now(),
-		startCoord: tripLog[0]?.coord || "-",
-		endCoord: tripLog[tripLog.length - 1]?.coord || "-",
-		distance: cumulativeDistance,
-		maxSpeed: maxSpeed,
-		avgSpeed: (elapsedTime > 0)
-			? cumulativeDistance / (elapsedTime / 3600)
-			: 0,
-		elapsedTime: elapsedTime,
-		energyUsedWh: totalEnergyWh,
-		energyUsed: totalEnergyWh / 1000,
-		avgEnergyPerKm: cumulativeDistance > 0 ? totalEnergyWh / cumulativeDistance : 0,
-		energyConsumption: parseFloat((totalEnergyWh / 1000).toFixed(2)),
-		batterySOCUsedPercent: parseFloat(((totalEnergyWh / 1000) / 75.3 * 100).toFixed(2)),
-		idleEnergyUsedWh: idleEnergyWhTotal,
-		energyPer100km: cumulativeDistance > 0 ? (totalEnergyWh / 1000) / cumulativeDistance * 100 : 0,
-		idleTimeFormatted: formatTime(Math.floor(idleTimeTotal)),
-		idleTimeSeconds: Math.floor(idleTimeTotal),
-		totalRegenEnergy: totalRegenEnergyWh ? totalRegenEnergyWh / 1000 : 0,
-		avgEfficiencyPerPercent: parseFloat(finalAvgEfficiency.toFixed(3)) || 0,
-		path: tripLog
-	};
-	updateLastTripInStorage(finalTrip);
-	saveTripToIndexedDB(finalTrip).catch(console.warn);
-	distanceSpan.textContent = cumulativeDistance.toFixed(3);
-	maxSpeedSpan.textContent = maxSpeed.toFixed(1);
-	const finalAvgSpeed = (elapsedTime > 0 && cumulativeDistance > 0)
-		? cumulativeDistance / (elapsedTime / 3600)
-		: 0;
-	avgSpeedSpan.textContent = finalAvgSpeed.toFixed(1);
-	startCoordSpan.textContent = tripLog[0]?.coord || "-";
-	endCoordSpan.textContent = tripLog[tripLog.length - 1]?.coord || "-";
-	startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
-	endTimeSpan.textContent = new Date(finalTrip.endTime).toLocaleString();
-	lastMarkerAngle = 0;
-	prevPos = null;
-	tripStartTime = null;
-	totalDistance = 0;
-	idleStartTime = null;
-
+	
 	// 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset (ULTRA FIX)
 if (tripLog.length === 0) {
     console.warn("tripLog ว่าง แต่ยัง save skeleton");
@@ -4154,6 +4111,49 @@ if (tripLog.length === 0) {
 		}
 		fitWithRetry();
 	});
+	const finalAvgEfficiency = stopAvgEfficiencyTracking();
+	const finalTrip = {
+		plateNumber: plateInput.value.trim(),
+		startTime: tripStartTime,
+		endTime: Date.now(),
+		startCoord: tripLog[0]?.coord || "-",
+		endCoord: tripLog[tripLog.length - 1]?.coord || "-",
+		distance: cumulativeDistance,
+		maxSpeed: maxSpeed,
+		avgSpeed: (elapsedTime > 0)
+			? cumulativeDistance / (elapsedTime / 3600)
+			: 0,
+		elapsedTime: elapsedTime,
+		energyUsedWh: totalEnergyWh,
+		energyUsed: totalEnergyWh / 1000,
+		avgEnergyPerKm: cumulativeDistance > 0 ? totalEnergyWh / cumulativeDistance : 0,
+		energyConsumption: parseFloat((totalEnergyWh / 1000).toFixed(2)),
+		batterySOCUsedPercent: parseFloat(((totalEnergyWh / 1000) / 75.3 * 100).toFixed(2)),
+		idleEnergyUsedWh: idleEnergyWhTotal,
+		energyPer100km: cumulativeDistance > 0 ? (totalEnergyWh / 1000) / cumulativeDistance * 100 : 0,
+		idleTimeFormatted: formatTime(Math.floor(idleTimeTotal)),
+		idleTimeSeconds: Math.floor(idleTimeTotal),
+		totalRegenEnergy: totalRegenEnergyWh ? totalRegenEnergyWh / 1000 : 0,
+		avgEfficiencyPerPercent: parseFloat(finalAvgEfficiency.toFixed(3)) || 0,
+		path: tripLog
+	};
+	updateLastTripInStorage(finalTrip);
+	saveTripToIndexedDB(finalTrip).catch(console.warn);
+	distanceSpan.textContent = cumulativeDistance.toFixed(3);
+	maxSpeedSpan.textContent = maxSpeed.toFixed(1);
+	const finalAvgSpeed = (elapsedTime > 0 && cumulativeDistance > 0)
+		? cumulativeDistance / (elapsedTime / 3600)
+		: 0;
+	avgSpeedSpan.textContent = finalAvgSpeed.toFixed(1);
+	startCoordSpan.textContent = tripLog[0]?.coord || "-";
+	endCoordSpan.textContent = tripLog[tripLog.length - 1]?.coord || "-";
+	startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
+	endTimeSpan.textContent = new Date(finalTrip.endTime).toLocaleString();
+	lastMarkerAngle = 0;
+	prevPos = null;
+	tripStartTime = null;
+	totalDistance = 0;
+	idleStartTime = null;
 	positions = [];
 	loadHistory();
 }
