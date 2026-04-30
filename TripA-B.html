@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v12.66</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v12.88</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3846,29 +3846,52 @@ function startTracking() {
 			accuracy,
 			timestamp
 		} = gps;
-		// ===== GPS ACCURACY UI =====
-		const accEl = document.getElementById("gpsAccuracy");
-		if (accEl) {
-		const smoothAcc = smoothAccuracy(accuracy);
-		accEl.textContent = formatAccuracy(smoothAcc);
-		accEl.style.color = getAccuracyColor(smoothAcc);
-		}
-		const isStopped = speedKmh < STOP_LOCK_SPEED;
-		const physicallyStopped = isStopped && checkIfStopped(latitude, longitude, speedKmh);
-		const nowGps = performance.now();
-		if (lastGpsTimestamp !== null) {
-			gpsIntervalSec = (nowGps - lastGpsTimestamp) / 1000;
-			gpsIntervalSec = clamp(gpsIntervalSec, 0.1, 2.0);
-		}
-		lastGpsTimestamp = nowGps;
+
+// ===== GPS TIMING =====
+if (lastGpsTimestamp !== null && timestamp > lastGpsTimestamp) {
+    gpsIntervalSec = (timestamp - lastGpsTimestamp) / 1000;
+    gpsIntervalSec = clamp(gpsIntervalSec, 0.1, 2.0);
+}
+lastGpsTimestamp = timestamp;
+
+// ===== GPS ACCURACY =====
+const accEl = document.getElementById("gpsAccuracy");
+
+const rawAcc = gps.accuracy ?? 5;
+const smoothAcc = smoothAccuracy(rawAcc);
+
+if (accEl) {
+    accEl.textContent = formatAccuracy(smoothAcc);
+    accEl.style.color = getAccuracyColor(smoothAcc);
+}
+
+// ===== THRESHOLD =====
+const accClamped = Math.min(Math.max(smoothAcc, 1), 150);
+const accFactor = Math.log10(accClamped + 1);
+const intervalFactor = Math.min(Math.max(gpsIntervalSec, 0.5), 2.0);
+
+const dynamicThreshold =
+    accFactor * 9 +
+    speedKmh * 0.035 +
+    intervalFactor * 1.8;
+
+let routeThreshold = Math.min(
+    Math.max(dynamicThreshold, 1.2),
+    40
+);
+
+// strong lock when stopped
+const physicallyStopped =
+    speedKmh < STOP_LOCK_SPEED &&
+    checkIfStopped(latitude, longitude, speedKmh);
+if (physicallyStopped) {
+    routeThreshold = Math.min(routeThreshold, 1.0);
+}
 		updateSpeedSlope(speedKmh, timestamp);
 		rawSpeedKmh = speedKmh;
 				// --- Update display + map ---
 		updateSpeed(speedKmh);
-		const routeThreshold = Math.max(
-			1.2,
-			(gps.accuracy ?? 5) * 0.4 + speedKmh * 0.03
-		);
+
 		if (!physicallyStopped || (
 			lastRouteLat !== null &&
 			haversineMeters(
@@ -4166,8 +4189,8 @@ if (tripLog.length === 0) {
 		? cumulativeDistance / (elapsedTime / 3600)
 		: 0;
 	avgSpeedSpan.textContent = finalAvgSpeed.toFixed(1);
-	startCoordSpan.textContent = tripLog[0]?.coord || "-";
-	endCoordSpan.textContent = tripLog[tripLog.length - 1]?.coord || "-";
+	startCoordSpan.textContent = frozenTripLog[0]?.coord || "-";
+	endCoordSpan.textContent = frozenTripLog[frozenTripLog.length - 1]?.coord || "-";
 	startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
 	endTimeSpan.textContent = new Date(finalTrip.endTime).toLocaleString();
 	lastMarkerAngle = 0;
