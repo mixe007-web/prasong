@@ -3701,7 +3701,8 @@ function smoothAccuracy(acc) {
 }
 
 // ============================================================	
-let stopcallback = false;													  
+let stopcallback = false;
+													  
 function startTracking() {
 	if (isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
 	if (!plateInput.value.trim()) { alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม'); plateInput.focus(); return; }
@@ -3931,7 +3932,6 @@ function startTracking() {
 					? cumulativeDistance / (elapsedTime / 3600)
 					: 0,
 					elapsedTime,
-			
 		});
 	},
 		(err) => {
@@ -4132,12 +4132,13 @@ if (tripLog.length === 0) {
 		fitWithRetry();
 	});
 	const finalAvgEfficiency = stopAvgEfficiencyTracking();
+	const frozenTripLog = tripLog.slice()
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
 		startTime: tripStartTime,
 		endTime: Date.now(),
-		startCoord: tripLog[0]?.coord || "-",
-		endCoord: tripLog[tripLog.length - 1]?.coord || "-",
+		startCoord: frozenTripLog[0]?.coord || "-",
+		endCoord: frozenTripLog[frozenTripLog.length - 1]?.coord || "-",
 		distance: cumulativeDistance,
 		maxSpeed: maxSpeed,
 		avgSpeed: (elapsedTime > 0)
@@ -4155,10 +4156,10 @@ if (tripLog.length === 0) {
 		idleTimeSeconds: Math.floor(idleTimeTotal),
 		totalRegenEnergy: totalRegenEnergyWh ? totalRegenEnergyWh / 1000 : 0,
 		avgEfficiencyPerPercent: parseFloat(finalAvgEfficiency.toFixed(3)) || 0,
-		path: tripLog
+		path: frozenTripLog
 	};
-	updateLastTripInStorage(finalTrip);
-	saveTripToIndexedDB(finalTrip).catch(console.warn);
+    updateLastTripInStorage(finalTrip);
+    saveTripToIndexedDB(finalTrip).catch(console.warn);
 	distanceSpan.textContent = cumulativeDistance.toFixed(3);
 	maxSpeedSpan.textContent = maxSpeed.toFixed(1);
 	const finalAvgSpeed = (elapsedTime > 0 && cumulativeDistance > 0)
