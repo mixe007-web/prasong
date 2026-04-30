@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.66</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v12.66</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2870,7 +2870,7 @@ function smoothTransformStep(now) {
 	/// 2) Detect movement state
 	if (movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
 		if (!stopCandidateSince) stopCandidateSince = now;
-		if (now - stopCandidateSince > 400) {
+		if (now - stopCandidateSince > 150) {
 			movementState = "stopped";
 		}
 	} else {
@@ -2932,6 +2932,7 @@ function smoothTransformStep(now) {
 		motion.confidence,
 		targetSpeed
 	);
+	let baseHeading;
 	let computedHeading = rawHeading;
 	if (movementState === "moving" && !isFinite(computedHeading) && posHistory.length >= 2) {
 		const p1 = posHistory[posHistory.length - 2];
@@ -3050,16 +3051,26 @@ function smoothTransformStep(now) {
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {
 		const HEADING_DEADBAND =
-			isStopped ? 0.6 :
+			isStopped ? 1.2 :
 			targetSpeed < 10 ? 0.15 :
 			targetSpeed < 40 ? 0.12 :
 			0.08;
-		if (isStopped && hasLockedHeading) {
-			rotationController.freeze = true;
-			 rotationController.velocity = 0;
-			rotationController.current = lockedHeading;
-			rotationController.lastStableHeading = lockedHeading;
-		} else {
+if (isStopped) {
+    rotationController.freeze = true;
+    rotationController.velocity = 0;
+
+    if (!hasLockedHeading && isFinite(rotationController.lastStableHeading)) {
+        lockedHeading = rotationController.lastStableHeading;
+        hasLockedHeading = true;
+    }
+
+    // 🔥 FIX: บังคับ lock มุมจริง
+    if (isFinite(lockedHeading)) {
+        rotationController.current = lockedHeading;
+    }
+
+    baseHeading = lockedHeading ?? baseHeading; // 🔥 สำคัญ
+} else {
 			if (rotationController.freeze) {
 				rotationController.freeze = false;
 				rotationController.velocity = 0;
@@ -3529,7 +3540,7 @@ let smoothLon = null;
 const ZERO_CONFIRM_MS = 250;
 const HARD_STOP_SPEED = 0.8;
 const HARD_STOP_DIST = 0.25;
-const HARD_STOP_CONFIRM_MS = 180;
+const HARD_STOP_CONFIRM_MS = 80;
 function normalizeGps(pos) {
     const c = pos?.coords;
     if (!c) return null;
@@ -3570,21 +3581,31 @@ function normalizeGps(pos) {
 			lon
 		);
 	}
-	if (sensorSpeedKmh < 0.5 && moveMeters < 0.3) {
-		sensorSpeedKmh = 0;
-	}
+if (sensorSpeedKmh < 0.8 && moveMeters < 0.2) {
+    filteredSpeedKmh = 0;
+    sensorSpeedKmh = 0;
+}
 	if (moveMeters > 1.2 && sensorSpeedKmh < 1.0) {
 		sensorSpeedKmh = (moveMeters / dt) * 3.6;
 	}
     let delta = sensorSpeedKmh - filteredSpeedKmh;
-	const maxAccelUp = 95;
-	const maxAccelDown = 180;
+const maxAccelUp = 160;
+const maxAccelDown =
+    sensorSpeedKmh < 5  ? 800 :
+    sensorSpeedKmh < 15 ? 520 :
+    sensorSpeedKmh < 40 ? 300 :
+    200;
     if (delta > 0) {
         delta = Math.min(delta, maxAccelUp * dt);
     } else {
         delta = Math.max(delta, -maxAccelDown * dt);
     }
-	filteredSpeedKmh += delta * 1.2;
+const smoothGain =
+    sensorSpeedKmh < 5  ? 2.4 :
+    sensorSpeedKmh < 15 ? 2.0 :
+    sensorSpeedKmh < 40 ? 1.5 :
+    1.2;
+filteredSpeedKmh += delta * smoothGain;
 	filteredSpeedKmh = Math.max(0, filteredSpeedKmh);
 	if (sensorSpeedKmh < HARD_STOP_SPEED && moveMeters < HARD_STOP_DIST) {
 		if (zeroCandidateSince === null) {
@@ -3607,15 +3628,14 @@ function normalizeGps(pos) {
 	let finalLon = lon;
 	if (lastRawGpsLat != null && lastRawGpsLon != null) {
 		const moveFromLastRaw = haversineMeters(lastRawGpsLat, lastRawGpsLon, lat, lon);
-		if (speedKmh <= STOP_LOCK_SPEED && moveFromLastRaw < 0.8) {
+		if (speedKmh <= STOP_LOCK_SPEED && moveFromLastRaw < 0.3) {
 			finalLat = lastRawGpsLat;
 			finalLon = lastRawGpsLon;
 		} else {
-			const dynamicGate = Math.max(0.4, (accuracy ?? 5) * 0.18);
-			if (moveFromLastRaw < dynamicGate && speedKmh < 1.0) {
-				finalLat = lastRawGpsLat;
-				finalLon = lastRawGpsLon;
-			}
+if (moveFromLastRaw < 0.05 && speedKmh < 1.5) {
+    finalLat = lerp(lastRawGpsLat, lat, 0.25);
+    finalLon = lerp(lastRawGpsLon, lon, 0.25);
+}
 			if (moveFromLastRaw > 2.0) {
 				finalLat = lat;
 				finalLon = lon;
