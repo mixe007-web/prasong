@@ -1808,22 +1808,28 @@ function animateDigitalSpeed(timestamp) {
 		speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
 		return;
 	}
+	if (targetSpeed < 0.6 && shownSpeed < 8) {
+		shownSpeed = 0;
+	}
     displayedSpeed = targetSpeed;
     const currentDisplayValue = shownSpeed;
     const diff = targetDigit - currentDisplayValue;
 	const absDiff = Math.abs(diff);
 	let response;
 	if (absDiff > 120) {
-		response = 0.82;
+		response = 0.92;
 	} else if (absDiff > 60) {
-		response = 0.70;
+		response = 0.82;
 	} else if (absDiff > 25) {
-		response = 0.54;
+		response = 0.70;
 	} else {
-		response = 0.34;
+		response = 0.72;
 	}
 	const adaptive = response * clamp(dt * 60, 0.6, 1.0);
-	shownSpeed += diff * adaptive;
+	const brakingBoost = diff < 0 ? (absDiff > 40 ? 2.8 : 2.2) : 1.0;
+	const maxStep = diff < 0 ? 85 : 28;
+	const delta = diff * adaptive * brakingBoost;
+	shownSpeed += clamp(delta, -maxStep, maxStep);
     if (diff > 0 && shownSpeed > targetDigit) {
         shownSpeed = targetDigit;
     }
@@ -2891,26 +2897,44 @@ function smoothTransformStep(now) {
 	const lambda = lerp(8, 18, speedFactorPos);
 	const posT = 1 - Math.exp(-lambda * dtSec);
 	/// 2) Detect movement state
-	if ( movementState === "moving" && targetSpeed < STOP_LOCK_SPEED) {
+	const canStop =
+		movementState === "moving" &&
+		targetSpeed < STOP_LOCK_SPEED;
+	const canResume =
+		movementState === "stopped" &&
+		targetSpeed > RESUME_UNLOCK_SPEED;
+	if (canStop) {
 		movementState = "stopped";
+		lockedHeading =
+			rotationController.lastStableHeading ??
+			rotationController.current ??
+			lastHeading ??
+			0;
+		hasLockedHeading = true;
+		rotationController.current = lockedHeading;
+		rotationController.velocity = 0;
+		rotationController.freeze = true;
 		filteredMotionHeading = null;
-		posHistory.length = 0;
+		if (posHistory.length > 2) {
+			posHistory.splice(0, posHistory.length - 2);
+		}
 		curveMomentum = 0;
 		stopCandidateSince = now;
 	} else {
 		stopCandidateSince = null;
-		if (movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED) {
+		if (canResume) {
 			movementState = "moving";
+			rotationController.freeze = false;
+			rotationController.velocity = 0;
 			if (hasLockedHeading && isFinite(lockedHeading)) {
 				rotationController.current = lockedHeading;
 				rotationController.lastStableHeading = lockedHeading;
 				lastHeading = lockedHeading;
 			}
-			rotationController.velocity = 0;
 			hasLockedHeading = false;
 			lockedHeading = null;
 			curveMomentum = 0;
-			rotationController.freeze = false;
+			stopFrozenPos = null;
 		}
 	}
 	/// 3) Apply smoothing AFTER state known
@@ -3056,7 +3080,7 @@ function smoothTransformStep(now) {
 				camLon += dLon * predictFactor;
 			}
 		}
-		const isPanLocked = movementState === "stopped" && targetSpeed < 1.2;
+		const isPanLocked = movementState === "stopped";
 		if (isPanLocked) {
 			const distToTarget = haversineMeters(appliedMapLat, appliedMapLon, targetLat, targetLon);
 			const stopLerp = distToTarget < 0.8
@@ -3622,7 +3646,7 @@ let kf = structuredClone(KF_DEFAULT);
 function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	if (!isFinite(measuredSpeed)) {
 		const [v, a] = kf.x;
-		const a_pred = a * 0.94;
+		const a_pred = a * 0.78;
 		const v_pred = v + a_pred * dt;
 		kf.x[0] = Math.max(0, v_pred);
 		kf.x[1] = a_pred;
@@ -3633,8 +3657,8 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
     let [v, a] = kf.x;
     dt = Math.min(Math.max(dt, 0.05), 3.0);
     const R = kf.R + accuracy * accuracy * 0.02;
-    const v_pred = v + a * dt;
-    const a_pred = a * 0.94;
+    const a_pred = a * 0.78;
+	const v_pred = v + a_pred * dt;
     const P = kf.P;
     const Q = kf.Q;
 	const qSpeed = Q[0][0] * dt;
@@ -3648,7 +3672,7 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	const y = measuredSpeed - v_pred;
 	const innovationLimit = Math.max(12, 8 + dt * 20);
 	if (Math.abs(y) > innovationLimit) {
-		kf.x[0] = lerp(v_pred, measuredSpeed, 0.45);
+		kf.x[0] = lerp(v_pred, measuredSpeed, 0.82);
 		kf.x[1] = clamp(y / dt, -30, 30);
 		kf.P[0][0] = Math.min(P00 + 12, 200);
 		kf.P[1][1] = Math.min(P11 + 20, 200);
@@ -3703,14 +3727,29 @@ function normalizeGps(pos) {
 	) {
 		sensorSpeedKmh = filteredSpeedKmh;
 	}
-    let speedKmh = kalmanUpdate(sensorSpeedKmh, dt, Math.min(gpsAccuracy, 25));
-	if (sensorSpeedKmh < 0.8 && gpsAccuracy < 12) {
-		speedKmh = 0;
-		kf.x[0] = 0;
-		kf.x[1] = 0;
-	}
+let speedKmh;
+const hardStopped =
+    sensorSpeedKmh < 0.5 &&
+    filteredSpeedKmh < 1.2 &&
+    Math.abs(speedSlope) < 2 &&
+    gpsAccuracy < 10;
+const softStopped =
+    sensorSpeedKmh < 1.0 &&
+    gpsAccuracy < 12;
+if (hardStopped || softStopped) {
+    speedKmh = 0;
+    kf.x[0] = 0;
+    kf.x[1] = 0;
+    kf.P = structuredClone(KF_DEFAULT.P);
+    shownSpeed = 0;
+} else {
+    speedKmh = kalmanUpdate(
+        sensorSpeedKmh,
+        dt,
+        Math.min(gpsAccuracy, 25)
+    );
+}
     filteredSpeedKmh = clamp(speedKmh, 0, 260);
-	
     let finalLat = lat;
     let finalLon = lon;
     if (lastRawGpsLat != null) {
