@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.04</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.05</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1782,7 +1782,7 @@ let shownSpeed = 0;
 let lastRenderedSpeedText = "";
 let lastSpeedClass = "";
 const digitalSpeed = document.getElementById("digitalSpeed");
-const DISPLAY_STOP_SPEED = 1;
+const DISPLAY_STOP_SPEED = 2;
 function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
@@ -1831,9 +1831,6 @@ function animateDigitalSpeed(timestamp) {
 	const delta = diff * adaptive * brakingBoost;
 	shownSpeed += clamp(delta, -maxStep, maxStep);
     if (diff > 0 && shownSpeed > targetDigit) {
-        shownSpeed = targetDigit;
-    }
-    if (diff < 0 && shownSpeed < targetDigit) {
         shownSpeed = targetDigit;
     }
     if (Math.abs(diff) < 2) {
@@ -2915,9 +2912,6 @@ function smoothTransformStep(now) {
 		rotationController.velocity = 0;
 		rotationController.freeze = true;
 		filteredMotionHeading = null;
-		if (posHistory.length > 2) {
-			posHistory.splice(0, posHistory.length - 2);
-		}
 		curveMomentum = 0;
 		stopCandidateSince = now;
 	} else {
@@ -3646,7 +3640,7 @@ let kf = structuredClone(KF_DEFAULT);
 function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	if (!isFinite(measuredSpeed)) {
 		const [v, a] = kf.x;
-		const a_pred = a * 0.78;
+		const a_pred = a * 0.94;
 		const v_pred = v + a_pred * dt;
 		kf.x[0] = Math.max(0, v_pred);
 		kf.x[1] = a_pred;
@@ -3657,8 +3651,8 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
     let [v, a] = kf.x;
     dt = Math.min(Math.max(dt, 0.05), 3.0);
     const R = kf.R + accuracy * accuracy * 0.02;
-    const a_pred = a * 0.78;
-	const v_pred = v + a_pred * dt;
+    const v_pred = v + a * dt;
+    const a_pred = a * 0.94;
     const P = kf.P;
     const Q = kf.Q;
 	const qSpeed = Q[0][0] * dt;
