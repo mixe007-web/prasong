@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.08</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.09</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1781,72 +1781,74 @@ let speedSlope = 0;
 let shownSpeed = 0;
 let lastRenderedSpeedText = "";
 let lastSpeedClass = "";
+let stopHoldTime = 0;
 const digitalSpeed = document.getElementById("digitalSpeed");
+const ACCEL_FAST = 0.97;
+const ACCEL_MID  = 0.89;
+const ACCEL_SLOW = 0.76;
+const DECEL_FAST = 0.98;// ลงเร็วมาก (สำคัญ)
+const DECEL_MID  = 0.90;
+const DECEL_SLOW = 0.75;
 function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
     dt = Math.min(Math.max(dt, 0.01), 0.1);
     const targetSpeed = filteredSpeedKmh;
-    const targetDigit = Math.round(targetSpeed * 10);
-	if (targetSpeed <= STOP_LOCK_SPEED && sensorSpeedKmh <= 1.5) {
-		displayedSpeed = 0;
-		shownSpeed = 0;
-		filteredSpeedKmh = 0;
-		kf.x[0] = 0;
-		kf.x[1] = 0;
-		if (lastRenderedSpeedText !== "0.0 km/h") {
-			digitalSpeed.textContent = "0.0 km/h";
-			lastRenderedSpeedText = "0.0 km/h";
-		}
-		if (lastSpeedClass !== "speed-low") {
-			digitalSpeed.classList.remove('speed-medium', 'speed-high');
-			digitalSpeed.classList.add('speed-low');
-			lastSpeedClass = "speed-low";
-		}
-		speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
-		return;
-	}
-	if (targetSpeed < STOP_LOCK_SPEED && shownSpeed < 20) {
-		shownSpeed = 0;
-	}
-    displayedSpeed = targetSpeed;
-    const currentDisplayValue = shownSpeed;
-    const diff = targetDigit - currentDisplayValue;
-	const absDiff = Math.abs(diff);
-	let smoothFactor;
-	if (diff > 0) {
-		if (absDiff > 120) {smoothFactor = 0.72;}
-		else if (absDiff > 60) {smoothFactor = 0.62;}
-		else if (absDiff > 25) {smoothFactor = 0.54;}
-		else {smoothFactor = 0.46;}
-	}
-	else {
-		if (absDiff > 120) {smoothFactor = 0.82;}
-		else if (absDiff > 60) {smoothFactor = 0.74;}
-		else if (absDiff > 25) {smoothFactor = 0.66;}
-		else {smoothFactor = 0.58;}
-	}
-	shownSpeed += diff * smoothFactor;
-	if (diff > 0 && shownSpeed > targetDigit) {shownSpeed = targetDigit;}
-	if (diff < 0 && shownSpeed < targetDigit) {shownSpeed = targetDigit;}
-	if (Math.abs(diff) < 1.2) {shownSpeed = targetDigit;}
-	const renderSpeed = Math.round(shownSpeed) / 10;
-    const speedText = renderSpeed.toFixed(1) + " km/h";
-	if (speedText !== lastRenderedSpeedText) {
-		digitalSpeed.textContent = speedText;
-		lastRenderedSpeedText = speedText;
-	}
-	let nextClass;
-	if (renderSpeed < 80) {nextClass = 'speed-low';}
-	else if (renderSpeed < 110) {nextClass = 'speed-medium';}
-	else {nextClass = 'speed-high';}
-	if (nextClass !== lastSpeedClass) {
-		digitalSpeed.classList.remove('speed-low', 'speed-medium', 'speed-high');
-		digitalSpeed.classList.add(nextClass);
-		lastSpeedClass = nextClass;
-	}
-    speedAnimFrame = requestAnimationFrame( animateDigitalSpeed);
+    const safeTarget = targetSpeed <= STOP_LOCK_SPEED ? 0 : targetSpeed;
+    const isStopped = targetSpeed <= STOP_LOCK_SPEED && sensorSpeedKmh < 0.9;
+    if (isStopped) {
+        stopHoldTime += dt;
+        if (stopHoldTime > 0.2) {
+            shownSpeed = 0;
+            const text = "0.0 km/h";
+            if (lastRenderedSpeedText !== text) {
+                digitalSpeed.textContent = text;
+                lastRenderedSpeedText = text;
+            }
+            if (lastSpeedClass !== "speed-low") {
+                digitalSpeed.className = "speed-low";
+                lastSpeedClass = "speed-low";
+            }
+        }
+        speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
+        return;
+    }
+    stopHoldTime = 0;
+    const targetDigit = Math.round(safeTarget * 10);
+    const diff = targetDigit - shownSpeed;
+    const absDiff = Math.abs(diff);
+    const absKm = absDiff / 10;
+    let factor;
+    if (diff > 0) {
+        factor = absKm > 60 ? 0.96 :
+                 absKm > 20 ? 0.90 : 0.82;
+    } else {
+        factor = absKm > 60 ? 0.99 :
+                 absKm > 20 ? 0.94 : 0.88;
+    }
+    if (safeTarget <= 5) {
+        factor = diff > 0 ? 0.98 : 0.95;
+    }
+    shownSpeed += diff * factor;
+    if (diff > 0 && shownSpeed > targetDigit) shownSpeed = targetDigit;
+    if (diff < 0 && shownSpeed < targetDigit) shownSpeed = targetDigit;
+    if (absDiff < 2) shownSpeed = targetDigit;
+    const renderSpeed = Math.round(shownSpeed) / 10;
+    const text = renderSpeed.toFixed(1) + " km/h";
+    if (text !== lastRenderedSpeedText) {
+        digitalSpeed.textContent = text;
+        lastRenderedSpeedText = text;
+    }
+    let cls =
+        renderSpeed < 80 ? "speed-low" :
+        renderSpeed < 110 ? "speed-medium" :
+        "speed-high";
+    if (cls !== lastSpeedClass) {
+        digitalSpeed.className = cls;
+        lastSpeedClass = cls;
+    }
+    speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
 }
 function updateSpeed(newSpeed) {
     if (!isFinite(newSpeed) || newSpeed < 0) newSpeed = 0;
@@ -3654,7 +3656,7 @@ let lastSpeedSlopeTimestamp = 0;
 const KF_DEFAULT = {
     x: [0, 0],
     P: [[12, 0], [0, 60]],
-	Q: [[220, 0], [0, 420]],
+	Q: [[260, 0], [0, 500]],
 	R: 0.22
 };
 let kf = structuredClone(KF_DEFAULT);
@@ -3763,7 +3765,7 @@ function normalizeGps(pos) {
 		speedKmh = kalmanUpdate(sensorSpeedKmh, dt, Math.min(gpsAccuracy, 25));
 	}
     filteredSpeedKmh = clamp(speedKmh, 0, 260);
-	if (filteredSpeedKmh < 2 && sensorSpeedKmh < 1 && gpsAccuracy < 15) {
+	if (filteredSpeedKmh <= STOP_LOCK_SPEED && sensorSpeedKmh < 1 && gpsAccuracy < 15) {
 		filteredSpeedKmh = 0;
 		speedKmh = 0;
 		kf.x[0] = 0;
