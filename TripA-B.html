@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.09</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.10</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2687,7 +2687,7 @@ const MIN_MOVE_FOR_MOTION_M = 0.3;
 const MIN_MOVE_FOR_HISTORY_M = 0.5;
 const posHistory = [];
 const HISTORY_MAX = 4;
-const NAVI_CENTER_OFFSET_RATIO = 0.18;
+const NAVI_CENTER_OFFSET_RATIO = 0.22;
 const LOW_SPEED_KMH = 10;
 const MIN_MOTION_SPEED = 3.0;
 const STOP_LOCK_SPEED = 2;
@@ -2863,93 +2863,46 @@ function smoothTransformStep(now) {
 	/// 2) Detect movement state
 	const wasStopped = movementState === "stopped";
 	const wasMoving = movementState === "moving";
-const canStop =
-	wasMoving &&
-	targetSpeed < STOP_LOCK_SPEED;
-
-const canResume =
-	wasStopped &&
-	targetSpeed > RESUME_UNLOCK_SPEED;
-
-/* ---------- STOP DETECTION ---------- */
-const shouldCapturePrelock =
-	targetSpeed < 4 &&
-	targetSpeed > 1.2 &&
-	isFinite(rotationController.lastStableHeading);
-
-if (shouldCapturePrelock) {
-
-	lockedHeading =
-		rotationController.lastStableHeading;
-
-	hasLockedHeading = true;
-}
-/* ---------- STOP DETECTION ---------- */
-
-if (canStop) {
-
-if (stopCandidateSince == null) {
-	stopCandidateSince = now;
-}
-
-	const stopDelayPassed =
-		now - stopCandidateSince > 700;
-
-	if (
-		stopDelayPassed &&
-		movementState !== "stopped"
-	) {
-
-		movementState = "stopped";
-
-		lockedHeading =
-			rotationController.lastStableHeading ??
-			rotationController.current ??
-			lastHeading ??
-			0;
-
+	const canStop = wasMoving && targetSpeed < STOP_LOCK_SPEED;
+	const canResume = wasStopped && targetSpeed > RESUME_UNLOCK_SPEED;
+	const shouldCapturePrelock = targetSpeed < 4 && targetSpeed > 1.2 && isFinite(rotationController.lastStableHeading);
+	if (shouldCapturePrelock) {
+		lockedHeading = rotationController.lastStableHeading;
 		hasLockedHeading = true;
-
-		rotationController.freeze = true;
-
-		rotationController.velocity *= 0.15;
-
-		curveMomentum = 0;
 	}
-
-} else {
-	stopCandidateSince = null;
-}
-/* ---------- RESUME DETECTION ---------- */
-
-if (canResume) {
-
-	if (resumeCandidateSince == null) {
-		resumeCandidateSince = now;
+	if (canStop) {
+		if (stopCandidateSince == null) {
+			stopCandidateSince = now;
+		}
+		const stopDelayPassed = now - stopCandidateSince > 700;
+		if (stopDelayPassed && movementState !== "stopped") {
+			movementState = "stopped";
+			lockedHeading = rotationController.lastStableHeading ??
+				rotationController.current ??
+				lastHeading ??
+				0;
+			hasLockedHeading = true;
+			rotationController.freeze = true;
+			rotationController.velocity *= 0.15;
+			curveMomentum = 0;
+		}
+	} else {
+		stopCandidateSince = null;
 	}
-
-	const resumeDelayPassed =
-		now - resumeCandidateSince > 350;
-
-	if (resumeDelayPassed &&
-		movementState !== "moving") {
-
-		movementState = "moving";
-
-		rotationController.freeze = false;
-
-		rotationController.velocity *= 0.35;
-
-		/* สำคัญ:
-		   อย่า force current heading
-		*/
-
-		curveMomentum = 0;
+	if (canResume) {
+		if (resumeCandidateSince == null) {
+			resumeCandidateSince = now;
+		}
+		const resumeDelayPassed = now - resumeCandidateSince > 350;
+		if (resumeDelayPassed && movementState !== "moving") {
+			movementState = "moving";
+			rotationController.freeze = false;
+			rotationController.velocity *= 0.35;
+			curveMomentum = 0;
+		}
+	} else {
+		resumeCandidateSince = null;
 	}
-
-} else {
-	resumeCandidateSince = null;
-}
 	/// 3) Apply smoothing AFTER state known
 	const isStopped = movementState === "stopped";
 	if (isStopped) {
@@ -3053,7 +3006,7 @@ if (canResume) {
         rotationController.lockedHeading = baseHeading;
         hasInitialHeading = true;
     }
-	    /// 8) Smooth Pan + Zoom
+	/// 8) Smooth Pan + Zoom
 	if (autoFollow) {
 		if (appliedMapLat === null) {
 			appliedMapLat = renderLat;
@@ -3063,15 +3016,21 @@ if (canResume) {
 			lastAppliedZoom = targetZoom;
 		}
 		const safeDt = clamp(dtSec, 0.001, 0.05);
-		const zoomLambda = targetSpeed < 20 ? 18 : targetSpeed < 60 ? 13 : 9;
+		const zoomLambda =
+			targetSpeed < 20 ? 18 :
+			targetSpeed < 60 ? 13 :
+			9;
 		const zoomT = 1 - Math.exp(-zoomLambda * safeDt * 0.35);
 		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
 		const zoomLevel = Math.round(lastAppliedZoom);
 		const isFast = targetSpeed > 80;
-		const turnBoostPan = isTurning ? 1.14 : 1.0;
+		const turnBoostPan = isTurning ? 1.12 : 1.0;
 		const basePanT = 1 - Math.exp(-panLambda * safeDt);
-		const straightDamping = isTurning ? 1.0 : isFast ? 0.40 : 0.56;
-		let panT = clamp(basePanT * turnBoostPan * straightDamping, 0.028, 0.18);
+		const straightDamping =
+			isTurning ? 1.0 :
+			isFast ? 0.72 :
+			0.82;
+		let panT = clamp(basePanT * turnBoostPan * straightDamping, 0.06, 0.22);
 		let camLat = renderLat;
 		let camLon = renderLon;
 		if (motionOk && targetSpeed > 12 && posHistory.length >= 2) {
@@ -3081,11 +3040,11 @@ if (canResume) {
 			const dLon = p2.lon - p1.lon;
 			const movementLen = Math.sqrt(dLat * dLat + dLon * dLon);
 			let predictFactor =
-				targetSpeed < 20 ? 0.010 :
-				targetSpeed < 60 ? 0.028 :
-				targetSpeed < 100 ? 0.050 :
-				0.080;
-			const turnDamping = clamp(1 - (motion.turnRate / 90), 0.15, 1);
+				targetSpeed < 20 ? 0.008 :
+				targetSpeed < 60 ? 0.020 :
+				targetSpeed < 100 ? 0.040 :
+				0.060;
+			const turnDamping = clamp(1 - (motion.turnRate / 90), 0.25, 1);
 			predictFactor *= turnDamping;
 			if (movementLen > 0.0000012) {
 				camLat += dLat * predictFactor;
@@ -3094,11 +3053,17 @@ if (canResume) {
 		}
 		const isPanLocked = movementState === "stopped";
 		if (isPanLocked) {
-			const distToTarget = haversineMeters(appliedMapLat, appliedMapLon, targetLat, targetLon);
-			const stopLerp = distToTarget < 0.8
-				? 1.0 : distToTarget < 1.5
-				? 0.12
-				: 0.18;
+			const distToTarget =
+				haversineMeters(
+					appliedMapLat,
+					appliedMapLon,
+					targetLat,
+					targetLon
+				);
+			const stopLerp =
+				distToTarget < 0.6 ? 1.0 :
+				distToTarget < 1.2 ? 0.10 :
+				0.14;
 			appliedMapLat = lerp(appliedMapLat, targetLat, stopLerp);
 			appliedMapLon = lerp(appliedMapLon, targetLon, stopLerp);
 		} else {
@@ -3111,24 +3076,27 @@ if (canResume) {
 		}
 		const deltaLat = appliedMapLat - lastMapLat;
 		const deltaLon = appliedMapLon - lastMapLon;
-		const moveDist = Math.sqrt(deltaLat * deltaLat + deltaLon * deltaLon);
-		const PAN_EPS = isStopped ? 0.0000035
-			: targetSpeed > 80
-			? 0.0000025
-			: 0.0000012;
+		const moveDist =
+			Math.sqrt(
+				deltaLat * deltaLat +
+				deltaLon * deltaLon
+			);
+		const PAN_EPS = isStopped ? 0.0000008 :
+			targetSpeed > 80 ? 0.00000045 :
+			0.00000025;
 		const currentZoom = map.getZoom();
 		const zoomChanged = currentZoom !== zoomLevel;
 		const movedEnough = moveDist > PAN_EPS;
 		const nowMs = performance.now();
 		if (!lastPanTime) {lastPanTime = 0;}
-		const PAN_INTERVAL = isStopped ? 180 : isTurning ? 32 : 52;
+		const PAN_INTERVAL =
+			isStopped ? 90 :
+			isTurning ? 16 :
+			18;
 		const canUpdateMap = nowMs - lastPanTime >= PAN_INTERVAL;
-		const effectiveMoveEnough = isStopped
-			? moveDist > (PAN_EPS * 2.4)
-			: movedEnough;
-		const shouldUpdateMap = zoomChanged || (effectiveMoveEnough && canUpdateMap);
+		const shouldUpdateMap = zoomChanged || (movedEnough && canUpdateMap);
 		if (shouldUpdateMap) {
-			map.setView([appliedMapLat, appliedMapLon], zoomLevel, { animate: false, pan: {animate: false}});
+			map.setView([appliedMapLat, appliedMapLon], zoomLevel, {animate: false, pan: {animate: false}});
 			lastMapLat = appliedMapLat;
 			lastMapLon = appliedMapLon;
 			lastPanTime = nowMs;
@@ -3203,36 +3171,29 @@ const shouldPrelockHeading =
 		} else {
 			rotationController.velocity = 0;
 			rotationController.current =
-	lerpAngle(
-		rotationController.current,
-		finalTargetHeading,
-		0.18
-	);
+			lerpAngle(rotationController.current, finalTargetHeading, 0.18
+			);
 		}
-if (
-	!rotationController.freeze &&
-	Math.abs(diff) < 0.05 &&
-	Math.abs(rotationController.velocity) < 0.002
-) {
+		if (!rotationController.freeze && Math.abs(diff) < 0.05 && Math.abs(rotationController.velocity) < 0.002) {
 				rotationController.current = finalTargetHeading;
 				rotationController.velocity = 0;
 				rotationController.lastStableHeading = finalTargetHeading;
-			}
-			applyMapTransform(
-				rotWrapper,
-				-rotationController.current,
-				0,
-				0,
-				autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
-			);
-			vehicleMarker.setLatLng([appliedMapLat, appliedMapLon]);
-			if (vehicleMarker?.setRotationAngle) {
-				const markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
-				const markerFollow = targetSpeed < 10 ? 0.45 : targetSpeed < 40 ? 0.60 : 0.72;
-				const markerFollowRate = markerFollow * clamp(dtSec * 60, 0, 1);
-				lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate);
-				vehicleMarker.setRotationAngle(lastMarkerAngle);
-			}
+		}
+		applyMapTransform(
+			rotWrapper,
+			-rotationController.current,
+			0,
+			0,
+			autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
+		);
+		vehicleMarker.setLatLng([appliedMapLat, appliedMapLon]);
+		if (vehicleMarker?.setRotationAngle) {
+			const markerDiff = normalizeAngleDifference(finalTargetHeading, lastMarkerAngle);
+			const markerFollow = targetSpeed < 10 ? 0.45 : targetSpeed < 40 ? 0.60 : 0.72;
+			const markerFollowRate = markerFollow * clamp(dtSec * 60, 0, 1);
+			lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate);
+			vehicleMarker.setRotationAngle(lastMarkerAngle);
+		}
 	} else if (rotWrapper && !autoRotate) {
 		rotationController.current = 0;
 		rotationController.velocity = 0;
@@ -3655,16 +3616,24 @@ let isFinalizing = false;
 let lastSpeedSlopeTimestamp = 0;
 const KF_DEFAULT = {
     x: [0, 0],
-    P: [[12, 0], [0, 60]],
-	Q: [[260, 0], [0, 500]],
-	R: 0.22
+P: [[10, 0], [0, 45]],
+Q: [[320, 0], [0, 850]],
+R: 0.16
 };
 let kf = structuredClone(KF_DEFAULT);
-function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
+function kalmanUpdate(measuredSpeed, dt, accuracy = 10, hasNativeSpeed = false) {
+	const accelDecay =
+		accuracy > 25 ? 0.90 :
+		accuracy > 15 ? 0.94 :
+		0.975;
+	const velocityDecay =
+		accuracy > 30 ? 0.985 :
+		accuracy > 20 ? 0.992 :
+		0.9992;
 	if (!isFinite(measuredSpeed)) {
 		const [v, a] = kf.x;
-		const a_pred = a * 0.985;
-		const v_pred = v + a_pred * dt;
+		const a_pred = a * accelDecay;
+		const v_pred = v * velocityDecay + a_pred * dt;
 		kf.x[0] = Math.max(0, v_pred);
 		kf.x[1] = a_pred;
 		kf.P[0][0] += kf.Q[0][0] * dt;
@@ -3673,9 +3642,14 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	}
     let [v, a] = kf.x;
     dt = Math.min(Math.max(dt, 0.05), 3.0);
-    const R = kf.R + accuracy * accuracy * 0.02;
-    const v_pred = v + a * dt;
-    const a_pred = a * 0.985;
+	let effectiveAccuracy = accuracy;
+	if (hasNativeSpeed) {
+		effectiveAccuracy *= 0.45;
+	}
+	effectiveAccuracy = Math.min(effectiveAccuracy, 18);
+	const R = kf.R + effectiveAccuracy * effectiveAccuracy * 0.018;
+	const a_pred = a * accelDecay;
+	const v_pred = v * velocityDecay + a_pred * dt;
     const P = kf.P;
     const Q = kf.Q;
 	const qSpeed = Q[0][0] * dt;
@@ -3687,16 +3661,19 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	const S = P00 + R;
 	if (S < 1e-6) return Math.max(0, v_pred);
 	const y = measuredSpeed - v_pred;
-	const innovationLimit = Math.max(10, 8 + dt * 22);
+	const innovationLimit =
+		Math.max(
+			14,
+			10 + dt * 30
+		);
 	if (Math.abs(y) > innovationLimit) {
-		const trackingGain = y > 0 ? 1.0 : 0.90;
-		kf.x[0] = lerp(v_pred, measuredSpeed, trackingGain);
+		const trackingGain = y > 0 ? 0.96 : 0.98; kf.x[0] = lerp(v_pred, measuredSpeed, trackingGain);
 		const targetAccel = clamp(y / dt, -45, 45);
-		kf.x[1] += (targetAccel - kf.x[1]) * 0.82;
-		kf.P[0][0] = Math.min(P00 + 12, 200);
-		kf.P[1][1] = Math.min(P11 + 20, 200);
-		kf.P[0][1] *= 0.7;
-		kf.P[1][0] *= 0.7;
+			kf.x[1] += (targetAccel - kf.x[1]) * 0.82;
+			kf.P[0][0] = Math.min(P00 + 12, 200);
+			kf.P[1][1] = Math.min(P11 + 20, 200);
+			kf.P[0][1] *= 0.7;
+			kf.P[1][0] *= 0.7;
 		return kf.x[0];
 	}
     const K0 = P00 / S;
@@ -3705,10 +3682,34 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
     const a_new = a_pred + K1 * y;
     kf.x[0] = Math.max(0, v_new);
     kf.x[1] = a_new;
-	kf.P[0][0] = Math.max(0.001, (1 - K0) * P00);
-	kf.P[0][1] = (1 - K0) * P01;
-	kf.P[1][0] = P10 - K1 * P00;
-	kf.P[1][1] = Math.max(0.001, P11 - K1 * P01);
+	const IK00 = 1 - K0;
+	const IK01 = 0;
+	const IK10 = -K1;
+	const IK11 = 1;
+	const nP00 = IK00 * P00 * IK00 +
+		IK00 * P01 * IK01 +
+		IK01 * P10 * IK00 +
+		IK01 * P11 * IK01 +
+		K0 * R * K0;
+	const nP01 = IK00 * P00 * IK10 +
+		IK00 * P01 * IK11 +
+		IK01 * P10 * IK10 +
+		IK01 * P11 * IK11 +
+		K0 * R * K1;
+	const nP10 = IK10 * P00 * IK00 +
+		IK10 * P01 * IK01 +
+		IK11 * P10 * IK00 +
+		IK11 * P11 * IK01 +
+		K1 * R * K0;
+	const nP11 = IK10 * P00 * IK10 +
+		IK10 * P01 * IK11 +
+		IK11 * P10 * IK10 +
+		IK11 * P11 * IK11 +
+		K1 * R * K1;
+	kf.P[0][0] = Math.max(0.001, nP00);
+	kf.P[0][1] = nP01;
+	kf.P[1][0] = nP10;
+	kf.P[1][1] = Math.max(0.001, nP11);
 	const p01 = 0.5 * (kf.P[0][1] + kf.P[1][0]);
 	kf.P[0][1] = p01;
 	kf.P[1][0] = p01;
@@ -3744,7 +3745,7 @@ function normalizeGps(pos) {
 	if (gpsAccuracy > 45 && filteredSpeedKmh > 5 &&
 		sensorSpeedKmh > filteredSpeedKmh + 35
 	) {
-		sensorSpeedKmh = filteredSpeedKmh;
+		sensorSpeedKmh = lerp(sensorSpeedKmh, filteredSpeedKmh, 0.75);
 	}
 	let speedKmh;
 	const hardStopped =
@@ -3762,7 +3763,8 @@ function normalizeGps(pos) {
 		kf.P = structuredClone(KF_DEFAULT.P);
 		shownSpeed = 0;
 	} else {
-		speedKmh = kalmanUpdate(sensorSpeedKmh, dt, Math.min(gpsAccuracy, 25));
+		const hasNativeSpeed = isFinite(c.speed) && c.speed > 0.5;
+		speedKmh = kalmanUpdate(sensorSpeedKmh, dt, Math.min(gpsAccuracy, 25), hasNativeSpeed);
 	}
     filteredSpeedKmh = clamp(speedKmh, 0, 260);
 	if (filteredSpeedKmh <= STOP_LOCK_SPEED && sensorSpeedKmh < 1 && gpsAccuracy < 15) {
