@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.11</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.12</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2829,6 +2829,14 @@ function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
     const speedW = clamp(speedKmh / 200, 0, 1);
     const confidenceBoost = clamp(motionConfidence + 0.1, 0, 1);
     let wMotion = lerp(0.35, 0.88, speedW) * confidenceBoost;
+    const acc = lastAccuracy ?? 10;
+	const gpsPenalty =
+		acc > 40 ? 1.30 :
+		acc > 25 ? 1.18 :
+		acc > 15 ? 1.08 :
+		1.0;
+    wMotion *= gpsPenalty;
+    wMotion = clamp(wMotion, 0, 0.92);
     return lerpAngle(gpsHeading, motionHeading, wMotion);
 }
 function computeCurveStrength(turnRateDeg, speedKmh) {
@@ -2867,9 +2875,8 @@ function smoothTransformStep(now) {
 		smoothedLon = targetLon;
 	}
 	const speedNorm = clamp(targetSpeed / 140, 0, 1);
-	const panLambda = targetSpeed < 20 ? 10 : targetSpeed < 60 ? 14 : 18;
 	const speedFactorPos = clamp(targetSpeed / 60, 0, 1);
-	const lambda = lerp(8, 18, speedFactorPos);
+	const lambda = lerp(14, 30, speedFactorPos);
 	const posT = 1 - Math.exp(-lambda * dtSec);
 	/// 2) Detect movement state
 	const wasStopped = movementState === "stopped";
@@ -3018,6 +3025,7 @@ function smoothTransformStep(now) {
         hasInitialHeading = true;
     }
 	    /// 8) Smooth Pan + Zoom
+	const panLambda = targetSpeed < 20 ? 18 : targetSpeed < 60 ? 24 : 30;
 	if (autoFollow) {
 		if (appliedMapLat === null) {
 			appliedMapLat = renderLat;
@@ -3032,17 +3040,10 @@ function smoothTransformStep(now) {
 		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
 		const zoomLevel = Math.round(lastAppliedZoom);
 		const isFast = targetSpeed > 80;
-		const turnBoostPan = isTurning ? 1.14 : 1.0;
+		const turnBoostPan = isTurning ? 1.18 : 1.0;
 		const basePanT = 1 - Math.exp(-panLambda * safeDt);
-		const straightDamping =
-    isTurning ? 1.0 :
-    isFast ? 0.72 :
-    0.82;
-		let panT = clamp(
-    basePanT * turnBoostPan * straightDamping,
-    0.045,
-    0.24
-);
+		const straightDamping = isTurning ? 1.0 : isFast ? 0.72 : 0.82;
+		let panT = clamp( basePanT * turnBoostPan * straightDamping, 0.08, 0.22);
 		let camLat = renderLat;
 		let camLon = renderLon;
 		if (motionOk && targetSpeed > 12 && posHistory.length >= 2) {
@@ -3054,8 +3055,8 @@ function smoothTransformStep(now) {
 			let predictFactor =
 				targetSpeed < 20 ? 0.010 :
 				targetSpeed < 60 ? 0.028 :
-				targetSpeed < 100 ? 0.050 :
-				0.080;
+				targetSpeed < 100 ? 0.035 :
+				0.055;
 			const turnDamping = clamp(1 - (motion.turnRate / 90), 0.15, 1);
 			predictFactor *= turnDamping;
 			if (movementLen > 0.0000012) {
@@ -3080,35 +3081,9 @@ function smoothTransformStep(now) {
 			lastMapLat = appliedMapLat;
 			lastMapLon = appliedMapLon;
 		}
-		const deltaLat = appliedMapLat - lastMapLat;
-		const deltaLon = appliedMapLon - lastMapLon;
-		const moveDist = Math.sqrt(deltaLat * deltaLat + deltaLon * deltaLon);
-		const PAN_EPS = isStopped ? 0.0000035
-			: targetSpeed > 80
-			? 0.0000025
-			: 0.0000012;
-		const currentZoom = map.getZoom();
-		const zoomChanged = currentZoom !== zoomLevel;
-		const movedEnough = moveDist > PAN_EPS;
-		const effectiveMoveEnough = isStopped
-			? moveDist > (PAN_EPS * 2.2)
-			: movedEnough;
-
-		const shouldUpdateMap =
-			zoomChanged ||
-			effectiveMoveEnough;
-		if (shouldUpdateMap) {
-			map.setView(
-				[appliedMapLat, appliedMapLon],
-				zoomLevel,
-				{
-					animate: false,
-					pan: false
-				}
-			);
-			lastMapLat = appliedMapLat;
-			lastMapLon = appliedMapLon;
-		}
+		map.setView([appliedMapLat, appliedMapLon], zoomLevel, {animate: false, pan: false});
+		lastMapLat = appliedMapLat;
+		lastMapLon = appliedMapLon;
 	}
     /// 9) Rotation (uses central stop state)
     if (!rotationWrapperCache || !rotationWrapperCache.isConnected) {
@@ -3116,22 +3091,21 @@ function smoothTransformStep(now) {
     }
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {
-	const HEADING_DEADBAND =
-		isStopped ? 0.8 :
-		targetSpeed < 10 ? 0.035 :
-		targetSpeed < 40 ? 0.025 :
-		0.012;
-if (isStopped && isFinite(lockedHeading)) {
-	baseHeading = lockedHeading;
-}
-const shouldPrelockHeading =
-	targetSpeed < 4 &&
-	!isTurning &&
-	hasLockedHeading &&
-	isFinite(lockedHeading);
-		let finalTargetHeading =
-	(rotationController.freeze || shouldPrelockHeading) &&
-	isFinite(lockedHeading)
+		const HEADING_DEADBAND =
+			isStopped ? 0.8 :
+			targetSpeed < 10 ? 0.035 :
+			targetSpeed < 40 ? 0.025 :
+			0.012;
+		if (isStopped && isFinite(lockedHeading)) {
+			baseHeading = lockedHeading;
+		}
+		const shouldPrelockHeading =
+			targetSpeed < 4 &&
+			!isTurning &&
+			hasLockedHeading &&
+			isFinite(lockedHeading);
+		let finalTargetHeading = (rotationController.freeze || shouldPrelockHeading) &&
+			isFinite(lockedHeading)
 			? lockedHeading
 			: normalizeAngle(baseHeading ?? rotationController.current ?? 0);
 		finalTargetHeading = normalizeAngle(finalTargetHeading);
@@ -3166,7 +3140,6 @@ const shouldPrelockHeading =
 						finalTargetHeading,
 						snapRate
 					);
-
 				diff = normalizeAngleDifference(
 					finalTargetHeading,
 					rotationController.current
@@ -3622,6 +3595,7 @@ let sensorSpeedKmh = 0;
 let stopcallback = false;
 let isFinalizing = false;
 let lastSpeedSlopeTimestamp = 0;
+let gpsLossTime = 0;
 const KF_DEFAULT = {
     x: [0, 0],
     P: [[12, 0], [0, 60]],
@@ -3631,20 +3605,26 @@ const KF_DEFAULT = {
 let kf = structuredClone(KF_DEFAULT);
 function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	if (!isFinite(measuredSpeed)) {
+		gpsLossTime += dt;
+		const holdFactor = gpsLossTime < 2 ? 0.998 : gpsLossTime < 5 ? 0.994 : 0.985;
 		const [v, a] = kf.x;
-		const a_pred = a * 0.992;
+		const a_pred = a * holdFactor;
 		const v_pred = v + a_pred * dt;
 		kf.x[0] = Math.max(0, v_pred);
 		kf.x[1] = a_pred;
-		kf.P[0][0] += kf.Q[0][0] * dt;
-		kf.P[1][1] += kf.Q[1][1] * dt;
+		const lossQScale = gpsLossTime < 2 ? 0.35 : gpsLossTime < 5 ? 0.18 : 0.10;
+		kf.P[0][0] += kf.Q[0][0] * dt * lossQScale;
+		kf.P[1][1] += kf.Q[1][1] * dt * lossQScale;
 		return kf.x[0];
+	} else {
+		gpsLossTime = 0;
 	}
     let [v, a] = kf.x;
     dt = Math.min(Math.max(dt, 0.05), 3.0);
-    const R = kf.R + accuracy * accuracy * 0.02;
+    const acc = Math.min(accuracy, 35);
+	const R = kf.R + acc * 0.12 + acc * acc * 0.003;
     const v_pred = v + a * dt;
-    const a_pred = a * 0.992;
+    const a_pred = a * 0.985;
     const P = kf.P;
     const Q = kf.Q;
 	const qSpeed = Q[0][0] * dt;
@@ -3657,8 +3637,11 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	if (S < 1e-6) return Math.max(0, v_pred);
 	const y = measuredSpeed - v_pred;
 	const innovationLimit = Math.max(16, 14 + dt * 30);
-	if (Math.abs(y) > innovationLimit) {
-		const trackingGain = y > 0 ? 1.0 : 0.96;
+	const adaptiveInnovation =
+	innovationLimit + accuracy * 0.8;
+	if (Math.abs(y) > adaptiveInnovation) {
+		const gainScale = accuracy < 15 ? 1.0 : accuracy < 30 ? 0.82 : 0.65;
+		const trackingGain = (y > 0 ? 0.82 : 0.64) * gainScale;
 		kf.x[0] = lerp(v_pred, measuredSpeed, trackingGain);
 		const targetAccel = clamp(y / dt, -45, 45);
 		kf.x[1] += (targetAccel - kf.x[1]) * 0.82;
@@ -3716,33 +3699,30 @@ function normalizeGps(pos) {
 		sensorSpeedKmh = filteredSpeedKmh;
 	}
 	let speedKmh;
-const hardStopped =
-    sensorSpeedKmh < 0.9 &&
-    filteredSpeedKmh < 2.8 &&
-    Math.abs(speedSlope) < 3.5;
-const softStopped =
-    sensorSpeedKmh < 2.2 &&
-    filteredSpeedKmh < 4.2 &&
-    Math.abs(speedSlope) < 4.5;
-	if (hardStopped || softStopped) {
+	const wakeUp = sensorSpeedKmh > 1.8 && (speedSlope > 4 || filteredSpeedKmh < 0.5);
+	const hardStopped = sensorSpeedKmh < 0.9 && filteredSpeedKmh < 2.2 && Math.abs(speedSlope) < 3.0 && !wakeUp;
+	const softStopped = sensorSpeedKmh < 2 && filteredSpeedKmh < 3.0 && Math.abs(speedSlope) < 4.0 && !wakeUp;
+	if (hardStopped) {
 		speedKmh = 0;
-		kf.x[0] = 0;
-		kf.x[1] = 0;
-		kf.P = structuredClone(KF_DEFAULT.P);
+		kf.x[0] = Math.min(kf.x[0], 0.25);
+		kf.x[1] *= 0.25;
+		kf.P[0][0] = Math.min(Math.max(kf.P[0][0], 10), 35);
+		kf.P[1][1] = Math.min(Math.max(kf.P[1][1], 15), 70);
 		shownSpeed = 0;
 	} else {
-		speedKmh = kalmanUpdate(sensorSpeedKmh, dt, Math.min(gpsAccuracy, 25));
+		speedKmh = kalmanUpdate(sensorSpeedKmh, dt, Math.min(gpsAccuracy, 60));
+		if (softStopped) {speedKmh = Math.min(speedKmh, 1.8);}
 	}
-    filteredSpeedKmh = clamp(speedKmh, 0, 260);
-	if (
-    filteredSpeedKmh < 3.2 &&
-    sensorSpeedKmh < 1.4 &&
-    gpsAccuracy < 20
-) {
+	if (wakeUp) {
+		kf.P[0][0] = Math.max(kf.P[0][0], 25);
+		kf.P[1][1] = Math.max(kf.P[1][1], 40);
+	}
+	filteredSpeedKmh = clamp(speedKmh, 0, 260);
+	if (!wakeUp && filteredSpeedKmh < 2.0 && sensorSpeedKmh < 1.5 && Math.abs(speedSlope) < 3) {
 		filteredSpeedKmh = 0;
 		speedKmh = 0;
-		kf.x[0] = 0;
-		kf.x[1] = 0;
+		kf.x[0] *= 0.2;
+		kf.x[1] *= 0.1;
 	}
     let finalLat = lat;
     let finalLon = lon;
@@ -3860,6 +3840,7 @@ function startTracking() {
 	lastGpsSpeed = 0;
 	speedSlope = 0;
 	shownSpeed = 0;
+	gpsLossTime = 0;
 	lastGpsTimestamp = null;
 	gpsIntervalSec = 1;
 	if (!speedAnimFrame) {
@@ -4207,6 +4188,14 @@ function enqueueSave(fn) {
 async function stopTracking() {
 	if (!isTracking || isFinalizing) return;
 	isFinalizing = true;
+	isTracking = false;
+	
+		const oldWatchId = watchId;
+	watchId = null;
+
+	if (oldWatchId != null) {
+		navigator.geolocation.clearWatch(oldWatchId);
+	}
 	stopcallback = true;
 	await wait(Math.max(1500, gpsIntervalSec * 2000));
 	clearWatchId();
@@ -4214,7 +4203,7 @@ async function stopTracking() {
 	startBtn.disabled = true;
 	stopBtn.disabled = true;
 	await new Promise(resolve => setTimeout(resolve, 500));
-	isTracking = false;
+	
 	if (smoothTransformAnimFrame) { 
 		cancelAnimationFrame(smoothTransformAnimFrame); 
 		smoothTransformAnimFrame = null;
@@ -4258,6 +4247,7 @@ async function stopTracking() {
 	sensorSpeedKmh = 0;
     displayedSpeed = 0;
 	rawSpeedKmh = 0;
+	gpsLossTime = 0;
 	lastTimestamp = null;
     if (digitalSpeed) {
         digitalSpeed.textContent = "0.0 km/h";
