@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.14</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.15</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1796,10 +1796,10 @@ function animateDigitalSpeed(timestamp) {
     dt = Math.min(Math.max(dt, 0.01), 0.1);
     const targetSpeed = filteredSpeedKmh;
     const safeTarget = targetSpeed <= STOP_LOCK_SPEED ? 0 : targetSpeed;
-    const isStopped = targetSpeed <= STOP_LOCK_SPEED && sensorSpeedKmh < 0.9;
+    const isStopped = targetSpeed <= STOP_LOCK_SPEED && sensorSpeedKmh < STOP_LOCK_SPEED;
     if (isStopped) {
         stopHoldTime += dt;
-        if (stopHoldTime > 0.2) {
+        if (stopHoldTime > 0.06) {
             shownSpeed = 0;
             const text = "0.0 km/h";
             if (lastRenderedSpeedText !== text) {
@@ -1820,26 +1820,21 @@ function animateDigitalSpeed(timestamp) {
     const absDiff = Math.abs(diff);
     const absKm = absDiff / 10;
 let factor;
-
 if (diff > 0) {
-    // ขึ้นไวขึ้น
     factor =
-        absKm > 40 ? 0.42 :
-        absKm > 15 ? 0.30 :
-        absKm > 5  ? 0.22 :
-                     0.16;
+        absKm > 40 ? 0.90 :
+        absKm > 15 ? 0.78 :
+        absKm > 5  ? 0.66 :
+                     0.56;
 } else {
-    // ลงไวกว่าเดิมเยอะ
     factor =
-        absKm > 40 ? 0.52 :
-        absKm > 15 ? 0.38 :
-        absKm > 5  ? 0.28 :
-                     0.22;
+        absKm > 40 ? 0.96 :
+        absKm > 15 ? 0.86 :
+        absKm > 5  ? 0.74 :
+                     0.64;
 }
-
-// ช่วงใกล้หยุด ต้องลงไวมาก
-if (safeTarget <= 6) {
-    factor = diff > 0 ? 0.20 : 0.45;
+if (safeTarget <= 8) {
+    factor = diff > 0 ? 0.62 : 0.96;
 }
     shownSpeed += diff * factor;
     if (diff > 0 && shownSpeed > targetDigit) shownSpeed = targetDigit;
@@ -2672,6 +2667,8 @@ let curveMomentum = 0;
 let lastReliableHeading = null;
 let appliedMapLat = null;
 let appliedMapLon = null;
+let panVelocityLat = 0;
+let panVelocityLon = 0;
 let appliedIconSize = null;
 let lastIconSize = null;
 let lastAppliedTransform = "";
@@ -2727,6 +2724,8 @@ function resetFollowRotationState(full = false) {
 	lastAppliedTransform = "";
 	appliedMapLat = null;
 	appliedMapLon = null;
+	panVelocityLat = 0;
+	panVelocityLon = 0;
 	posHistory.length = 0;
 	lastMarkerAngle = 0;
 	rotationController.current = 0;
@@ -3026,12 +3025,8 @@ function smoothTransformStep(now) {
         hasInitialHeading = true;
     }
 	    /// 8) Smooth Pan + Zoom
-	const panLambda =
-		targetSpeed < 20 ? 10 :
-		targetSpeed < 60 ? 14 :
-		18;
 	if (autoFollow) {
-		if (appliedMapLat === null) {
+		if (appliedMapLat == null || appliedMapLon == null) {
 			appliedMapLat = renderLat;
 			appliedMapLon = renderLon;
 		}
@@ -3043,11 +3038,6 @@ function smoothTransformStep(now) {
 		const zoomT = 1 - Math.exp(-zoomLambda * safeDt * 0.35);
 		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
 		const zoomLevel = Math.round(lastAppliedZoom);
-		const isFast = targetSpeed > 80;
-		const turnBoostPan = isTurning ? 1.14 : 1.0;
-		const basePanT = 1 - Math.exp(-panLambda * safeDt);
-		const straightDamping = isTurning ? 1.0 : isFast ? 0.72 : 0.82;
-		let panT = clamp(basePanT * turnBoostPan * straightDamping, 0.035, 0.16);
 		let camLat = renderLat;
 		let camLon = renderLon;
 		if (motionOk && targetSpeed > 12 && posHistory.length >= 2) {
@@ -3056,10 +3046,10 @@ function smoothTransformStep(now) {
 			const dLat = p2.lat - p1.lat;
 			const dLon = p2.lon - p1.lon;
 			const movementLen = Math.sqrt(dLat * dLat + dLon * dLon);
-			let predictFactor = targetSpeed < 20 ? 0.008 :
-				targetSpeed < 60 ? 0.020 :
-				targetSpeed < 100 ? 0.032 :
-				0.045;
+			let predictFactor = targetSpeed < 20 ? 0.006 :
+				targetSpeed < 60 ? 0.014 :
+				targetSpeed < 100 ? 0.022 :
+				0.028;
 			const turnDamping = clamp(1 - (motion.turnRate / 90), 0.15, 1);
 			predictFactor *= turnDamping;
 			if (movementLen > 0.0000012) {
@@ -3069,31 +3059,60 @@ function smoothTransformStep(now) {
 		}
 		const isPanLocked = movementState === "stopped";
 		if (isPanLocked) {
-			const distToTarget = haversineMeters(appliedMapLat, appliedMapLon, targetLat, targetLon);
-			const stopLerp = distToTarget < 0.8
-				? 1.0 : distToTarget < 1.5
-				? 0.12
-				: 0.18;
+			const distToTarget = haversineMeters(
+				appliedMapLat,
+				appliedMapLon,
+				targetLat,
+				targetLon
+			);
+			const stopLerp = distToTarget < 0.8 ? 1.0 :
+				distToTarget < 1.5 ? 0.12 :
+				0.18;
 			appliedMapLat = lerp(appliedMapLat, targetLat, stopLerp);
 			appliedMapLon = lerp(appliedMapLon, targetLon, stopLerp);
+			panVelocityLat *= 0.72;
+			panVelocityLon *= 0.72;
 		} else {
-			appliedMapLat = lerp(appliedMapLat, camLat, panT);
-			appliedMapLon = lerp(appliedMapLon, camLon, panT);
+			const deltaLat = camLat - appliedMapLat;
+			const deltaLon = camLon - appliedMapLon;
+			const maxPanDelta = targetSpeed < 20 ? 0.000015 :
+				targetSpeed < 60 ? 0.000035 :
+				0.00006;
+			const safeDeltaLat = clamp(deltaLat, -maxPanDelta, maxPanDelta);
+			const safeDeltaLon = clamp(deltaLon, -maxPanDelta, maxPanDelta);
+			const velocityResponse = targetSpeed < 20 ? 0.22 :
+				targetSpeed < 60 ? 0.18 :
+				0.14;
+			panVelocityLat += (safeDeltaLat - panVelocityLat) * velocityResponse;
+			panVelocityLon += (safeDeltaLon - panVelocityLon) * velocityResponse;
+			const frameComp = clamp(dtSec * 60, 0.72, 1.35);
+			appliedMapLat += panVelocityLat * frameComp;
+			appliedMapLon += panVelocityLon * frameComp;
+			const panFriction = targetSpeed < 20 ? 0.82 :
+				targetSpeed < 60 ? 0.88 :
+				0.92;
+			panVelocityLat *= panFriction;
+			panVelocityLon *= panFriction;
+			const residualT = targetSpeed < 20 ? 0.006 :
+				targetSpeed < 60 ? 0.004 :
+				0.002;
+			appliedMapLat = lerp(appliedMapLat, camLat, residualT);
+			appliedMapLon = lerp(appliedMapLon, camLon, residualT);
 		}
 		if (lastMapLat === null) {
 			lastMapLat = appliedMapLat;
 			lastMapLon = appliedMapLon;
 		}
-		const quant = targetSpeed < 10 ? 0.0000003 :
-			targetSpeed < 60 ? 0.0000007 :
-			targetSpeed < 100 ? 0.0000012 :
-			0.0000018;
+		const quant = targetSpeed < 10 ? 0.00000008 :
+			targetSpeed < 60 ? 0.00000015 :
+			targetSpeed < 100 ? 0.00000025 :
+			0.0000004;
 		const qLat = Math.round(appliedMapLat / quant) * quant;
-
 		const qLon = Math.round(appliedMapLon / quant) * quant;
-
-		const changed = qLat !== lastMapLat || qLon !== lastMapLon;
-		if (changed && now - lastPanFrameTime > 14) {
+		const changed = Math.abs(qLat - lastMapLat) > quant * 0.35 ||
+			Math.abs(qLon - lastMapLon) > quant * 0.35;
+		const PAN_FRAME_INTERVAL = 1000 / 60;
+		if (changed && now - lastPanFrameTime > PAN_FRAME_INTERVAL) {
 			map.setView([qLat, qLon], zoomLevel,
 				{animate: false,  pan: false}
 			);
@@ -3346,14 +3365,17 @@ function initMap(lat, lon) {
 		zoom: BASE_ZOOM,
 		zoomControl: false,
 		attributionControl: false,
-		worldCopyJump: true,
-		keepBuffer: 12,
+		worldCopyJump: false,
+		keepBuffer: 8,
 		inertia: false,
 		zoomSnap: 1,
-		zoomDelta: 1
+		zoomDelta: 1,
+		zoomAnimation: false,
+		fadeAnimation: false,
+		markerZoomAnimation: false
 	});
 	L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
-		keepBuffer: 12,
+		keepBuffer: 8,
 		updateWhenIdle: true,
 		updateWhenZooming: false
 	}).addTo(map);
@@ -3552,6 +3574,8 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
 		btn.innerHTML = '🚗';
 		disableMapInteraction();
 		autoRotate = true;
+		resetFollowRotationState(false);
+		lastPanFrameTime = 0;
 		forceRecenterToVehicle();
 	} else {
         btn.classList.remove('active');
@@ -3623,7 +3647,7 @@ let kf = structuredClone(KF_DEFAULT);
 function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	if (!isFinite(measuredSpeed)) {
 		gpsLossTime += dt;
-		const holdFactor = gpsLossTime < 2 ? 0.998 : gpsLossTime < 5 ? 0.994 : 0.985;
+		const holdFactor = gpsLossTime < 2 ? 0.985 : gpsLossTime < 5 ? 0.994 : 0.985;
 		const [v, a] = kf.x;
 		const a_pred = a * holdFactor;
 		const v_pred = v + a_pred * dt;
@@ -3641,14 +3665,12 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
     const acc = Math.min(accuracy, 35);
 	const R = kf.R + acc * 0.12 + acc * acc * 0.003;
     const v_pred = v + a * dt;
-    const a_pred = a * 0.997;
+    const a_pred = a * 0.985;
     const P = kf.P;
     const Q = kf.Q;
-	const lowSpeedFactor =
-    filteredSpeedKmh < 10 ? 0.35 : 1.0;
-
-const qSpeed = Q[0][0] * dt * lowSpeedFactor;
-const qAccel = Q[1][1] * dt * lowSpeedFactor;
+	const lowSpeedFactor = filteredSpeedKmh < 10 ? 1.25 : 1.0;
+	const qSpeed = Q[0][0] * dt * lowSpeedFactor;
+	const qAccel = Q[1][1] * dt * lowSpeedFactor;
 	const P00 = P[0][0] + dt * (P[1][0] + P[0][1]) + dt * dt * P[1][1] + qSpeed;
 	const P01 = P[0][1] + dt * P[1][1];
 	const P10 = P[1][0] + dt * P[1][1];
@@ -3718,11 +3740,15 @@ function normalizeGps(pos) {
 		sensorSpeedKmh = filteredSpeedKmh;
 	}
 	let speedKmh;
-	const wakeUp = sensorSpeedKmh > 2.8 && gpsAccuracy < 20 &&
-		( speedSlope > 6 || filteredSpeedKmh < 0.3);
-	const hardStopped = sensorSpeedKmh < 1.4 && filteredSpeedKmh < 3.0 &&
+	const wakeUp = sensorSpeedKmh > RESUME_UNLOCK_SPEED && gpsAccuracy < 25 &&
+		(speedSlope > 3 || filteredSpeedKmh < 1.2);
+	const hardStopped = sensorSpeedKmh < STOP_LOCK_SPEED && filteredSpeedKmh < RESUME_UNLOCK_SPEED &&
 		Math.abs(speedSlope) < 8.0 && !wakeUp;
-	const softStopped = sensorSpeedKmh < 2 && filteredSpeedKmh < 3.0 && Math.abs(speedSlope) < 4.0 && !wakeUp;
+	const softStopped =
+    sensorSpeedKmh < STOP_LOCK_SPEED &&
+    filteredSpeedKmh < RESUME_UNLOCK_SPEED &&
+    Math.abs(speedSlope) < 2.0 &&
+    !wakeUp;
 	if (hardStopped) {
 		speedKmh = 0;
 		kf.x[0] = 0;
@@ -3741,7 +3767,10 @@ function normalizeGps(pos) {
 		kf.P[1][1] = Math.max(kf.P[1][1], 40);
 	}
 	filteredSpeedKmh = clamp(speedKmh, 0, 260);
-	if (!wakeUp && filteredSpeedKmh < 3.2 && sensorSpeedKmh < 2.2 && Math.abs(speedSlope) < 6) {
+	if (!wakeUp &&
+    filteredSpeedKmh < RESUME_UNLOCK_SPEED &&
+    sensorSpeedKmh < STOP_LOCK_SPEED &&
+    Math.abs(speedSlope) < 2.5) {
 		filteredSpeedKmh = 0;
 		speedKmh = 0;
 		kf.x[0] = 0;
@@ -3788,7 +3817,7 @@ function updateSpeedSlope(currentSpeed, currentTimestamp) {
     let dt = (currentTimestamp - lastSpeedSlopeTimestamp) / 1000;
     dt = clamp(dt, 0.05, 2);
     const rawSlope = (currentSpeed - lastGpsSpeed) / dt;
-	const slopeAlpha = currentSpeed < 8 ? 0.35 : 0.65;
+	const slopeAlpha = currentSpeed < 8 ? 0.58 : 0.82;
 	speedSlope = lerp(speedSlope, clamp(rawSlope, -160, 160), slopeAlpha);
     if (currentSpeed < 0.5) {
         speedSlope = 0;
