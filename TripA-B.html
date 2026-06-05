@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.17</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.18</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2828,14 +2828,6 @@ function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
     const speedW = clamp(speedKmh / 200, 0, 1);
     const confidenceBoost = clamp(motionConfidence + 0.1, 0, 1);
     let wMotion = lerp(0.35, 0.88, speedW) * confidenceBoost;
-    const acc = lastAccuracy ?? 10;
-	const gpsPenalty =
-		acc > 40 ? 1.30 :
-		acc > 25 ? 1.18 :
-		acc > 15 ? 1.08 :
-		1.0;
-    wMotion *= gpsPenalty;
-    wMotion = clamp(wMotion, 0, 0.92);
     return lerpAngle(gpsHeading, motionHeading, wMotion);
 }
 function computeCurveStrength(turnRateDeg, speedKmh) {
