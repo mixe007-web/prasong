@@ -2820,7 +2820,7 @@ function getMotionHeadingFromHistory() {
 	};
 }
 function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
-    const gpsOk = isFinite(gpsHeading) && speedKmh > 5;
+    const gpsOk = isFinite(gpsHeading) && speedKmh > 3;
     const motionOk = isFinite(motionHeading);
     if (!gpsOk && !motionOk) return null;
     if (!gpsOk) return motionHeading;
@@ -2828,6 +2828,14 @@ function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
     const speedW = clamp(speedKmh / 200, 0, 1);
     const confidenceBoost = clamp(motionConfidence + 0.1, 0, 1);
     let wMotion = lerp(0.35, 0.88, speedW) * confidenceBoost;
+    const acc = lastAccuracy ?? 15;
+	const gpsPenalty =
+		acc > 40 ? 1.30 :
+		acc > 25 ? 1.18 :
+		acc > 15 ? 1.08 :
+		1.0;
+    wMotion *= gpsPenalty;
+    wMotion = clamp(wMotion, 0, 0.92);
     return lerpAngle(gpsHeading, motionHeading, wMotion);
 }
 function computeCurveStrength(turnRateDeg, speedKmh) {
