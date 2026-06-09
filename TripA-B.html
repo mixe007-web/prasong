@@ -2826,23 +2826,28 @@ function getMotionHeadingFromHistory() {
 		confidence
 	};
 }
+let lastOutputHeading = null;
 function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh, lastAccuracy = 15) {
-    const gpsOk = isFinite(gpsHeading) && speedKmh > 3;
+    const gpsOk = isFinite(gpsHeading) && speedKmh > 5;
     const motionOk = isFinite(motionHeading);
-    if (!gpsOk && !motionOk) return null;
+    if (!gpsOk && !motionOk) return lastOutputHeading;
     if (!gpsOk) return motionHeading;
     if (!motionOk) return gpsHeading;
-    const speedW = clamp(speedKmh / 160, 0, 1);
-    const confidenceBoost = clamp(motionConfidence + 0.1, 0, 1);
-    let wMotion = lerp(0.85, 0.22, speedW) * confidenceBoost;
+    const speedFactor = clamp((speedKmh - 5) / 25, 0, 1); 
+    let wMotion = lerp(0.65, 0.12, speedFactor) * clamp(motionConfidence, 0, 1);
     const gpsPenalty =
-        lastAccuracy > 40 ? 1.35 :
+        lastAccuracy > 40 ? 1.40 :
         lastAccuracy > 25 ? 1.20 :
-        lastAccuracy > 15 ? 1.08 :
         1.0;
-    wMotion *= gpsPenalty;
-    wMotion = clamp(wMotion, 0.05, 0.92);
-    return lerpAngle(gpsHeading, motionHeading, wMotion);
+    wMotion = clamp(wMotion * gpsPenalty, 0.04, 0.85);
+    const targetHeading = lerpAngle(gpsHeading, motionHeading, wMotion);
+    if (lastOutputHeading === null) {
+        lastOutputHeading = targetHeading;
+    } else {
+        lastOutputHeading = lerpAngle(lastOutputHeading, targetHeading, 0.22);
+    }
+    
+    return lastOutputHeading;
 }
 function computeCurveStrength(turnRateDeg, speedKmh) {
 	const t = clamp((turnRateDeg - 4) / 18, 0, 1);
@@ -3095,13 +3100,26 @@ function smoothTransformStep(now) {
 		const qLat = appliedMapLat;
 		const qLon = appliedMapLon;
 		const mapMovedSq = (qLat - lastMapLat) * (qLat - lastMapLat) + (qLon - lastMapLon) * (qLon - lastMapLon);
+		
+		// 🌟 [ปรับปรุงจุดวิกฤต] แยกตรวจสอบ Zoom และคุมจังหวะเรนเดอร์ไม่ให้ชนกัน
 		const hasZoomChanged = map.getZoom() !== zoomLevel;
 		const hasDataChanged = mapMovedSq > 2.0e-14 || hasZoomChanged;
 		const isTimeToRender = (now - lastPanFrameTime) >= 16;
+		
 		if (hasDataChanged && isTimeToRender) {
-			map.setView([qLat, qLon], zoomLevel, { animate: false, pan: false });
-			lastMapLat = qLat;
-			lastMapLon = qLon;
+			// 1. ถ้า Zoom เปลี่ยน ให้สั่งซูมแบบเปิดแอนิเมชันนุ่มๆ (Native Smooth Zoom) แผนที่จะไม่วูบเป็นสีเทา
+			if (hasZoomChanged && !map._animatingZoom) {
+				map.setZoom(zoomLevel, { animate: true });
+			}
+			
+			// 2. ส่งเฉพาะพิกัดเข้าไป โดยใช้ระดับ Zoom ปัจจุบันของ map ตลอดเวลา (ป้องกันการขัดจังหวะขณะซูม)
+			// และจะขยับจุดศูนย์กลางก็ต่อเมื่อแผนที่ไม่ได้อยู่ในสถานะกำลังเล่นแอนิเมชันซูมอยู่
+			if (!map._animatingZoom) {
+				map.setView([qLat, qLon], map.getZoom(), { animate: false, pan: false });
+				lastMapLat = qLat;
+				lastMapLon = qLon;
+			}
+			
 			lastPanFrameTime = now;
 		}
 	}
@@ -3605,6 +3623,8 @@ function clearTrackingMapObjects() {
 	pathCoordinatesRender = [];
 	posHistory.length = 0;
 }
+let lastStableLat = null;
+let lastStableLon = null;
 let lastInputTimestamp = null;
 let lastRawGpsLat = null;
 let lastRawGpsLon = null;
@@ -3746,6 +3766,25 @@ function normalizeGps(pos) {
 	}
     let finalLat = lat;
     let finalLon = lon;
+	if (filteredSpeedKmh === 0) {
+        if (lastStableLat === null) {
+            lastStableLat = lat;
+            lastStableLon = lon;
+        }
+        const driftDist = haversineMeters(lastStableLat, lastStableLon, lat, lon);
+        
+        if (driftDist < 6) { 
+            finalLat = lastStableLat;
+            finalLon = lastStableLon;
+        } else {
+            lastStableLat = lat;
+            lastStableLon = lon;
+            finalLat = lat;
+            finalLon = lon;
+        }
+    } else {
+        lastStableLat = null;
+    }
     lastRawGpsLat = finalLat;
     lastRawGpsLon = finalLon;
     lastInputGpsLat = lat;
@@ -3755,9 +3794,7 @@ function normalizeGps(pos) {
         latitude: finalLat,
         longitude: finalLon,
         speedKmh,
-		heading: (isFinite(c.heading) && c.heading >= 0 && gpsAccuracy < 30 && sensorSpeedKmh > 3)
-			? (c.heading % 360)
-			: null,
+		heading: (isFinite(c.heading) && c.heading >= 0) ? (c.heading % 360) : null,
         altitude: c.altitude ?? null,
         altitudeAccuracy: c.altitudeAccuracy ?? null,
         accuracy: c.accuracy ?? null,
