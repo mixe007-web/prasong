@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.19</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.20</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1788,30 +1788,18 @@ function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-    dt = Math.min(Math.max(dt, 0.01), 0.1);
-	if (lastInputTimestamp && (Date.now() - lastInputTimestamp > 1500)) {
-        gpsLossTime += dt;
-        const holdFactor = gpsLossTime < 2 ? 0.98 : gpsLossTime < 5 ? 0.94 : 0.85;
-        let [v, a] = kf.x;
-        let a_pred = speedSlope < 0 ? speedSlope : -2.0;
-        let v_pred = v + a_pred * dt;
-        kf.x[0] = Math.max(0, v_pred);
-        kf.x[1] = a_pred;
-        filteredSpeedKmh = kf.x[0];
-    } else {
-        gpsLossTime = 0;
-    }
+
+    // จำกัด dt ป้องกันการกระตุกเมื่อเฟรมตก
+    dt = Math.min(Math.max(dt, 0.005), 0.1);
+
     const targetSpeed = filteredSpeedKmh;
-    let safeTarget = targetSpeed;
-    if (shownSpeed === 0) {
-        safeTarget = targetSpeed >= 1.5 ? targetSpeed : 0;
-    } else {
-        safeTarget = targetSpeed < 2.0 ? 0 : targetSpeed;
-    }
-    const isStopped = safeTarget === 0 && sensorSpeedKmh < 2.0;
+    const safeTarget = targetSpeed <= STOP_LOCK_SPEED ? 0 : targetSpeed;
+    
+    // 1. จัดการตอนรถหยุดนิ่ง
+    const isStopped = targetSpeed <= STOP_LOCK_SPEED && sensorSpeedKmh < 0.9;
     if (isStopped) {
         stopHoldTime += dt;
-        if (stopHoldTime > 0.05) {
+        if (stopHoldTime > 0.2) {
             shownSpeed = 0;
             const text = "0.0 km/h";
             if (lastRenderedSpeedText !== text) {
@@ -1827,44 +1815,75 @@ function animateDigitalSpeed(timestamp) {
         return;
     }
     stopHoldTime = 0;
-    const targetDigit = Math.round(safeTarget * 10);
+
+    const targetDigit = Math.round(safeTarget * 10); // หน่วย 1 = 0.1 km/h
     const diff = targetDigit - shownSpeed;
     const absDiff = Math.abs(diff);
-    const absKm = absDiff / 10;
-	let factor;
-    if (diff > 0) {
-        factor = absKm > 40 ? 0.48 : absKm > 15 ? 0.38 : absKm > 5  ? 0.28 : 0.22;
+
+    // [แก้จุดที่ 3] Deadzone: ถ้าห่างกันน้อยกว่า 0.1 km/h ให้สแนปเข้าเป้าทันที เพื่อไม่ให้เลขสั่นตอนวิ่งคงที่
+    if (absDiff < 1) {
+        shownSpeed = targetDigit;
     } else {
-        factor = absKm > 40 ? 0.68 : absKm > 15 ? 0.58 : absKm > 5  ? 0.48 : 0.35;
+        // 2. คำนวณหาความเร็วการไต่ระดับของตัวเลข (0.1 km/h ต่อวินาที)
+        let stepPerSecond;
+        if (diff > 0) {
+            if (absDiff > 400)      stepPerSecond = 2200;
+            else if (absDiff > 150) stepPerSecond = 1400;
+            else if (absDiff > 50)  stepPerSecond = 700;
+            else                    stepPerSecond = 300;
+        } else {
+            if (absDiff > 400)      stepPerSecond = 2800; 
+            else if (absDiff > 150) stepPerSecond = 1800;
+            else if (absDiff > 50)  stepPerSecond = 900;
+            else                    stepPerSecond = 450;
+        }
+
+        if (safeTarget <= 6 && diff < 0) {
+            stepPerSecond = Math.max(stepPerSecond, 1200);
+        }
+
+        // [แก้จุดที่ 1 & 2] คำนวณก้าวเดินในเฟรมนี้
+        let maxChangeInFrame = stepPerSecond * dt;
+
+        // บังคับให้ขยับอย่างน้อย 1 หน่วย (0.1 km/h) ต่อเฟรมเสมอ เพื่อไม่ให้เลขหยุดเดิน
+        if (maxChangeInFrame < 1) {
+            maxChangeInFrame = 1;
+        } else {
+            // ปัดเศษให้เป็นจำนวนเต็ม เพื่อให้ตัวเลขในแต่ละเฟรมขยับเป็นขั้นบันไดที่เรียบลื่น (เลขไม่ข้ามกระโดด)
+            maxChangeInFrame = Math.round(maxChangeInFrame);
+        }
+
+        // ขยับค่าแบบจำกัดระยะก้าวที่แท้จริง
+        if (absDiff <= maxChangeInFrame) {
+            shownSpeed = targetDigit;
+        } else {
+            shownSpeed += (diff > 0 ? 1 : -1) * maxChangeInFrame;
+        }
     }
-    if (safeTarget <= 6) {
-        factor = diff > 0 ? 0.18 : 0.38;
-    }
-    let step = diff * factor * (dt / 0.0166);
-    if (diff !== 0 && Math.abs(step) < 1) {
-        step = Math.sign(diff) * 1;
-    }
-    shownSpeed += step;
+
+    // ล็อกขอบเขตข้อมูล
     if (diff > 0 && shownSpeed > targetDigit) shownSpeed = targetDigit;
     if (diff < 0 && shownSpeed < targetDigit) shownSpeed = targetDigit;
-    if (absDiff < 1.5) shownSpeed = targetDigit;
+
+    // 3. การแสดงผลออกหน้าจอ (Render)
     const renderSpeed = Math.round(shownSpeed) / 10;
-	if (safeTarget === 0 && sensorSpeedKmh < 2.0) {
-		shownSpeed = 0;
-	}
     const text = renderSpeed.toFixed(1) + " km/h";
+    
     if (text !== lastRenderedSpeedText) {
         digitalSpeed.textContent = text;
         lastRenderedSpeedText = text;
     }
+
     let cls =
         renderSpeed < 80 ? "speed-low" :
         renderSpeed < 110 ? "speed-medium" :
         "speed-high";
+        
     if (cls !== lastSpeedClass) {
         digitalSpeed.className = cls;
         lastSpeedClass = cls;
     }
+
     speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
 }
 function updateSpeed(newSpeed) {
@@ -3036,7 +3055,7 @@ function smoothTransformStep(now) {
         hasInitialHeading = true;
     }
 	/// 8) Smooth Pan + Zoom (Optimized for Low-End CPU & High Continuity)
-	const panLambda = targetSpeed < 20 ? 10 : targetSpeed < 60 ? 14 : 18;
+	const panLambda = targetSpeed < 20 ? 12 : targetSpeed < 60 ? 16 : 22;
 	if (autoFollow) {
 		if (appliedMapLat === null) {
 			appliedMapLat = renderLat;
@@ -3050,10 +3069,10 @@ function smoothTransformStep(now) {
 		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
 		const zoomLevel = Math.round(lastAppliedZoom);
 		const isFast = targetSpeed > 80;
-		const turnBoostPan = isTurning ? 1.14 : 1.0;
+		const turnBoostPan = isTurning ? 1.25 : 1.0;
 		const basePanT = 1 - Math.exp(-panLambda * dtSec);
-		const straightDamping = isTurning ? 1.0 : isFast ? 0.90 : 0.95;
-		let panT = clamp(basePanT * turnBoostPan * straightDamping, 0.035, 0.16);
+		const straightDamping = isTurning ? 1.0 : isFast ? 0.95 : 1.0;
+		let panT = clamp(basePanT * turnBoostPan * straightDamping, 0.05, 0.45);
 		let camLat = renderLat;
 		let camLon = renderLon;	
 		if (motionOk && targetSpeed > 12 && posHistory.length >= 2) {
@@ -3062,9 +3081,10 @@ function smoothTransformStep(now) {
 			const dLat = p2.lat - p1.lat;
 			const dLon = p2.lon - p1.lon;
 			const movementLenSq = (dLat * dLat) + (dLon * dLon);
+			
 			if (movementLenSq > 1.44e-12) { 
-				let predictFactor = targetSpeed < 20 ? 0.015 : targetSpeed < 60 ? 0.035 : targetSpeed < 100 ? 0.055 : 0.075;
-				const turnDamping = clamp(1 - (motion.turnRate / 90), 0.15, 1);
+				let predictFactor = targetSpeed < 20 ? 0.05 : targetSpeed < 60 ? 0.12 : targetSpeed < 100 ? 0.22 : 0.35;
+				const turnDamping = clamp(1 - (motion.turnRate / 90), 0.10, 1);
 				predictFactor *= turnDamping;
 				camLat += dLat * predictFactor;
 				camLon += dLon * predictFactor;
@@ -3073,53 +3093,45 @@ function smoothTransformStep(now) {
 		const latDiff = camLat - appliedMapLat;
 		const lonDiff = camLon - appliedMapLon;
 		const approxDistSq = (latDiff * latDiff) + (lonDiff * lonDiff);
-		const approxDistMeters = Math.sqrt(approxDistSq) * 111000; 
+		const approxDistMeters = Math.sqrt(approxDistSq) * 107000; 
 		if (approxDistMeters < 0.8) {
-			panT = Math.max(panT, 0.25);
+			panT = Math.max(panT, 0.35);
 		}
 		const catchupBoost =
-			approxDistMeters < 1 ? 1.8 :
-			approxDistMeters < 2 ? 1.5 :
-			approxDistMeters < 5 ? 1.3 :
-			approxDistMeters < 10 ? 1.6 :
-			approxDistMeters < 20 ? 2.0 : 2.4;
-		panT = clamp(panT * catchupBoost, 0.035, 0.28);
+			approxDistMeters < 1 ? 1.5 :
+			approxDistMeters < 2 ? 1.8 :
+			approxDistMeters < 5 ? 2.2 :
+			approxDistMeters < 10 ? 2.8 :
+			approxDistMeters < 20 ? 3.5 : 4.5;
+		panT = clamp(panT * catchupBoost, 0.05, 0.65);
 		const isPanLocked = movementState === "stopped";
 		if (isPanLocked) {
-			const stopLerp = approxDistMeters < 0.8 ? 1.0 : approxDistMeters < 1.5 ? 0.12 : 0.18;
+			const stopLerp = approxDistMeters < 0.5 ? 1.0 : 0.25;
 			appliedMapLat = lerp(appliedMapLat, renderLat, stopLerp);
 			appliedMapLon = lerp(appliedMapLon, renderLon, stopLerp);
 		} else {
 			appliedMapLat = lerp(appliedMapLat, camLat, panT);
 			appliedMapLon = lerp(appliedMapLon, camLon, panT);
 		}
+		
 		if (lastMapLat === null) {
 			lastMapLat = appliedMapLat;
 			lastMapLon = appliedMapLon;
 		}
+		
 		const qLat = appliedMapLat;
 		const qLon = appliedMapLon;
 		const mapMovedSq = (qLat - lastMapLat) * (qLat - lastMapLat) + (qLon - lastMapLon) * (qLon - lastMapLon);
-		
-		// 🌟 [ปรับปรุงจุดวิกฤต] แยกตรวจสอบ Zoom และคุมจังหวะเรนเดอร์ไม่ให้ชนกัน
 		const hasZoomChanged = map.getZoom() !== zoomLevel;
-		const hasDataChanged = mapMovedSq > 2.0e-14 || hasZoomChanged;
+		const hasDataChanged = mapMovedSq > 1.0e-14 || hasZoomChanged;
 		const isTimeToRender = (now - lastPanFrameTime) >= 16;
-		
 		if (hasDataChanged && isTimeToRender) {
-			// 1. ถ้า Zoom เปลี่ยน ให้สั่งซูมแบบเปิดแอนิเมชันนุ่มๆ (Native Smooth Zoom) แผนที่จะไม่วูบเป็นสีเทา
 			if (hasZoomChanged && !map._animatingZoom) {
 				map.setZoom(zoomLevel, { animate: true });
 			}
-			
-			// 2. ส่งเฉพาะพิกัดเข้าไป โดยใช้ระดับ Zoom ปัจจุบันของ map ตลอดเวลา (ป้องกันการขัดจังหวะขณะซูม)
-			// และจะขยับจุดศูนย์กลางก็ต่อเมื่อแผนที่ไม่ได้อยู่ในสถานะกำลังเล่นแอนิเมชันซูมอยู่
-			if (!map._animatingZoom) {
-				map.setView([qLat, qLon], map.getZoom(), { animate: false, pan: false });
-				lastMapLat = qLat;
-				lastMapLon = qLon;
-			}
-			
+			map.setView([qLat, qLon], map.getZoom(), { animate: false, pan: false });
+			lastMapLat = qLat;
+			lastMapLon = qLon;
 			lastPanFrameTime = now;
 		}
 	}
