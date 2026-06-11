@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.20</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.21</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1788,10 +1788,8 @@ function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-
     // จำกัด dt ป้องกันการกระตุกเมื่อเฟรมตก
     dt = Math.min(Math.max(dt, 0.005), 0.1);
-
     const targetSpeed = filteredSpeedKmh;
     const safeTarget = targetSpeed <= STOP_LOCK_SPEED ? 0 : targetSpeed;
     
@@ -1821,7 +1819,7 @@ function animateDigitalSpeed(timestamp) {
     const absDiff = Math.abs(diff);
 
     // [แก้จุดที่ 3] Deadzone: ถ้าห่างกันน้อยกว่า 0.1 km/h ให้สแนปเข้าเป้าทันที เพื่อไม่ให้เลขสั่นตอนวิ่งคงที่
-    if (absDiff < 1) {
+    if (absDiff < 0.3) {
         shownSpeed = targetDigit;
     } else {
         // 2. คำนวณหาความเร็วการไต่ระดับของตัวเลข (0.1 km/h ต่อวินาที)
@@ -1841,32 +1839,20 @@ function animateDigitalSpeed(timestamp) {
         if (safeTarget <= 6 && diff < 0) {
             stepPerSecond = Math.max(stepPerSecond, 1200);
         }
+	// EV Smooth Response
+	const maxChangeInFrame =
+    Math.min(stepPerSecond * dt, 8);
 
-        // [แก้จุดที่ 1 & 2] คำนวณก้าวเดินในเฟรมนี้
-        let maxChangeInFrame = stepPerSecond * dt;
-
-        // บังคับให้ขยับอย่างน้อย 1 หน่วย (0.1 km/h) ต่อเฟรมเสมอ เพื่อไม่ให้เลขหยุดเดิน
-        if (maxChangeInFrame < 1) {
-            maxChangeInFrame = 1;
-        } else {
-            // ปัดเศษให้เป็นจำนวนเต็ม เพื่อให้ตัวเลขในแต่ละเฟรมขยับเป็นขั้นบันไดที่เรียบลื่น (เลขไม่ข้ามกระโดด)
-            maxChangeInFrame = Math.round(maxChangeInFrame);
-        }
-
-        // ขยับค่าแบบจำกัดระยะก้าวที่แท้จริง
-        if (absDiff <= maxChangeInFrame) {
-            shownSpeed = targetDigit;
-        } else {
-            shownSpeed += (diff > 0 ? 1 : -1) * maxChangeInFrame;
-        }
-    }
+		// ขยับแบบ Float ไม่ปัดเศษ
+	shownSpeed += Math.sign(diff) *
+    Math.min(absDiff, maxChangeInFrame);
 
     // ล็อกขอบเขตข้อมูล
     if (diff > 0 && shownSpeed > targetDigit) shownSpeed = targetDigit;
     if (diff < 0 && shownSpeed < targetDigit) shownSpeed = targetDigit;
-
+}
     // 3. การแสดงผลออกหน้าจอ (Render)
-    const renderSpeed = Math.round(shownSpeed) / 10;
+    const renderSpeed = shownSpeed / 10;
     const text = renderSpeed.toFixed(1) + " km/h";
     
     if (text !== lastRenderedSpeedText) {
