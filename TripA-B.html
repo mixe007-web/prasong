@@ -1783,93 +1783,100 @@ let lastRenderedSpeedText = "";
 let lastSpeedClass = "";
 let stopHoldTime = 0;
 const digitalSpeed = document.getElementById("digitalSpeed");
-
 function animateDigitalSpeed(timestamp) {
     if (!lastTimestamp) lastTimestamp = timestamp;
+
     let dt = (timestamp - lastTimestamp) / 1000;
     lastTimestamp = timestamp;
-    // จำกัด dt ป้องกันการกระตุกเมื่อเฟรมตก
+
     dt = Math.min(Math.max(dt, 0.005), 0.1);
+
     const targetSpeed = filteredSpeedKmh;
-    const safeTarget = targetSpeed <= STOP_LOCK_SPEED ? 0 : targetSpeed;
-    
-    // 1. จัดการตอนรถหยุดนิ่ง
-    const isStopped = targetSpeed <= STOP_LOCK_SPEED && sensorSpeedKmh < 0.9;
+    const safeTarget =
+        targetSpeed <= STOP_LOCK_SPEED ? 0 : targetSpeed;
+
+    const isStopped =
+        targetSpeed <= STOP_LOCK_SPEED &&
+        sensorSpeedKmh < 0.9;
+
     if (isStopped) {
         stopHoldTime += dt;
-        if (stopHoldTime > 0.2) {
+
+        if (stopHoldTime > 0.15) {
             shownSpeed = 0;
-            const text = "0.0 km/h";
-            if (lastRenderedSpeedText !== text) {
-                digitalSpeed.textContent = text;
-                lastRenderedSpeedText = text;
-            }
-            if (lastSpeedClass !== "speed-low") {
-                digitalSpeed.className = "speed-low";
-                lastSpeedClass = "speed-low";
-            }
         }
-        speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
+
+        speedAnimFrame =
+            requestAnimationFrame(animateDigitalSpeed);
         return;
     }
+
     stopHoldTime = 0;
 
-    const targetDigit = Math.round(safeTarget * 10); // หน่วย 1 = 0.1 km/h
-    const diff = targetDigit - shownSpeed;
+    // ใช้ km/h จริง ไม่คูณ 10
+    const diff = safeTarget - shownSpeed;
     const absDiff = Math.abs(diff);
 
-    // [แก้จุดที่ 3] Deadzone: ถ้าห่างกันน้อยกว่า 0.1 km/h ให้สแนปเข้าเป้าทันที เพื่อไม่ให้เลขสั่นตอนวิ่งคงที่
-    if (absDiff < 0.3) {
-        shownSpeed = targetDigit;
+    if (absDiff < 0.03) {
+
+        shownSpeed = safeTarget;
+
     } else {
-        // 2. คำนวณหาความเร็วการไต่ระดับของตัวเลข (0.1 km/h ต่อวินาที)
-        let stepPerSecond;
-if (diff > 0) {
-    if (absDiff > 400)      stepPerSecond = 3000;
-    else if (absDiff > 150) stepPerSecond = 1800;
-    else if (absDiff > 50)  stepPerSecond = 900;
-    else                    stepPerSecond = 400;
-} else {
-    if (absDiff > 400)      stepPerSecond = 3500;
-    else if (absDiff > 150) stepPerSecond = 2200;
-    else if (absDiff > 50)  stepPerSecond = 1100;
-    else                    stepPerSecond = 550;
-}
-        if (safeTarget <= 6 && diff < 0) {
-            stepPerSecond = Math.max(stepPerSecond, 1200);
+
+        let response;
+
+        if (absDiff > 40) {
+            response = 18;
+        } else if (absDiff > 20) {
+            response = 14;
+        } else if (absDiff > 10) {
+            response = 10;
+        } else if (absDiff > 4) {
+            response = 7;
+        } else {
+            response = 4;
         }
-	// EV Smooth Response
-	const maxChangeInFrame =
-    Math.min(stepPerSecond * dt, 1);
 
-		// ขยับแบบ Float ไม่ปัดเศษ
-	shownSpeed += Math.sign(diff) *
-    Math.min(absDiff, maxChangeInFrame);
+        // เบรกให้ไวกว่าเร่ง
+        if (diff < 0) {
+            response *= 1.35;
+        }
 
-    // ล็อกขอบเขตข้อมูล
-    if (diff > 0 && shownSpeed > targetDigit) shownSpeed = targetDigit;
-    if (diff < 0 && shownSpeed < targetDigit) shownSpeed = targetDigit;
-}
-    // 3. การแสดงผลออกหน้าจอ (Render)
-    const renderSpeed = shownSpeed / 10;
-    const text = renderSpeed.toFixed(1) + " km/h";
-    
+        // ความเร็วต่ำต้องตอบสนองไว
+        if (safeTarget < 15) {
+            response *= 1.5;
+        }
+
+        const alpha =
+            1 - Math.exp(-response * dt);
+
+        shownSpeed += diff * alpha;
+    }
+
+    const renderSpeed = shownSpeed;
+
+    // ถ้าไม่เอาทศนิยม
+    const text = Math.round(renderSpeed) + " km/h";
+
     if (text !== lastRenderedSpeedText) {
         digitalSpeed.textContent = text;
         lastRenderedSpeedText = text;
     }
 
     let cls =
-        renderSpeed < 80 ? "speed-low" :
-        renderSpeed < 110 ? "speed-medium" :
-        "speed-high";
-        
+        renderSpeed < 80
+            ? "speed-low"
+            : renderSpeed < 110
+            ? "speed-medium"
+            : "speed-high";
+
     if (cls !== lastSpeedClass) {
         digitalSpeed.className = cls;
         lastSpeedClass = cls;
     }
 
-    speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
+    speedAnimFrame =
+        requestAnimationFrame(animateDigitalSpeed);
 }
 function updateSpeed(newSpeed) {
     if (!isFinite(newSpeed) || newSpeed < 0) newSpeed = 0;
@@ -3684,9 +3691,8 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
     const a_pred = a * 0.997;
     const P = kf.P;
     const Q = kf.Q;
-	const lowSpeedFactor =
-    filteredSpeedKmh < 10 ? 0.35 : 1.0;
-
+const lowSpeedFactor =
+    filteredSpeedKmh < 10 ? 0.75 : 1.0;
 const qSpeed = Q[0][0] * dt * lowSpeedFactor;
 const qAccel = Q[1][1] * dt * lowSpeedFactor;
 	const P00 = P[0][0] + dt * (P[1][0] + P[0][1]) + dt * dt * P[1][1] + qSpeed;
@@ -3770,8 +3776,8 @@ if (lastSpeedSlopeTimestamp) {
         160
     );
 }
-	const wakeUp = sensorSpeedKmh > 1.5 && gpsAccuracy < 20 &&
-		( currentSlope > 6 || filteredSpeedKmh < 0.3);
+	const wakeUp = sensorSpeedKmh > 1.0 && gpsAccuracy < 50 &&
+		( currentSlope > 2 || filteredSpeedKmh < 0.3);
 	const hardStopped = sensorSpeedKmh < 1.4 && filteredSpeedKmh < 2 &&
 		Math.abs(currentSlope) < 8.0 && !wakeUp;
 	const softStopped = sensorSpeedKmh < 2 && filteredSpeedKmh < 3.0 && Math.abs(currentSlope) < 4.0 && !wakeUp;
@@ -3793,7 +3799,7 @@ if (lastSpeedSlopeTimestamp) {
 		kf.P[1][1] = Math.max(kf.P[1][1], 40);
 	}
 	filteredSpeedKmh = clamp(speedKmh, 0, 260);
-	if (!wakeUp && filteredSpeedKmh < 3.2 && sensorSpeedKmh < 2.2 && Math.abs(currentSlope) < 6) {
+	if (!wakeUp && filteredSpeedKmh < 1.5 && sensorSpeedKmh < 2.2 && Math.abs(currentSlope) < 6) {
 		filteredSpeedKmh = 0;
 		speedKmh = 0;
 		kf.x[0] = 0;
