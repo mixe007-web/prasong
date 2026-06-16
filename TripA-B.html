@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.24</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.25</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3067,107 +3067,142 @@ function smoothTransformStep(now) {
         rotationController.lockedHeading = baseHeading;
         hasInitialHeading = true;
     }
-	/// 8) Smooth Pan + Zoom (Optimized for Low-End CPU & High Continuity)
-	const panLambda =
-    targetSpeed < 20 ? 10 :
-    targetSpeed < 60 ? 18 :
-    30;
-	if (autoFollow) {
-		if (appliedMapLat === null) {
-			appliedMapLat = renderLat;
-			appliedMapLon = renderLon;
-		}
-		if (lastAppliedZoom === null) {
-			lastAppliedZoom = targetZoom;
-		}
-		const zoomLambda = targetSpeed < 20 ? 18 : targetSpeed < 60 ? 13 : 9;
-		const zoomT = 1 - Math.exp(-zoomLambda * dtSec * 0.35);
-		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
-		const zoomLevel = Math.round(lastAppliedZoom);
-		const isFast = targetSpeed > 80;
-		const turnBoostPan =
-    isTurning
-        ? (curveStrength01 > 0.5 ? 1.9 : 1.45)
-        : 1.0;
-		const basePanT = 1 - Math.exp(-panLambda * dtSec);
-		const straightDamping = isTurning ? 1.0 : isFast ? 0.95 : 1.0;
-		let panT = clamp(basePanT * turnBoostPan * straightDamping, 0.05, 0.45);
-		let camLat = renderLat;
-		let camLon = renderLon;	
-		if (motionOk && targetSpeed > 12 && posHistory.length >= 2) {
-			const p1 = posHistory[posHistory.length - 2];
-			const p2 = posHistory[posHistory.length - 1];
-			const dLat = p2.lat - p1.lat;
-			const dLon = p2.lon - p1.lon;
-			const movementLenSq = (dLat * dLat) + (dLon * dLon);
-			
-			if (movementLenSq > 1.44e-12) { 
-				let predictFactor =
-    targetSpeed < 20 ? 0.10 :
-    targetSpeed < 60 ? 0.25 :
-    targetSpeed < 100 ? 0.60 :
-    1.00;
-				const turnDamping =
-    clamp(
-        1 - (motion.turnRate / 180),
-        0.35,
-        1
+	/// 8) Smooth Pan + Zoom (Stable Continuous Camera)
+if (autoFollow) {
+    if (appliedMapLat === null) {
+        appliedMapLat = renderLat;
+        appliedMapLon = renderLon;
+    }
+    if (lastAppliedZoom === null) {
+        lastAppliedZoom = targetZoom;
+    }
+    const zoomLambda =
+        targetSpeed < 20 ? 18 :
+        targetSpeed < 60 ? 13 :
+        9;
+
+    const zoomT =
+        1 - Math.exp(-zoomLambda * dtSec * 0.35);
+
+    lastAppliedZoom =
+        lerp(lastAppliedZoom, targetZoom, zoomT);
+
+const zoomLevel =
+    lastAppliedZoom;
+
+    // -----------------------------
+    // Camera Target
+    // -----------------------------
+
+    let camLat = renderLat;
+    let camLon = renderLon;
+
+    if (
+        motionOk &&
+        isFinite(baseHeading) &&
+        targetSpeed > 8
+    ) {
+
+const lookAheadMeters =
+    targetSpeed < 20 ? targetSpeed * 0.12 :
+    targetSpeed < 60 ? targetSpeed * 0.18 :
+    targetSpeed * 0.25;
+
+const maxLookAhead = 18;
+
+const lookAhead =
+    Math.min(
+        lookAheadMeters,
+        maxLookAhead
     );
-				predictFactor *= turnDamping;
-				camLat += dLat * predictFactor;
-				camLon += dLon * predictFactor;
-			}
-		}
-		const latDiff = camLat - appliedMapLat;
-		const lonDiff = camLon - appliedMapLon;
-		const approxDistSq = (latDiff * latDiff) + (lonDiff * lonDiff);
-		const approxDistMeters = Math.sqrt(approxDistSq) * 107000; 
-		if (approxDistMeters < 0.8) {
-			panT = Math.max(panT, 0.35);
-		}
-const catchupBoost =
-    approxDistMeters < 1 ? 1.15 :
-    approxDistMeters < 3 ? 1.30 :
-    approxDistMeters < 8 ? 1.55 :
-    approxDistMeters < 15 ? 1.80 :
-    approxDistMeters < 30 ? 2.30 :
-    2.60;
-		panT = clamp(
-    panT * catchupBoost,
-    0.08,
-    isTurning ? 0.85 : 0.72
-);
-		const isPanLocked = movementState === "stopped";
-		if (isPanLocked) {
-			const stopLerp = approxDistMeters < 0.5 ? 1.0 : 0.25;
-			appliedMapLat = lerp(appliedMapLat, renderLat, stopLerp);
-			appliedMapLon = lerp(appliedMapLon, renderLon, stopLerp);
-		} else {
-			appliedMapLat = lerp(appliedMapLat, camLat, panT);
-			appliedMapLon = lerp(appliedMapLon, camLon, panT);
-		}
-		
-		if (lastMapLat === null) {
-			lastMapLat = appliedMapLat;
-			lastMapLon = appliedMapLon;
-		}
-		
-		const qLat = appliedMapLat;
-		const qLon = appliedMapLon;
-		const mapMovedSq = (qLat - lastMapLat) * (qLat - lastMapLat) + (qLon - lastMapLon) * (qLon - lastMapLon);
-		const hasZoomChanged = map.getZoom() !== zoomLevel;
-		const hasDataChanged = mapMovedSq > 1.0e-14 || hasZoomChanged;
-		const isTimeToRender = (now - lastPanFrameTime) >= 16;
-		if (hasDataChanged && isTimeToRender) {
-			if (hasZoomChanged && !map._animatingZoom) {
-				map.setZoom(zoomLevel, { animate: true });
-			}
-			map.setView([qLat, qLon], map.getZoom(), { animate: false, pan: false });
-			lastMapLat = qLat;
-			lastMapLon = qLon;
-			lastPanFrameTime = now;
-		}
-	}
+
+        const headingRad =
+            baseHeading * Math.PI / 180;
+
+        const northMeters =
+            Math.cos(headingRad) * lookAhead;
+
+        const eastMeters =
+            Math.sin(headingRad) * lookAhead;
+
+        camLat +=
+            northMeters / 111320;
+
+        camLon +=
+            eastMeters /
+            (
+                111320 *
+                Math.cos(renderLat * Math.PI / 180)
+            );
+    }
+
+    // -----------------------------
+    // Stable Pan
+    // -----------------------------
+const panResponseMs =
+    targetSpeed < 20 ? 180 :
+    targetSpeed < 60 ? 140 :
+    120;
+
+    const panT =
+        1 - Math.exp(
+            -dtSec /
+            (panResponseMs / 1000)
+        );
+
+    appliedMapLat +=
+        (camLat - appliedMapLat) * panT;
+
+    appliedMapLon +=
+        (camLon - appliedMapLon) * panT;
+
+    // -----------------------------
+    // Render Threshold
+    // -----------------------------
+
+    if (lastMapLat === null) {
+        lastMapLat = appliedMapLat;
+        lastMapLon = appliedMapLon;
+    }
+
+    const qLat = appliedMapLat;
+    const qLon = appliedMapLon;
+
+    const movedMeters =
+        haversineMeters(
+            lastMapLat,
+            lastMapLon,
+            qLat,
+            qLon
+        );
+
+const hasZoomChanged =
+    Math.abs(
+        map.getZoom() - zoomLevel
+    ) > 0.02;
+const hasDataChanged =
+    movedMeters > 0.15 ||
+    hasZoomChanged;
+	const PAN_RENDER_INTERVAL = 16;
+const isTimeToRender =
+    (now - lastPanFrameTime) >= PAN_RENDER_INTERVAL;
+
+    if (hasDataChanged && isTimeToRender) {
+
+    map.setView(
+        [qLat, qLon],
+        zoomLevel,
+        {
+            animate: false,
+            pan: false
+        }
+    );
+
+    lastMapLat = qLat;
+    lastMapLon = qLon;
+    lastPanFrameTime = now;
+}
+}
     /// 9) Rotation (uses central stop state)
     if (!rotationWrapperCache || !rotationWrapperCache.isConnected) {
         rotationWrapperCache = ensureRotationWrapper(map);
@@ -3415,7 +3450,7 @@ function initMap(lat, lon) {
 		worldCopyJump: true,
 		keepBuffer: 12,
 		inertia: false,
-		zoomSnap: 1,
+		zoomSnap: 0,
 		zoomDelta: 1
 	});
 	L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
