@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.23</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.24</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1791,12 +1791,22 @@ function animateDigitalSpeed(timestamp) {
     dt = Math.min(Math.max(dt, 0.005), 0.1);
     const targetSpeed = filteredSpeedKmh;
     const safeTarget = targetSpeed <= STOP_LOCK_SPEED ? 0 : targetSpeed;
-    const isStopped = targetSpeed <= STOP_LOCK_SPEED && sensorSpeedKmh < 2.5;
+    const isStopped = filteredSpeedKmh <= STOP_LOCK_SPEED;
     if (isStopped) { stopHoldTime += dt;
         if (stopHoldTime > 0.15) {
             shownSpeed = 0;
             displaySpeedInt = 0;
+			const text = "0 km/h";
+            if (lastRenderedSpeedText !== text) {
+                digitalSpeed.textContent = text;
+                lastRenderedSpeedText = text;
+            }
+            if (lastSpeedClass !== "speed-low") {
+                digitalSpeed.className = "speed-low";
+                lastSpeedClass = "speed-low";
+            }
         }
+		
         speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
         return;
     }
@@ -1838,6 +1848,11 @@ const maxStep = diff > 0
             );
 
         shownSpeed += delta;
+		if (diff > 0) {
+    shownSpeed = Math.min(shownSpeed, safeTarget);
+} else {
+    shownSpeed = Math.max(shownSpeed, safeTarget);
+}
     }
     const renderSpeed = shownSpeed;
 const targetInt = Math.floor(renderSpeed);
