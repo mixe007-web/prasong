@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v00.28</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v30</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1792,7 +1792,8 @@ function animateDigitalSpeed(timestamp) {
     const targetSpeed = filteredSpeedKmh;
     const safeTarget = targetSpeed <= STOP_LOCK_SPEED ? 0 : targetSpeed;
     const isStopped = filteredSpeedKmh <= STOP_LOCK_SPEED;
-    if (isStopped) { stopHoldTime += dt;
+    if (isStopped) {
+		stopHoldTime += dt;
         if (stopHoldTime > 0.15) {
             shownSpeed = 0;
             displaySpeedInt = 0;
@@ -1806,7 +1807,6 @@ function animateDigitalSpeed(timestamp) {
                 lastSpeedClass = "speed-low";
             }
         }
-		
         speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
         return;
     }
@@ -1831,74 +1831,55 @@ function animateDigitalSpeed(timestamp) {
             response = 4;
         }
         if (diff < 0) {
-            response *= 1.35;
+            response *= 2.0;
         }
         if (safeTarget < 20) {
             response *= 1.6;
         }
         const alpha = 1 - Math.exp(-response * dt);
-const maxStep =
-    diff > 0
-        ? Math.max(1.0, absDiff * 0.18)
-        : Math.max(0.7, absDiff * 0.10);
-        const delta =
-            clamp(
-                diff * alpha,
-                -maxStep,
-                maxStep
-            );
-
+		const maxStep = diff > 0
+			? Math.max(1.0, absDiff * 0.18)
+			: Math.max(1.2, absDiff * 0.22);
+        const delta = clamp( diff * alpha, -maxStep, maxStep);
         shownSpeed += delta;
 		if (diff > 0) {
-    shownSpeed = Math.min(shownSpeed, safeTarget);
-} else {
-    shownSpeed = Math.max(shownSpeed, safeTarget);
-}
+			shownSpeed = Math.min(shownSpeed, safeTarget);
+		} else {
+			shownSpeed = Math.max(shownSpeed, safeTarget);
+		}
     }
     const renderSpeed = shownSpeed;
-const targetInt = Math.floor(renderSpeed);
-
-const gap = targetInt - displaySpeedInt;
-
-if (gap > 0) {
-
-    displaySpeedInt +=
-        gap > 20 ? 3 :
-        gap > 10 ? 2 :
-        1;
-
-}
-else if (gap < 0) {
-
-    displaySpeedInt -=
-        Math.min(
-            gap < -15 ? 4 :
-            gap < -8 ? 2 :
-            1,
-            -gap
-        );
-}
+	const targetInt = Math.floor(renderSpeed);
+	const gap = targetInt - displaySpeedInt;
+	if (gap > 0) {
+		displaySpeedInt +=
+			gap > 20 ? 3 :
+			gap > 10 ? 2 :
+			1;
+	} else if (gap < 0) {
+		displaySpeedInt -=
+			Math.min(
+				gap < -15 ? 4 :
+				gap < -8 ? 2 :
+				1,
+				-gap
+			);
+	}
     const text = displaySpeedInt + " km/h";
-
     if (text !== lastRenderedSpeedText) {
         digitalSpeed.textContent = text;
         lastRenderedSpeedText = text;
     }
-
-    let cls =
-        renderSpeed < 80
+    let cls = renderSpeed < 80
             ? "speed-low"
             : renderSpeed < 110
             ? "speed-medium"
             : "speed-high";
-
     if (cls !== lastSpeedClass) {
         digitalSpeed.className = cls;
         lastSpeedClass = cls;
     }
-
-    speedAnimFrame =
-        requestAnimationFrame(animateDigitalSpeed);
+    speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
 }
 function updateSpeed(newSpeed) {
     if (!isFinite(newSpeed) || newSpeed < 0) newSpeed = 0;
@@ -2732,7 +2713,10 @@ let lastHistoryTime = 0;
 let lastPolylineTime = 0;
 let lockedHeading = null;
 let hasLockedHeading = false;
-const ZOOM_STABLE_DELAY = 300;
+let lastMotionTurnDir = 0;
+let lastStableMotionHeading = null;
+let lastOutputHeading = null;
+let lastRenderedZoom = null;
 const MIN_MOVE_FOR_MOTION_M = 2;
 const MIN_MOVE_FOR_HISTORY_M = 0.5;
 const posHistory = [];
@@ -2775,8 +2759,19 @@ function resetFollowRotationState(full = false) {
 	rotationController.lastStableHeading = 0;
 	hasInitialHeading = false;
 	filteredMotionHeading = null;
+	lastStableMotionHeading = null;
+	lastMotionTurnDir = 0;
 	lastHistoryTime = 0;
     lastPolylineTime = 0;
+	lastOutputHeading = null;
+	lockedHeading = null;
+	hasLockedHeading = false;
+	stopCandidateSince = null;
+	resumeCandidateSince = null;
+	lastMapLat = null;
+	lastMapLon = null;
+	lastRenderedZoom = null;
+	movementState = "moving";
 	if (full) {
 		smoothedLat = null;
 		smoothedLon = null;
@@ -2808,155 +2803,138 @@ function pushHistory(lat, lon, t) {
 	while (posHistory.length > HISTORY_MAX) posHistory.shift();
 }
 function getMotionHeadingFromHistory() {
-	if (posHistory.length < 3) return { heading: null, turnRate: 0, confidence: 0 };
-const p0 = posHistory[0];
-const p1 = posHistory[Math.floor(posHistory.length/2)];
-const p2 = posHistory[posHistory.length-1];
+	if (posHistory.length < 3) {
+		return {
+			heading: lastStableMotionHeading ?? null,
+			turnRate: 0,
+			confidence: 0
+		};
+	}
+	const p0 = posHistory[posHistory.length - 3];
+	const p1 = posHistory[posHistory.length - 2];
+	const p2 = posHistory[posHistory.length - 1];
 	const d01 = haversineMeters(p0.lat, p0.lon, p1.lat, p1.lon);
 	const d12 = haversineMeters(p1.lat, p1.lon, p2.lat, p2.lon);
-	if (d01 < MIN_MOVE_FOR_MOTION_M || d12 < MIN_MOVE_FOR_MOTION_M) {
-		return { heading: null, turnRate: 0, confidence: 0 };
+	const speed = lastGpsSpeedKmh || 0;
+	const verySlow = speed < 8;
+	if (d01 < MIN_MOVE_FOR_MOTION_M && d12 < MIN_MOVE_FOR_MOTION_M) {
+		return {
+			heading: lastStableMotionHeading ?? null,
+			turnRate: 0,
+			confidence: 0
+		};
 	}
 	const h01 = bearingDeg(p0.lat, p0.lon, p1.lat, p1.lon);
 	const h12 = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
-	const courseHeading =
-    bearingDeg(
-        p0.lat,
-        p0.lon,
-        p2.lat,
-        p2.lon
-    );
 	const delta = normalizeAngleDifference(h12, h01);
 	const absTurn = Math.abs(delta);
+	const jitterPenalty =
+		absTurn < 3 ? 1.0 :
+		absTurn < 8 ? 0.75 :
+		absTurn < 20 ? 0.55 :
+		0.35;
 	let confidence =
-    clamp(
-        (Math.min(d01, d12) - MIN_MOVE_FOR_MOTION_M) / 8.0,
-        0,
-        1
-    );
-	const accuracyFactor =
-    lastAccuracy < 5 ? 1.0 :
-    lastAccuracy < 10 ? 0.8 :
-    lastAccuracy < 20 ? 0.5 :
-    lastAccuracy < 30 ? 0.25 :
-    0.1;
-
-confidence *= accuracyFactor;
-	if (lastGpsSpeedKmh < 8)
-{
-    confidence *= 0.2;
-}
-else if (lastGpsSpeedKmh < 15)
-{
-    confidence *= 0.5;
-}
-	let finalHeading =
-    lerpAngle(
-        courseHeading,
-        h12,
-        0.35
-    );
-if (filteredMotionHeading == null) {
-    filteredMotionHeading =
-        lerpAngle(
-            courseHeading,
-            h12,
-            0.5
-        );
-} else {
-		const diff = normalizeAngleDifference(h12, filteredMotionHeading);
-		const absDiff = Math.abs(diff);
-const deadband =
-    lastGpsSpeedKmh < 10 ? 6 :
-    lastGpsSpeedKmh < 20 ? 4 :
-    lastGpsSpeedKmh < 50 ? 2 :
-    1;
-		if (absDiff < deadband) {
-		} else {
-			const turning =
-				absTurn > 6 || isUTurn(absTurn, lastGpsSpeedKmh);
-			let response;
-			if (turning) {
-				response = 0.65;
-			} else {
-				 response =
-					lastGpsSpeedKmh < 15 ? 0.35 :
-					lastGpsSpeedKmh < 60 ? 0.45 :
-					lastGpsSpeedKmh < 120 ? 0.55 :
-											0.65;
-			}
-			filteredMotionHeading = normalizeAngle( filteredMotionHeading + diff * response);
+		clamp((Math.min(d01, d12) - MIN_MOVE_FOR_MOTION_M) / 10, 0, 1) *
+		jitterPenalty;
+	if ((lastAccuracy || 0) > 40) confidence *= 0.6;
+	if (filteredMotionHeading == null) {
+		if (confidence < 0.3) {
+			return {
+				heading: null,
+				turnRate: absTurn,
+				confidence
+			};
 		}
+		filteredMotionHeading = h12;
+		lastStableMotionHeading = h12;
+		lastMotionTurnDir = 0;
+		return {
+			heading: h12,
+			turnRate: absTurn,
+			confidence
+		};
 	}
-	finalHeading =
-    lerpAngle(
-        courseHeading,
-        filteredMotionHeading,
-        0.35
-    );
+	const diff = normalizeAngleDifference(h12, filteredMotionHeading);
+	const absDiff = Math.abs(diff);
+	const gpsBad = (lastAccuracy || 0) > 40;
+	const noiseMove = absDiff < 8 && verySlow && gpsBad;
+	if (noiseMove) {
+		return {
+			heading: lastStableMotionHeading,
+			turnRate: absTurn,
+			confidence: 0
+		};
+	}
+	const deadband =
+		speed < 10 ? 4 :
+		speed < 40 ? 2 :
+		speed < 80 ? 1.2 : 0.8;
+	const response =
+		speed < 8 ? 0.08 :
+		speed < 15 ? 0.12 :
+		speed < 40 ? 0.22 : 0.35;
+	if (absDiff > deadband) {
+		const dir = Math.sign(diff);
+		if (verySlow && dir !== lastMotionTurnDir && absDiff < 12) {
+			return {
+				heading: lastStableMotionHeading,
+				turnRate: absTurn,
+				confidence
+			};
+		}
+		lastMotionTurnDir = dir;
+		filteredMotionHeading = normalizeAngle(
+			filteredMotionHeading + diff * response
+		);
+		lastStableMotionHeading = filteredMotionHeading;
+	}
 	return {
-		heading: finalHeading,
+		heading: filteredMotionHeading,
 		turnRate: absTurn,
 		confidence
 	};
 }
-let lastOutputHeading = null;
+
 function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh, lastAccuracy = 15) {
-    const gpsOk = isFinite(gpsHeading) && speedKmh > 10;
-    const motionOk =
-    isFinite(motionHeading) &&
-    motionConfidence > 0.25;
-    if (!gpsOk && !motionOk)
-{
-    return lastReliableHeading ??
-           lastOutputHeading;
-}
-   if (!gpsOk)
-{
-    return motionConfidence > 0.4
-        ? motionHeading
-        : lastReliableHeading;
-}
-    if (!motionOk) return gpsHeading;
-    const speedFactor = clamp((speedKmh - 5) / 25, 0, 1); 
-    let wMotion;
-
-if(speedKmh < 10)
-{
-    wMotion = 0.05 * motionConfidence;
-}
-else if(speedKmh < 20)
-{
-    wMotion = 0.15 * motionConfidence;
-}
-else
-{
-    wMotion =
-        lerp(0.35,0.12,speedFactor)
-        * motionConfidence;
-}
-    const gpsPenalty =
-        lastAccuracy > 40 ? 1.40 :
-        lastAccuracy > 25 ? 1.20 :
-        1.0;
-    wMotion = clamp(wMotion * gpsPenalty, 0.04, 0.85);
-    const targetHeading = lerpAngle(gpsHeading, motionHeading, wMotion);
-if (lastOutputHeading === null)
-{
-    lastOutputHeading = targetHeading;
-}
-else
-{
-    lastOutputHeading =
-        lerpAngle(
-            lastOutputHeading,
-            targetHeading,
-            0.22
-        );
+	const gpsOk = isFinite(gpsHeading);
+	const motionOk = isFinite(motionHeading);
+	if (!gpsOk && !motionOk) return lastOutputHeading;
+if (!gpsOk) {
+   lastOutputHeading = motionHeading;
+   return motionHeading;
 }
 
-lastReliableHeading = lastOutputHeading;
-    return lastOutputHeading;
+if (!motionOk) {
+   lastOutputHeading = gpsHeading;
+   return gpsHeading;
+}
+	const verySlow = speedKmh < 8;
+	const lowSpeed = speedKmh < 12;
+	const gpsBad = lastAccuracy > 50;
+	let wMotion =
+		verySlow ? 0.02 :
+		lowSpeed ? 0.06 :
+		speedKmh < 40 ? 0.18 :
+		speedKmh < 80 ? 0.35 : 0.55;
+	if (gpsBad) wMotion *= 0.55;
+	const conf = clamp(motionConfidence ?? 0, 0, 1);
+	wMotion *= (0.25 + 0.75 * conf);
+	wMotion = clamp(wMotion, 0.01, 0.55);
+	let targetHeading = lerpAngle(gpsHeading, motionHeading, wMotion);
+	const smoothAlpha =
+		gpsBad ? 0.06 :
+		verySlow ? 0.07 :
+		lowSpeed ? 0.1 : 0.18;
+	if (lastOutputHeading == null) {
+		lastOutputHeading = targetHeading;
+		return targetHeading;
+	}
+	lastOutputHeading = lerpAngle(
+		lastOutputHeading,
+		targetHeading,
+		smoothAlpha
+	);
+	return lastOutputHeading;
 }
 function computeCurveStrength(turnRateDeg, speedKmh) {
 	const t = clamp((turnRateDeg - 4) / 18, 0, 1);
@@ -2968,7 +2946,6 @@ function isUTurn(turnRateDeg, speedKmh) {
 	return turnRateDeg > th;
 }
 // MAIN LOOP
-let lastPanFrameTime = 0;
 function smoothTransformStep(now) {
    if (!isTracking || !map || !vehicleMarker || smoothTransformTarget.lat === null) {
         smoothTransformAnimFrame = null;
@@ -2999,10 +2976,8 @@ function smoothTransformStep(now) {
 	const lambda = lerp(10, 20, speedFactorPos);
 	const posT = 1 - Math.exp(-lambda * dtSec);
 	/// 2) Detect movement state
-	const wasStopped = movementState === "stopped";
-	const wasMoving = movementState === "moving";
-	const canStop = wasMoving && targetSpeed < STOP_LOCK_SPEED;
-	const canResume = wasStopped && targetSpeed > RESUME_UNLOCK_SPEED;
+	const canStop = movementState === "moving" && targetSpeed < STOP_LOCK_SPEED;
+	const canResume = movementState === "stopped" && targetSpeed > RESUME_UNLOCK_SPEED;
 	const shouldCapturePrelock = targetSpeed < 4 && targetSpeed > 1.2 && isFinite(rotationController.lastStableHeading);
 	if (shouldCapturePrelock) {
 		lockedHeading = rotationController.lastStableHeading;
@@ -3016,6 +2991,9 @@ function smoothTransformStep(now) {
 		if (stopDelayPassed && movementState !== "stopped") {
 			movementState = "stopped";
 			filteredMotionHeading = null;
+			lastMotionTurnDir = 0;
+			lastStableMotionHeading = null;
+			lastOutputHeading = null;
 			lockedHeading = rotationController.lastStableHeading ??
 				rotationController.current ??
 				lastHeading ??
@@ -3035,6 +3013,11 @@ function smoothTransformStep(now) {
 		const resumeDelayPassed = now - resumeCandidateSince > 350;
 		if (resumeDelayPassed && movementState !== "moving") {
 			movementState = "moving";
+			posHistory.length = 0;
+			filteredMotionHeading = null;
+			lastStableMotionHeading = null;
+			lastMotionTurnDir = 0;
+			lastOutputHeading = null;
 			rotationController.freeze = false;
 			rotationController.velocity *= 0.35;
 			curveMomentum = 0;
@@ -3071,12 +3054,13 @@ function smoothTransformStep(now) {
 		movementState === "moving" &&
 		targetSpeed >= MIN_MOTION_SPEED &&
 		isFinite(motion.heading) &&
-		motion.confidence >= 0.25;
+		motion.confidence >= 0.4;
 	const rawHeading = mixHeading(
 		gpsHeading,
 		motion.heading,
 		motion.confidence,
-		targetSpeed
+		targetSpeed,
+		lastAccuracy
 	);
 	let baseHeading;
 	let computedHeading = rawHeading;
@@ -3086,11 +3070,22 @@ function smoothTransformStep(now) {
 		computedHeading = bearingDeg(p1.lat, p1.lon, p2.lat, p2.lon);
 	}
 	if (!isFinite(computedHeading) && movementState === "moving") {
-		computedHeading =
-			rotationController.lastStableHeading ??
-			lastHeading ??
-			rotationController.current ??
-			0;
+		if (posHistory.length >= 2 && targetSpeed > MIN_MOTION_SPEED) {
+			const p1 = posHistory[posHistory.length - 2];
+			const p2 = posHistory[posHistory.length - 1];
+			computedHeading = bearingDeg(
+				p1.lat,
+				p1.lon,
+				p2.lat,
+				p2.lon
+			);
+		} else {
+			computedHeading =
+				rotationController.lastStableHeading ??
+				lastHeading ??
+				rotationController.current ??
+				0;
+		}
 	}
 	if (movementState === "moving" && isFinite(computedHeading)) {
 		rotationController.lastStableHeading = computedHeading;
@@ -3146,141 +3141,85 @@ function smoothTransformStep(now) {
         hasInitialHeading = true;
     }
 	/// 8) Smooth Pan + Zoom (Stable Continuous Camera)
-if (autoFollow) {
-    if (appliedMapLat === null) {
-        appliedMapLat = renderLat;
-        appliedMapLon = renderLon;
-    }
-    if (lastAppliedZoom === null) {
-        lastAppliedZoom = targetZoom;
-    }
-    const zoomLambda =
-        targetSpeed < 20 ? 18 :
-        targetSpeed < 60 ? 13 :
-        9;
-
-    const zoomT =
-        1 - Math.exp(-zoomLambda * dtSec * 0.35);
-
-    lastAppliedZoom =
-        lerp(lastAppliedZoom, targetZoom, zoomT);
-
-const zoomLevel =
-    lastAppliedZoom;
-
-    // -----------------------------
-    // Camera Target
-    // -----------------------------
-
-    let camLat = renderLat;
-    let camLon = renderLon;
-
-    if (
-        motionOk &&
-        isFinite(baseHeading) &&
-        targetSpeed > 8
-    ) {
-
-const lookAheadMeters =
-    targetSpeed < 20 ? targetSpeed * 0.12 :
-    targetSpeed < 60 ? targetSpeed * 0.18 :
-    targetSpeed * 0.25;
-
-const maxLookAhead = 18;
-
-const lookAhead =
-    Math.min(
-        lookAheadMeters,
-        maxLookAhead
-    );
-
-        const headingRad =
-            baseHeading * Math.PI / 180;
-
-        const northMeters =
-            Math.cos(headingRad) * lookAhead;
-
-        const eastMeters =
-            Math.sin(headingRad) * lookAhead;
-
-        camLat +=
-            northMeters / 111320;
-
-        camLon +=
-            eastMeters /
-            (
-                111320 *
-                Math.cos(renderLat * Math.PI / 180)
-            );
-    }
-
-    // -----------------------------
-    // Stable Pan
-    // -----------------------------
-const panResponseMs =
-    targetSpeed < 20 ? 180 :
-    targetSpeed < 60 ? 140 :
-    120;
-
-    const panT =
-        1 - Math.exp(
-            -dtSec /
-            (panResponseMs / 1000)
-        );
-
-    appliedMapLat +=
-        (camLat - appliedMapLat) * panT;
-
-    appliedMapLon +=
-        (camLon - appliedMapLon) * panT;
-
-    // -----------------------------
-    // Render Threshold
-    // -----------------------------
-
-    if (lastMapLat === null) {
-        lastMapLat = appliedMapLat;
-        lastMapLon = appliedMapLon;
-    }
-
-    const qLat = appliedMapLat;
-    const qLon = appliedMapLon;
-
-    const movedMeters =
-        haversineMeters(
-            lastMapLat,
-            lastMapLon,
-            qLat,
-            qLon
-        );
-
-const hasZoomChanged =
-    Math.abs(
-        map.getZoom() - zoomLevel
-    ) > 0.02;
-const hasDataChanged =
-    movedMeters > 0.03 ||
-    hasZoomChanged;
-	const PAN_RENDER_INTERVAL = 16;
-const isTimeToRender =
-    (now - lastPanFrameTime) >= PAN_RENDER_INTERVAL;
-
-    if (hasDataChanged && isTimeToRender) {
-
-    map.setView(
-        [qLat, qLon],
-        zoomLevel,
-        {
-            animate: false,
-            pan: false
-        }
-    );
-
-    lastMapLat = qLat;
-    lastMapLon = qLon;
-    lastPanFrameTime = now;
-}
-}
+	if (autoFollow) {
+		if (appliedMapLat === null) {
+			appliedMapLat = renderLat;
+			appliedMapLon = renderLon;
+		}
+		if (lastAppliedZoom === null) {
+			lastAppliedZoom = targetZoom;
+		}
+		if (lastRenderedZoom === null) {
+			lastRenderedZoom = targetZoom;
+		}
+		const zoomLambda =
+			targetSpeed < 20 ? 18 :
+			targetSpeed < 60 ? 13 :
+			9;
+		const zoomT =
+			1 - Math.exp(
+				-zoomLambda * dtSec * 0.35
+			);
+		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
+		const zoomLevel = lastAppliedZoom;
+		let camLat = renderLat;
+		let camLon = renderLon;
+		if ( motionOk && isFinite(rotationController.current) && targetSpeed > 8) {
+		const lookAheadMeters =
+			targetSpeed < 20 ? targetSpeed * 0.12 :
+			targetSpeed < 60 ? targetSpeed * 0.30 :
+			targetSpeed * 0.45;
+		const curveBoost = clamp(curveMomentum / 32, 0, 1);
+		const maxLookAhead = 50;
+		const lookAhead = Math.min(
+			lookAheadMeters * (1 + curveBoost * 0.25),
+			maxLookAhead
+		);
+			const cameraHeading = isFinite(baseHeading) ? baseHeading : rotationController.current;
+			const headingRad = cameraHeading * Math.PI / 180;
+			const northMeters = Math.cos(headingRad) * lookAhead;
+			const eastMeters = Math.sin(headingRad) * lookAhead;
+			camLat += northMeters / 111320;
+			camLon += eastMeters / (111320 * Math.cos(renderLat * Math.PI / 180));
+		}
+		const panResponseMs =
+			targetSpeed < 10 ? 120 :
+			targetSpeed < 20 ? 100 :
+			targetSpeed < 60 ? 75 :
+			60;
+		const panT = 1 - Math.exp(-dtSec / (panResponseMs / 1000));
+		const panErrorMeters = haversineMeters(appliedMapLat, appliedMapLon, camLat, camLon);
+		const panDeadzone =
+			targetSpeed < 5 ? 0.8 :
+			targetSpeed < 10 ? 0.4 :
+			targetSpeed < 20 ? 0.15 :
+			0;
+		if (panErrorMeters > panDeadzone) {
+			appliedMapLat += (camLat - appliedMapLat) * panT;
+			appliedMapLon += (camLon - appliedMapLon) * panT;
+		}
+		if (lastMapLat === null) {
+			lastMapLat = appliedMapLat;
+			lastMapLon = appliedMapLon;
+		}
+		const qLat = appliedMapLat;
+		const qLon = appliedMapLon;
+		const movedMeters = haversineMeters(lastMapLat, lastMapLon, qLat, qLon);
+		const moveThreshold =
+			targetSpeed < 5 ? 0.8 :
+			targetSpeed < 10 ? 0.6 :
+			targetSpeed < 40 ? 0.25 :
+			0.35;
+		const movedEnough = movedMeters > moveThreshold;
+		const hasZoomChanged = Math.abs(zoomLevel - lastRenderedZoom) > 0.02;
+		const hasDataChanged = movedEnough || hasZoomChanged;
+		if (hasDataChanged) {
+			map.setView([qLat, qLon],zoomLevel, {animate: false, pan: false});
+			lastMapLat = qLat;
+			lastMapLon = qLon;
+			lastRenderedZoom = zoomLevel;
+		}
+	}
     /// 9) Rotation (uses central stop state)
     if (!rotationWrapperCache || !rotationWrapperCache.isConnected) {
         rotationWrapperCache = ensureRotationWrapper(map);
@@ -3698,11 +3637,21 @@ function forceRecenterToVehicle() {
 		cancelAnimationFrame(smoothTransformAnimFrame);
 		smoothTransformAnimFrame = null;
 	}
-	const heading = isFinite(lastGpsHeading) ? lastGpsHeading : 0;
+	const heading = (lastGpsSpeedKmh > MIN_MOTION_SPEED && isFinite(lastGpsHeading))
+        ? lastGpsHeading
+        : (
+            rotationController.lastStableHeading ??
+            rotationController.current ??
+            0
+        );
 	rotationController.current = heading;
 	rotationController.velocity = 0;
 	rotationController.lastStableHeading = heading;
 	smoothTransformTarget.lastFrameTime = null;
+	filteredMotionHeading = null;
+	lastStableMotionHeading = null;
+	lastMotionTurnDir = 0;
+	lastOutputHeading = null;
     applySmoothTransform(
         lastGpsLat,
         lastGpsLng,
@@ -3781,8 +3730,6 @@ function clearTrackingMapObjects() {
 	pathCoordinatesRender = [];
 	posHistory.length = 0;
 }
-let lastStableLat = null;
-let lastStableLon = null;
 let lastInputTimestamp = null;
 let lastRawGpsLat = null;
 let lastRawGpsLon = null;
@@ -3825,12 +3772,11 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
     const a_pred = a * 0.997;
     const P = kf.P;
     const Q = kf.Q;
-const lowSpeedFactor =
-    filteredSpeedKmh < 10
-        ? 1.8
-        : 1.0;
-const qSpeed = Q[0][0] * dt * lowSpeedFactor;
-const qAccel = Q[1][1] * dt * lowSpeedFactor;
+	const lowSpeedFactor = filteredSpeedKmh < 5
+		? 1.6
+		: 1.0;
+	const qSpeed = Q[0][0] * dt * lowSpeedFactor;
+	const qAccel = Q[1][1] * dt * lowSpeedFactor;
 	const P00 = P[0][0] + dt * (P[1][0] + P[0][1]) + dt * dt * P[1][1] + qSpeed;
 	const P01 = P[0][1] + dt * P[1][1];
 	const P10 = P[1][0] + dt * P[1][1];
@@ -3839,11 +3785,12 @@ const qAccel = Q[1][1] * dt * lowSpeedFactor;
 	if (S < 1e-6) return Math.max(0, v_pred);
 	const y = measuredSpeed - v_pred;
 	const innovationLimit = Math.max(10, 8 + dt * 18);
-	const adaptiveInnovation =
-	innovationLimit + accuracy * 0.8;
+	const adaptiveInnovation = filteredSpeedKmh < 10
+        ? innovationLimit * 0.7
+        : innovationLimit + accuracy * 0.4;
 	if (Math.abs(y) > adaptiveInnovation) {
 		const gainScale = accuracy < 15 ? 1.0 : accuracy < 30 ? 0.82 : 0.65;
-		const trackingGain = (y > 0 ? 0.94 : 0.96) * gainScale;
+		const trackingGain = y > 0 ? 0.94 * gainScale : Math.max(0.97, 1.0 * gainScale);
 		kf.x[0] = lerp(v_pred, measuredSpeed, trackingGain);
 		const targetAccel = clamp(y / dt, -45, 45);
 		kf.x[1] += (targetAccel - kf.x[1]) * 0.82;
@@ -3901,18 +3848,16 @@ function normalizeGps(pos) {
 	}
 	let speedKmh;
 	let currentSlope = speedSlope;
-
-if (lastSpeedSlopeTimestamp) {
-    let dt = (timestamp - lastSpeedSlopeTimestamp) / 1000;
-    dt = clamp(dt, 0.05, 2);
-
-    currentSlope = clamp(
-        (sensorSpeedKmh - lastGpsSpeed) / dt,
-        -160,
-        160
-    );
-}
-	const wakeUp = sensorSpeedKmh > 1.5 && gpsAccuracy < 50 && ( currentSlope > 0.3 || filteredSpeedKmh < 1.0);
+	if (lastSpeedSlopeTimestamp) {
+		let dt = (timestamp - lastSpeedSlopeTimestamp) / 1000;
+		dt = clamp(dt, 0.05, 2);
+		currentSlope = clamp(
+			(sensorSpeedKmh - lastGpsSpeed) / dt,
+			-160,
+			160
+		);
+	}
+	const wakeUp = sensorSpeedKmh > 0.8 && gpsAccuracy < 50 && ( currentSlope > 0.2 || filteredSpeedKmh < 1.0);
 	const hardStopped = sensorSpeedKmh < 2.5 && filteredSpeedKmh < 4 && Math.abs(currentSlope) < 8.0 && !wakeUp;
 	const softStopped = sensorSpeedKmh < 2 && filteredSpeedKmh < 3.0 && Math.abs(currentSlope) < 4.0 && !wakeUp;
 	if (hardStopped) {
@@ -3997,7 +3942,6 @@ function updateSpeedSlope(currentSpeed, currentTimestamp) {
     lastGpsSpeed = currentSpeed;
     lastSpeedSlopeTimestamp = currentTimestamp;
 }
-
 function getAccuracyColor(acc) {
     if (acc <= 10) return "#10cc56";
     if (acc <= 30) return "#eab308";
@@ -4037,7 +3981,11 @@ function startTracking() {
 	lastRawGpsLon = null;
 	lastInputGpsLat = null;
 	lastInputGpsLon = null;
-	lastInputTimestamp = null;	
+	lastInputTimestamp = null;
+	lastAccuracy = null;
+	lastOutputHeading = null;
+	lastStableMotionHeading = null;
+	lastMotionTurnDir = 0;
 	kf = structuredClone(KF_DEFAULT);
 	filteredMotionHeading = null;	
 	autoFollow = true;
@@ -4467,7 +4415,6 @@ async function stopTracking() {
 	lastGpsSpeed = 0;
 	speedSlope = 0;
 	shownSpeed = 0;
-	lastPanFrameTime = 0;
 	lastRawGpsLat = null;
 	lastRawGpsLon = null;
 	lastInputGpsLat = null;
