@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v34</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v36</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2874,6 +2874,28 @@ function isUTurn(turnRateDeg, speedKmh) {
 }
 // MAIN LOOP
 let lastPanFrameTime = 0;
+let panSpringLat = null;
+let panSpringLon = null;
+let panVelocityLat = 0;
+let panVelocityLon = 0;
+function springDamper(
+    current,
+    target,
+    velocity,
+    stiffness,
+    damping,
+    dt
+) {
+    const force = (target - current) * stiffness;
+
+    velocity += force * dt;
+
+    velocity *= Math.exp(-damping * dt);
+
+    current += velocity * dt;
+
+    return [current, velocity];
+}
 function smoothTransformStep(now) {
    if (!isTracking || !map || !vehicleMarker || smoothTransformTarget.lat === null) {
         smoothTransformAnimFrame = null;
@@ -2901,7 +2923,7 @@ function smoothTransformStep(now) {
 	}
 	const speedNorm = clamp(targetSpeed / 140, 0, 1);
 	const speedFactorPos = clamp(targetSpeed / 60, 0, 1);
-	const lambda = lerp(10, 20, speedFactorPos);
+	const lambda = lerp(14,28,speedFactorPos);
 	const posT = 1 - Math.exp(-lambda * dtSec);
 	/// 2) Detect movement state
 	const wasStopped = movementState === "stopped";
@@ -3051,10 +3073,21 @@ function smoothTransformStep(now) {
     }
 	    /// 8) Smooth Pan + Zoom
 	if (autoFollow) {
-		if (appliedMapLat === null) {
-			appliedMapLat = renderLat;
-			appliedMapLon = renderLon;
-		}
+		if (
+    appliedMapLat === null ||
+    appliedMapLon === null ||
+    panSpringLat === null ||
+    panSpringLon === null
+) {
+    appliedMapLat = renderLat;
+    appliedMapLon = renderLon;
+
+    panSpringLat = renderLat;
+    panSpringLon = renderLon;
+
+    panVelocityLat = 0;
+    panVelocityLon = 0;
+}
 		if (lastAppliedZoom === null) {
 			lastAppliedZoom = targetZoom;
 		}
@@ -3067,15 +3100,55 @@ function smoothTransformStep(now) {
 		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
 		const zoomLevel = lastAppliedZoom;
 
-		const isPanLocked = movementState === "stopped";
-		if (isPanLocked) {
-			appliedMapLat = targetLat;
-			appliedMapLon = targetLon;
-		} else {
-			appliedMapLat = renderLat;
-			appliedMapLon = renderLon;
-		}
-		if (now - lastPanFrameTime > 17) {
+const isPanLocked = movementState === "stopped";
+
+if (isPanLocked) {
+
+    panSpringLat = targetLat;
+    panSpringLon = targetLon;
+
+    panVelocityLat = 0;
+    panVelocityLon = 0;
+
+    appliedMapLat = targetLat;
+    appliedMapLon = targetLon;
+
+} else {
+
+    const stiffness =
+        targetSpeed < 20 ? 120 :
+        targetSpeed < 60 ? 90 :
+        70;
+
+    const damping =
+        targetSpeed < 20 ? 20 :
+        targetSpeed < 60 ? 16 :
+        12;
+
+    [panSpringLat, panVelocityLat] =
+        springDamper(
+            panSpringLat,
+            renderLat,
+            panVelocityLat,
+            stiffness,
+            damping,
+            dtSec
+        );
+
+    [panSpringLon, panVelocityLon] =
+        springDamper(
+            panSpringLon,
+            renderLon,
+            panVelocityLon,
+            stiffness,
+            damping,
+            dtSec
+        );
+
+    appliedMapLat = panSpringLat;
+    appliedMapLon = panSpringLon;
+}
+		if (now - lastPanFrameTime > 16) {
 			map.setView([appliedMapLat, appliedMapLon], zoomLevel, { animate:false, pan:false });
 			lastMapLat = appliedMapLat;
 			lastMapLon = appliedMapLon;
@@ -3482,6 +3555,11 @@ function forceRecenterToVehicle() {
 	resetFollowRotationState(false);
 	smoothedLat = lastGpsLat;
 	smoothedLon = lastGpsLng;
+	panSpringLat = lastGpsLat;
+panSpringLon = lastGpsLng;
+
+panVelocityLat = 0;
+panVelocityLon = 0;
 	if (smoothTransformAnimFrame) {
 		cancelAnimationFrame(smoothTransformAnimFrame);
 		smoothTransformAnimFrame = null;
@@ -3547,6 +3625,11 @@ function resetTrackingVisualState() {
 	appliedMapLon = null;
 	hasInitialHeading = false;
 	filteredMotionHeading = null;
+	panSpringLat = null;
+panSpringLon = null;
+
+panVelocityLat = 0;
+panVelocityLon = 0;
 	if (smoothTransformTarget) {
 		smoothTransformTarget.lat = null;
 		smoothTransformTarget.lon = null;
@@ -3952,7 +4035,7 @@ function startTracking() {
 			const accFactor = Math.log10(accClamped + 1);
 			const intervalFactor = Math.min(Math.max(gpsIntervalSec, 0.5), 2.0);
 			const dynamicThreshold = accFactor * 9 + speedKmh * 0.035 + intervalFactor * 1.8;
-			let routeThreshold = Math.min(Math.max(dynamicThreshold, 1.2), accuracy > 35 ? 40 : 12);
+			routeThreshold = Math.min(Math.max(dynamicThreshold,0.8), accuracy > 35 ? 30 : 8);
 			// strong lock when stopped
 			const physicallyStopped = speedKmh < STOP_LOCK_SPEED && checkIfStopped(latitude, longitude, speedKmh);
 			if (physicallyStopped) {
