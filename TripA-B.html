@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v36</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v37</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2773,8 +2773,8 @@ function pushHistory(lat, lon, t) {
 	while (posHistory.length > HISTORY_MAX) posHistory.shift();
 }
 function getMotionHeadingFromHistory() {
-	if (posHistory.length < 5) return { heading: null, turnRate: 0, confidence: 0 };
-	const p0 = posHistory[posHistory.length - 5];
+	if (posHistory.length < 3) return { heading: null, turnRate: 0, confidence: 0 };
+	const p0 = posHistory[posHistory.length - 3];
 	const p1 = posHistory[posHistory.length - 2];
 	const p2 = posHistory[posHistory.length - 1];
 	const d01 = haversineMeters(p0.lat, p0.lon, p1.lat, p1.lon);
@@ -2793,7 +2793,7 @@ function getMotionHeadingFromHistory() {
         1
     );
 	let finalHeading = h12;
-	if (lastGpsSpeedKmh < 6) {
+	if (lastGpsSpeedKmh < 12) {
 		return {
 			heading: filteredMotionHeading ?? h12,
 			turnRate: 0,
@@ -3119,12 +3119,10 @@ if (isPanLocked) {
         targetSpeed < 20 ? 120 :
         targetSpeed < 60 ? 90 :
         70;
-
-    const damping =
-        targetSpeed < 20 ? 20 :
-        targetSpeed < 60 ? 16 :
-        12;
-
+damping =
+    targetSpeed < 20 ? 24 :
+    targetSpeed < 60 ? 20 :
+    18;
     [panSpringLat, panVelocityLat] =
         springDamper(
             panSpringLat,
@@ -3202,6 +3200,21 @@ if (isPanLocked) {
 				absDiff > 90
 				? lerp(6,4,speedNorm)
 				: lerp(9,6,speedNorm);
+			const snapRate = absDiff > 160 ? 0.52 :
+				absDiff > 120 ? 0.38 :
+				0.26;
+			if (absDiff > 120) {
+				rotationController.current =
+					lerpAngle(
+						rotationController.current,
+						finalTargetHeading,
+						snapRate
+					);
+				diff = normalizeAngleDifference(
+					finalTargetHeading,
+					rotationController.current
+				);
+			}										  
 			rotationController.velocity += diff * stiffness * dtSec;
 			rotationController.velocity *= Math.exp(-damping * dtSec);
 			rotationController.current =
