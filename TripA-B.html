@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v37</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v38</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2997,7 +2997,8 @@ function smoothTransformStep(now) {
 		movementState === "moving" &&
 		targetSpeed >= MIN_MOTION_SPEED &&
 		isFinite(motion.heading) &&
-		motion.confidence >= 0.45;
+		//motion.confidence >= 0.45;
+		motion.confidence >= 0.65;
 	const rawHeading = mixHeading(
 		gpsHeading,
 		motion.heading,
@@ -3200,21 +3201,7 @@ damping =
 				absDiff > 90
 				? lerp(6,4,speedNorm)
 				: lerp(9,6,speedNorm);
-			const snapRate = absDiff > 160 ? 0.52 :
-				absDiff > 120 ? 0.38 :
-				0.26;
-			if (absDiff > 120) {
-				rotationController.current =
-					lerpAngle(
-						rotationController.current,
-						finalTargetHeading,
-						snapRate
-					);
-				diff = normalizeAngleDifference(
-					finalTargetHeading,
-					rotationController.current
-				);
-			}										  
+										  
 			rotationController.velocity += diff * stiffness * dtSec;
 			rotationController.velocity *= Math.exp(-damping * dtSec);
 			rotationController.current =
