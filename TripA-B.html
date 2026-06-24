@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v38</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v39</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1535,7 +1535,7 @@ updateHistory();
   let driveEnergyWh = 0;
   let driveDistanceKm = 0;
   let rawSpeedKmh = 0;
-  const idlePowerWatts = 400; //มีระบบ A/C, จอ ฯลฯ 
+  const idlePowerWatts = 350; //มีระบบ A/C, จอ ฯลฯ 
   const plateInput = document.getElementById("plateNumber");
   const startBtn = document.getElementById("startBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -2773,8 +2773,8 @@ function pushHistory(lat, lon, t) {
 	while (posHistory.length > HISTORY_MAX) posHistory.shift();
 }
 function getMotionHeadingFromHistory() {
-	if (posHistory.length < 3) return { heading: null, turnRate: 0, confidence: 0 };
-	const p0 = posHistory[posHistory.length - 3];
+	if (posHistory.length < 5) return { heading: null, turnRate: 0, confidence: 0 };
+	const p0 = posHistory[posHistory.length - 5];
 	const p1 = posHistory[posHistory.length - 2];
 	const p2 = posHistory[posHistory.length - 1];
 	const d01 = haversineMeters(p0.lat, p0.lon, p1.lat, p1.lon);
@@ -2847,9 +2847,7 @@ function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
     const speedW = clamp(speedKmh / 200, 0, 1);
     const confidenceBoost = clamp(motionConfidence + 0.1, 0, 1);
     let wMotion = lerp(0.35, 0.88, speedW) * confidenceBoost;
-if (motionConfidence < 0.20) {
-    wMotion *= 0.35;
-}
+if (motionConfidence < 0.20) {wMotion *= 0.35;}
 else if (motionConfidence < 0.40) {
     wMotion *= 0.65;
 }
@@ -2939,7 +2937,7 @@ function smoothTransformStep(now) {
 		if (stopCandidateSince == null) {
 			stopCandidateSince = now;
 		}
-		const stopDelayPassed = now - stopCandidateSince > 450;
+		const stopDelayPassed = now - stopCandidateSince > 700;
 		if (stopDelayPassed && movementState !== "stopped") {
 			movementState = "stopped";
 			lockedHeading = rotationController.lastStableHeading ??
