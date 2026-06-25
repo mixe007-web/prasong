@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v40</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v41</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1535,7 +1535,7 @@ updateHistory();
   let driveEnergyWh = 0;
   let driveDistanceKm = 0;
   let rawSpeedKmh = 0;
-  const idlePowerWatts = 350; //มีระบบ A/C, จอ ฯลฯ 
+  const idlePowerWatts = 400; //มีระบบ A/C, จอ ฯลฯ 
   const plateInput = document.getElementById("plateNumber");
   const startBtn = document.getElementById("startBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -2773,8 +2773,8 @@ function pushHistory(lat, lon, t) {
 	while (posHistory.length > HISTORY_MAX) posHistory.shift();
 }
 function getMotionHeadingFromHistory() {
-	if (posHistory.length < 5) return { heading: null, turnRate: 0, confidence: 0 };
-	const p0 = posHistory[posHistory.length - 5];
+	if (posHistory.length < 3) return { heading: null, turnRate: 0, confidence: 0 };
+	const p0 = posHistory[posHistory.length - 3];
 	const p1 = posHistory[posHistory.length - 2];
 	const p2 = posHistory[posHistory.length - 1];
 	const d01 = haversineMeters(p0.lat, p0.lon, p1.lat, p1.lon);
@@ -2847,7 +2847,9 @@ function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
     const speedW = clamp(speedKmh / 200, 0, 1);
     const confidenceBoost = clamp(motionConfidence + 0.1, 0, 1);
     let wMotion = lerp(0.35, 0.88, speedW) * confidenceBoost;
-if (motionConfidence < 0.20) {wMotion *= 0.35;}
+if (motionConfidence < 0.20) {
+    wMotion *= 0.35;
+}
 else if (motionConfidence < 0.40) {
     wMotion *= 0.65;
 }
@@ -2937,7 +2939,7 @@ function smoothTransformStep(now) {
 		if (stopCandidateSince == null) {
 			stopCandidateSince = now;
 		}
-		const stopDelayPassed = now - stopCandidateSince > 700;
+		const stopDelayPassed = now - stopCandidateSince > 450;
 		if (stopDelayPassed && movementState !== "stopped") {
 			movementState = "stopped";
 			lockedHeading = rotationController.lastStableHeading ??
@@ -2978,7 +2980,7 @@ function smoothTransformStep(now) {
 	const renderLat = smoothedLat;
 	const renderLon = smoothedLon;
 	/// 4) History
-	const HISTORY_INTERVAL = 120;
+	const HISTORY_INTERVAL = 60;
 	if (movementState === "moving" && now - lastHistoryTime >= HISTORY_INTERVAL) {
 		const last = posHistory[posHistory.length - 1];
 		if (!last || haversineMeters(last.lat, last.lon, renderLat, renderLon) >= MIN_MOVE_FOR_HISTORY_M) {
@@ -2995,8 +2997,8 @@ function smoothTransformStep(now) {
 		movementState === "moving" &&
 		targetSpeed >= MIN_MOTION_SPEED &&
 		isFinite(motion.heading) &&
-		//motion.confidence >= 0.45;
-		motion.confidence >= 0.65;
+		motion.confidence >= 0.45;
+
 	const rawHeading = mixHeading(
 		gpsHeading,
 		motion.heading,
@@ -3073,18 +3075,20 @@ function smoothTransformStep(now) {
 	    /// 8) Smooth Pan + Zoom
 	if (autoFollow) {
 		if (
-			appliedMapLat === null ||
-			appliedMapLon === null ||
-			panSpringLat === null ||
-			panSpringLon === null
-		) {
-			appliedMapLat = renderLat;
-			appliedMapLon = renderLon;
-			panSpringLat = renderLat;
-			panSpringLon = renderLon;
-			panVelocityLat = 0;
-			panVelocityLon = 0;
-		}
+    appliedMapLat === null ||
+    appliedMapLon === null ||
+    panSpringLat === null ||
+    panSpringLon === null
+) {
+    appliedMapLat = renderLat;
+    appliedMapLon = renderLon;
+
+    panSpringLat = renderLat;
+    panSpringLon = renderLon;
+
+    panVelocityLat = 0;
+    panVelocityLon = 0;
+}
 		if (lastAppliedZoom === null) {
 			lastAppliedZoom = targetZoom;
 		}
@@ -3096,46 +3100,53 @@ function smoothTransformStep(now) {
 		const zoomT = 1 - Math.exp(-zoomLambda * zoomDt * 0.35);
 		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
 		const zoomLevel = lastAppliedZoom;
-		const isPanLocked = movementState === "stopped";
-		if (isPanLocked) {
-			panSpringLat = targetLat;
-			panSpringLon = targetLon;
-			panVelocityLat = 0;
-			panVelocityLon = 0;
-			appliedMapLat = targetLat;
-			appliedMapLon = targetLon;
-		} else {
-			const stiffness =
-				targetSpeed < 20 ? 120 :
-				targetSpeed < 60 ? 90 :
-				70;
-		const damping =
-			targetSpeed < 20 ? 24 :
-			targetSpeed < 60 ? 20 :
-			18;
-			[panSpringLat, panVelocityLat] =
-				springDamper(
-					panSpringLat,
-					renderLat,
-					panVelocityLat,
-					stiffness,
-					damping,
-					dtSec
-				);
 
-			[panSpringLon, panVelocityLon] =
-				springDamper(
-					panSpringLon,
-					renderLon,
-					panVelocityLon,
-					stiffness,
-					damping,
-					dtSec
-				);
+const isPanLocked = movementState === "stopped";
 
-			appliedMapLat = panSpringLat;
-			appliedMapLon = panSpringLon;
-		}
+if (isPanLocked) {
+
+    panSpringLat = targetLat;
+    panSpringLon = targetLon;
+
+    panVelocityLat = 0;
+    panVelocityLon = 0;
+
+    appliedMapLat = targetLat;
+    appliedMapLon = targetLon;
+
+} else {
+
+    const stiffness =
+        targetSpeed < 20 ? 120 :
+        targetSpeed < 60 ? 90 :
+        70;
+const damping =
+    targetSpeed < 20 ? 24 :
+    targetSpeed < 60 ? 20 :
+    18;
+    [panSpringLat, panVelocityLat] =
+        springDamper(
+            panSpringLat,
+            renderLat,
+            panVelocityLat,
+            stiffness,
+            damping,
+            dtSec
+        );
+
+    [panSpringLon, panVelocityLon] =
+        springDamper(
+            panSpringLon,
+            renderLon,
+            panVelocityLon,
+            stiffness,
+            damping,
+            dtSec
+        );
+
+    appliedMapLat = panSpringLat;
+    appliedMapLon = panSpringLon;
+}
 		if (now - lastPanFrameTime > 16) {
 			map.setView([appliedMapLat, appliedMapLon], zoomLevel, { animate:false, pan:false });
 			lastMapLat = appliedMapLat;
@@ -3185,12 +3196,14 @@ function smoothTransformStep(now) {
 				absDiff > 45 ? 1.9 :
 				absDiff > 20 ? 1.35 :
 				1.0;
-			const stiffnessRotation = lerp(42, 90, speedNorm) * turnBoost;
-			const dampingRotation =
-				absDiff > 90
-				? lerp(6,4,speedNorm)
-				: lerp(9,6,speedNorm);
-										  
+const stiffnessRotation =
+    lerp(65,110,speedNorm) * turnBoost;
+
+const dampingRotation =
+    absDiff > 90
+        ? lerp(7,4,speedNorm)
+        : lerp(10,6,speedNorm);	
+				
 			rotationController.velocity += diff * stiffnessRotation * dtSec;
 			rotationController.velocity *= Math.exp(-dampingRotation * dtSec);
 			rotationController.current =
@@ -3768,7 +3781,7 @@ function normalizeGps(pos) {
 			160
 		);
 	}
-	const wakeUp = sensorSpeedKmh > 0.8 && gpsAccuracy < 50 && ( currentSlope > 0.2 || filteredSpeedKmh < 1.0 || sensorSpeedKmh > 3);
+	const wakeUp = sensorSpeedKmh > 0.8 && gpsAccuracy < 50 && ( currentSlope > 0.2 || filteredSpeedKmh < 1.0 || sensorSpeedKmh > 2);
 	const stopLocked = !wakeUp && sensorSpeedKmh < 1.5 && filteredSpeedKmh < 2 && Math.abs(currentSlope) < 6;
 	if (stopLocked) {
 		speedKmh = 0;
