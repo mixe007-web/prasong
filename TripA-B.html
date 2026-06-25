@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v41</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v42</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1535,7 +1535,7 @@ updateHistory();
   let driveEnergyWh = 0;
   let driveDistanceKm = 0;
   let rawSpeedKmh = 0;
-  const idlePowerWatts = 400; //มีระบบ A/C, จอ ฯลฯ 
+  const idlePowerWatts = 350; //มีระบบ A/C, จอ ฯลฯ 
   const plateInput = document.getElementById("plateNumber");
   const startBtn = document.getElementById("startBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -1582,15 +1582,12 @@ updateHistory();
 }
 const energyScalingFactor = 1;
 function updateBatterySOCUsedDisplay() {
-    let batterySOCUsed =
-        (totalEnergyWh / 1000) / 75.3 * 100;
-    const socPercent = parseFloat(
-        document.getElementById("socPercent")
-        .textContent.replace("%", "")
-    ) || 0;
-    if (socPercent >= 17 && socPercent <= 32) {
-        batterySOCUsed *= 1.4;
-    }
+	let SocOver = 1;
+	const socPercent = parseFloat(document.getElementById("socPercent").textContent.replace('%', ''));
+	if (socPercent >= 17 && socPercent <= 32) {
+		SocOver = 1.40;  // เพิ่มค่า energyPerKm
+	}
+    let batterySOCUsed =((totalEnergyWh / 1000) / 75.3 * 100) * SocOver;
     const batterySOCUsedSpan =
         document.getElementById("batterySOCUsed");
     if (batterySOCUsedSpan) {
