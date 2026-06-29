@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v45</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v46</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2721,7 +2721,7 @@ const HISTORY_MAX = 4;
 const NAVI_CENTER_OFFSET_RATIO = 0.20;
 const LOW_SPEED_KMH = 10;
 const MIN_MOTION_SPEED = 3.0;
-const STOP_LOCK_SPEED = 2;
+const STOP_LOCK_SPEED = 2.5;
 const RESUME_UNLOCK_SPEED = 3.5;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio = 0) {
@@ -2917,15 +2917,42 @@ function smoothTransformStep(now) {
         smoothTransformAnimFrame = null;
         return;
     } 
-    const {
-        lat: targetLat,
-        lon: targetLon,
-        heading: targetHeading,
-        speedKmh: targetSpeed,
-        zoom: targetZoom,
-        iconSize: targetIconSize,
-        callback
-    } = smoothTransformTarget;
+let {
+    lat: targetLat,
+    lon: targetLon,
+    heading: targetHeading,
+    speedKmh: targetSpeed,
+    zoom: targetZoom,
+    iconSize: targetIconSize,
+    callback
+} = smoothTransformTarget;
+
+// ใส่หลัง destructuring
+const acc = lastAccuracy ?? 10;
+
+const accWeight =
+    acc < 5 ? 1.0 :
+    acc < 10 ? 0.80 :
+    acc < 20 ? 0.50 :
+    acc < 30 ? 0.25 :
+    0.10;
+if (appliedMapLat != null) {
+
+    targetLat =
+        lerp(
+            appliedMapLat,
+            targetLat,
+            accWeight
+        );
+
+    targetLon =
+        lerp(
+            appliedMapLon,
+            targetLon,
+            accWeight
+        );
+}
+
     if (smoothTransformTarget.lastFrameTime == null) {
         smoothTransformTarget.lastFrameTime = now;
     }
@@ -2996,11 +3023,15 @@ function smoothTransformStep(now) {
 	const renderLat = smoothedLat;
 	const renderLon = smoothedLon;
 	/// 4) History
-	const HISTORY_INTERVAL = 60;
+	const HISTORY_INTERVAL = 33;
 	if (movementState === "moving" && now - lastHistoryTime >= HISTORY_INTERVAL) {
 		const last = posHistory[posHistory.length - 1];
 		if (!last || haversineMeters(last.lat, last.lon, renderLat, renderLon) >= MIN_MOVE_FOR_HISTORY_M) {
-			pushHistory(renderLat, renderLon, now);
+			pushHistory(
+    appliedMapLat,
+    appliedMapLon,
+    now
+);
 		}
 		lastHistoryTime = now;
 	}
@@ -3014,15 +3045,37 @@ function smoothTransformStep(now) {
 		targetSpeed >= MIN_MOTION_SPEED &&
 		isFinite(motion.heading) &&
 		motion.confidence >= 0.45;
+const rawHeading = mixHeading(
+    gpsHeading,
+    motion.heading,
+    motion.confidence,
+    targetSpeed
+);
 
-	const rawHeading = mixHeading(
-		gpsHeading,
-		motion.heading,
-		motion.confidence,
-		targetSpeed
-	);
-	let baseHeading;
-	let computedHeading = rawHeading;
+if (isFinite(rawHeading)) {
+
+    if (rotationController.filteredHeading == null) {
+        rotationController.filteredHeading = rawHeading;
+    } else {
+
+        const headingAlpha =
+            targetSpeed < 10 ? 0.18 :
+            targetSpeed < 40 ? 0.24 :
+            targetSpeed < 80 ? 0.32 :
+            0.40;
+
+        rotationController.filteredHeading =
+            lerpAngle(
+                rotationController.filteredHeading,
+                rawHeading,
+                headingAlpha
+            );
+    }
+}
+
+let baseHeading;
+let computedHeading =
+    rotationController.filteredHeading ?? rawHeading;
 	if (movementState === "moving" && !isFinite(computedHeading) && posHistory.length >= 2) {
 		const p1 = posHistory[posHistory.length - 2];
 		const p2 = posHistory[posHistory.length - 1];
@@ -3035,6 +3088,11 @@ function smoothTransformStep(now) {
 			rotationController.current ??
 			0;
 	}
+const headingUpdateThreshold =
+    targetSpeed < 10 ? 1.2 :
+    targetSpeed < 40 ? 0.8 :
+    targetSpeed < 80 ? 0.6 :
+    0.5;
 if (movementState === "moving" && isFinite(computedHeading)) {
 
     const stable =
@@ -3046,7 +3104,7 @@ if (movementState === "moving" && isFinite(computedHeading)) {
                 computedHeading,
                 stable
             )
-        ) > 0.5
+        ) > headingUpdateThreshold
     ) {
         rotationController.lastStableHeading =
             computedHeading;
@@ -3176,7 +3234,7 @@ const damping =
     appliedMapLat = panSpringLat;
     appliedMapLon = panSpringLon;
 }
-		if (now - lastPanFrameTime > 16) {
+		if (now - lastPanFrameTime >= 16) {
 			map.setView([appliedMapLat, appliedMapLon], zoomLevel, { animate:false, pan:false });
 			lastMapLat = appliedMapLat;
 			lastMapLon = appliedMapLon;
@@ -3189,19 +3247,18 @@ const damping =
     }
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {
-		const HEADING_DEADBAND =
-			isStopped ? 0.8 :
-			targetSpeed < 10 ? 0.035 :
-			targetSpeed < 40 ? 0.025 :
-			0.012;
+const HEADING_DEADBAND =
+   headingUpdateThreshold;
 		if (isStopped && isFinite(lockedHeading)) {
 			baseHeading = lockedHeading;
 		}
-		const shouldPrelockHeading =
-			targetSpeed < 4 &&
-			!isTurning &&
-			hasLockedHeading &&
-			isFinite(lockedHeading);
+const shouldPrelockHeading =
+    targetSpeed < 4 &&
+    !isTurning &&
+    hasLockedHeading &&
+    isFinite(lockedHeading) &&
+    motion.confidence > 0.6 &&
+    (lastAccuracy ?? 99) < 10;
 		let finalTargetHeading = (rotationController.freeze || shouldPrelockHeading) &&
 			isFinite(lockedHeading)
 			? lockedHeading
