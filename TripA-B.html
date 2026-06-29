@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v44</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v45</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1821,34 +1821,47 @@ function animateDigitalSpeed(timestamp) {
         return;
     }
     const diff = safeTarget - shownSpeed;
+	const isAccelerating = diff > 0;
     const absDiff = Math.abs(diff);
-    if (absDiff < 0.03) {
-        shownSpeed = safeTarget;
-    } else {
-        let response;
-        if (absDiff > 40) {
-            response = 16;
-        } else if (absDiff > 20) {
-            response = 13;
-        } else if (absDiff > 10) {
-            response = 10;
-        } else if (absDiff > 4) {
-            response = 8;
-        } else if (absDiff > 2) {
-            response = 6;
-        } else {
-            response = 4;
-        }
-        if (diff < 0) {
-            response *= 2.0;
-        }
-		if (safeTarget < 20) {
+	// Low-speed UI: ตาม Kalman ทันที
+if (
+    isAccelerating &&
+    shownSpeed < 15 &&
+    safeTarget < 15
+) {
+    shownSpeed = safeTarget;
+}
+else if (absDiff < 0.03) {
+    shownSpeed = safeTarget;
+} else {
+let response;
+
+if (isAccelerating) {
+
+    if (absDiff > 40) response = 16;
+    else if (absDiff > 20) response = 13;
+    else if (absDiff > 10) response = 10;
+    else if (absDiff > 4) response = 8;
+    else if (absDiff > 2) response = 6;
+    else response = 4;
+
+} else {
+
+    if (absDiff > 40) response = 18;
+    else if (absDiff > 20) response = 15;
+    else if (absDiff > 10) response = 12;
+    else if (absDiff > 4) response = 9;
+    else if (absDiff > 2) response = 7;
+    else response = 5;
+
+}
+		if (isAccelerating && safeTarget < 20) {
 			const lowSpeedBoost =
 				1 + (1 - safeTarget / 20) * 1.2;
 			response *= lowSpeedBoost;
 		}
         const alpha = 1 - Math.exp(-response * dt);
-		const maxStep = diff > 0
+		const maxStep = isAccelerating
 			? Math.max(2.0, absDiff * 0.30)
 			: Math.max(2.5, absDiff * 0.35);
         const delta = clamp( diff * alpha, -maxStep, maxStep);
@@ -3022,9 +3035,23 @@ function smoothTransformStep(now) {
 			rotationController.current ??
 			0;
 	}
-	if (movementState === "moving" && isFinite(computedHeading)) {
-		rotationController.lastStableHeading = computedHeading;
-	}
+if (movementState === "moving" && isFinite(computedHeading)) {
+
+    const stable =
+        rotationController.lastStableHeading ?? computedHeading;
+
+    if (
+        Math.abs(
+            normalizeAngleDifference(
+                computedHeading,
+                stable
+            )
+        ) > 0.5
+    ) {
+        rotationController.lastStableHeading =
+            computedHeading;
+    }
+}
 	if (movementState === "stopped") {
 		computedHeading =
 			rotationController.lastStableHeading ??
@@ -3118,35 +3145,34 @@ if (isPanLocked) {
     appliedMapLon = targetLon;
 
 } else {
+const stiffness =
+    targetSpeed < 20 ? 70 :
+    targetSpeed < 60 ? 55 :
+    45;
 
-    const stiffness =
-        targetSpeed < 20 ? 70 :
-        targetSpeed < 60 ? 55 :
-        45;
-damping =
-    targetSpeed < 20 ? 32 :
-    targetSpeed < 60 ? 28 :
-    24;
-    [panSpringLat, panVelocityLat] =
-        springDamper(
-            panSpringLat,
-            renderLat,
-            panVelocityLat,
-            stiffness,
-            damping,
-            dtSec
-        );
+const damping =
+    targetSpeed < 20 ? 22 :
+    targetSpeed < 60 ? 18 :
+    15;
+[panSpringLat, panVelocityLat] =
+    springDamper(
+        panSpringLat,
+        targetLat,
+        panVelocityLat,
+        stiffness,
+        damping,
+        dtSec
+    );
 
-    [panSpringLon, panVelocityLon] =
-        springDamper(
-            panSpringLon,
-            renderLon,
-            panVelocityLon,
-            stiffness,
-            damping,
-            dtSec
-        );
-
+[panSpringLon, panVelocityLon] =
+    springDamper(
+        panSpringLon,
+        targetLon,
+        panVelocityLon,
+        stiffness,
+        damping,
+        dtSec
+    );
     appliedMapLat = panSpringLat;
     appliedMapLon = panSpringLon;
 }
@@ -3708,6 +3734,18 @@ function kalmanUpdate(measuredSpeed, dt, accuracy = 10) {
 	const P11 = P[1][1] + qAccel;
 	const S = P00 + R;
 	if (S < 1e-6) return Math.max(0, v_pred);
+if (
+    filteredSpeedKmh < 5 &&
+    measuredSpeed > v_pred
+){
+    const fast = lerp(v_pred, measuredSpeed, 0.9);
+
+    kf.x[0] = fast;
+    kf.x[1] = clamp((measuredSpeed - v_pred) / dt, -45, 45);
+kf.P[0][0] = Math.min(P00 + 8, 200);
+kf.P[1][1] = Math.min(P11 + 12, 200);
+    return fast;
+}
 	const y = measuredSpeed - v_pred;
 	const innovationLimit = Math.max(10, 8 + dt * 18);
 	const adaptiveInnovation = filteredSpeedKmh < 10
@@ -3782,28 +3820,20 @@ function normalizeGps(pos) {
 			160
 		);
 	}
-	const wakeUp = sensorSpeedKmh > 0.3 && gpsAccuracy < 50 && ( currentSlope > 0.05 || filteredSpeedKmh < 1.0 || sensorSpeedKmh > 1.5);
+	const wakeUp = gpsAccuracy < 50 && (sensorSpeedKmh > 0.8 || (sensorSpeedKmh > 0.3 && currentSlope > 0.05));
 	const stopLocked = !wakeUp && sensorSpeedKmh < 1.5 && filteredSpeedKmh < 2 && Math.abs(currentSlope) < 6;
 	if (stopLocked) {
-		speedKmh = 0;
-			  
-			  
-				 
-				 
-				 
-				 
+		speedKmh = 0;		 
 		shownSpeed = 0;
 		displaySpeedInt = 0;
-		kf.x[0] = 0;
-    kf.x[1] *= 0.25;
-	kf.P[0][0] = 12;
-kf.P[1][1] = 60;			
+kf.x[0] = Math.min(kf.x[0],0.3);
+kf.x[1] = Math.min(kf.x[1], 0.5);			
 	} else {
 		speedKmh = kalmanUpdate(sensorSpeedKmh, dt, Math.min(gpsAccuracy, 60));
 	}
 	if (wakeUp) {
-		kf.P[0][0] = Math.max(kf.P[0][0], 25);
-		kf.P[1][1] = Math.max(kf.P[1][1], 40);
+kf.P[0][0] = Math.max(kf.P[0][0],80);
+kf.P[1][1] = Math.max(kf.P[1][1],120);
 	}
 	filteredSpeedKmh = clamp(speedKmh, 0, 260);
 
