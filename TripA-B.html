@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v46</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v47</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3027,11 +3027,7 @@ if (appliedMapLat != null) {
 	if (movementState === "moving" && now - lastHistoryTime >= HISTORY_INTERVAL) {
 		const last = posHistory[posHistory.length - 1];
 		if (!last || haversineMeters(last.lat, last.lon, renderLat, renderLon) >= MIN_MOVE_FOR_HISTORY_M) {
-			pushHistory(
-    appliedMapLat,
-    appliedMapLon,
-    now
-);
+pushHistory(renderLat, renderLon, now);
 		}
 		lastHistoryTime = now;
 	}
@@ -3052,30 +3048,10 @@ const rawHeading = mixHeading(
     targetSpeed
 );
 
-if (isFinite(rawHeading)) {
 
-    if (rotationController.filteredHeading == null) {
-        rotationController.filteredHeading = rawHeading;
-    } else {
-
-        const headingAlpha =
-            targetSpeed < 10 ? 0.18 :
-            targetSpeed < 40 ? 0.24 :
-            targetSpeed < 80 ? 0.32 :
-            0.40;
-
-        rotationController.filteredHeading =
-            lerpAngle(
-                rotationController.filteredHeading,
-                rawHeading,
-                headingAlpha
-            );
-    }
-}
 
 let baseHeading;
-let computedHeading =
-    rotationController.filteredHeading ?? rawHeading;
+let computedHeading = rawHeading;
 	if (movementState === "moving" && !isFinite(computedHeading) && posHistory.length >= 2) {
 		const p1 = posHistory[posHistory.length - 2];
 		const p2 = posHistory[posHistory.length - 1];
@@ -3248,7 +3224,9 @@ const damping =
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {
 const HEADING_DEADBAND =
-   headingUpdateThreshold;
+	isStopped ? 0.8 :
+			targetSpeed < 10 ? 0.035 :
+			targetSpeed < 40 ? 0.025 :
 		if (isStopped && isFinite(lockedHeading)) {
 			baseHeading = lockedHeading;
 		}
@@ -3877,8 +3855,21 @@ function normalizeGps(pos) {
 			160
 		);
 	}
-	const wakeUp = gpsAccuracy < 50 && (sensorSpeedKmh > 0.8 || (sensorSpeedKmh > 0.3 && currentSlope > 0.05));
-	const stopLocked = !wakeUp && sensorSpeedKmh < 1.5 && filteredSpeedKmh < 2 && Math.abs(currentSlope) < 6;
+	const wakeUp =
+    gpsAccuracy < 50 &&
+    (
+        sensorSpeedKmh > 0.5 ||
+        filteredSpeedKmh > 0.3 ||
+        (
+            sensorSpeedKmh > 0.2 &&
+            currentSlope > 0
+        )
+    );
+	const stopLocked =
+    !wakeUp &&
+    sensorSpeedKmh < 0.8 &&
+    filteredSpeedKmh < 1.0 &&
+    Math.abs(currentSlope) < 4;
 	if (stopLocked) {
 		speedKmh = 0;		 
 		shownSpeed = 0;
