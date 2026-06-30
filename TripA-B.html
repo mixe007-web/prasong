@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v47</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v48</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3223,10 +3223,11 @@ const damping =
     }
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {
-const HEADING_DEADBAND =
-	isStopped ? 0.8 :
+		const HEADING_DEADBAND =
+			isStopped ? 0.8 :
 			targetSpeed < 10 ? 0.035 :
 			targetSpeed < 40 ? 0.025 :
+			0.012;
 		if (isStopped && isFinite(lockedHeading)) {
 			baseHeading = lockedHeading;
 		}
