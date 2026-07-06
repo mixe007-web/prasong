@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v49</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v50</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2714,10 +2714,10 @@ let lastPolylineTime = 0;
 let lockedHeading = null;
 let hasLockedHeading = false;
 const ZOOM_STABLE_DELAY = 300;
-const MIN_MOVE_FOR_MOTION_M = 0.3;
+const MIN_MOVE_FOR_MOTION_M = 0.8;
 const MIN_MOVE_FOR_HISTORY_M = 0.5;
 const posHistory = [];
-const HISTORY_MAX = 4;
+const HISTORY_MAX = 8;
 const NAVI_CENTER_OFFSET_RATIO = 0.20;
 const LOW_SPEED_KMH = 10;
 const MIN_MOTION_SPEED = 3.0;
@@ -2809,13 +2809,19 @@ function getMotionHeadingFromHistory() {
         1
     );
 	let finalHeading = h12;
-	if (lastGpsSpeedKmh < 12) {
-		return {
-			heading: filteredMotionHeading ?? h12,
-			turnRate: 0,
-			confidence: 0
-		};
-	}
+if (lastGpsSpeedKmh < 12) {
+
+    return {
+
+        heading: filteredMotionHeading ?? h12,
+
+        turnRate: absTurn,
+
+        confidence: 0.55
+
+    };
+
+}
 	if (filteredMotionHeading == null) {
 		filteredMotionHeading = h12;
 	} else {
@@ -2973,11 +2979,6 @@ if (appliedMapLat != null) {
 	const wasMoving = movementState === "moving";
 	const canStop = wasMoving && targetSpeed < STOP_LOCK_SPEED;
 	const canResume = wasStopped && targetSpeed > RESUME_UNLOCK_SPEED;
-	const shouldCapturePrelock = targetSpeed < 4 && targetSpeed > 1.2 && isFinite(rotationController.lastStableHeading);
-	if (shouldCapturePrelock) {
-		lockedHeading = rotationController.lastStableHeading;
-		hasLockedHeading = true;
-	}
 	if (canStop) {
 		if (stopCandidateSince == null) {
 			stopCandidateSince = now;
@@ -3064,27 +3065,13 @@ let computedHeading = rawHeading;
 			rotationController.current ??
 			0;
 	}
-const headingUpdateThreshold =
-    targetSpeed < 10 ? 1.2 :
-    targetSpeed < 40 ? 0.8 :
-    targetSpeed < 80 ? 0.6 :
-    0.5;
 if (movementState === "moving" && isFinite(computedHeading)) {
-
-    const stable =
-        rotationController.lastStableHeading ?? computedHeading;
-
-    if (
-        Math.abs(
-            normalizeAngleDifference(
-                computedHeading,
-                stable
-            )
-        ) > headingUpdateThreshold
-    ) {
-        rotationController.lastStableHeading =
-            computedHeading;
-    }
+rotationController.lastStableHeading =
+    lerpAngle(
+        rotationController.lastStableHeading ?? computedHeading,
+        computedHeading,
+        0.25
+    );
 }
 	if (movementState === "stopped") {
 		computedHeading =
@@ -3112,10 +3099,10 @@ if (movementState === "moving" && isFinite(computedHeading)) {
 		baseHeading = computedHeading;
 	}
     /// 6) Curve Model
+	const isTurning = motionOk && (motion.turnRate > 10 || isUTurn(motion.turnRate, targetSpeed));
     const curveStrength01 = targetSpeed < 5
         ? 0
         : computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
-    const isTurning = motionOk && (motion.turnRate > 10 || isUTurn(motion.turnRate, targetSpeed));
     if (targetSpeed >= LOW_SPEED_KMH && curveStrength01 > 0.14) {
         curveMomentum = Math.min(curveMomentum + curveStrength01 * 9.5, 32);
     }
@@ -3232,7 +3219,7 @@ const damping =
 			baseHeading = lockedHeading;
 		}
 const shouldPrelockHeading =
-    targetSpeed < 4 &&
+    targetSpeed < 1 &&
     !isTurning &&
     hasLockedHeading &&
     isFinite(lockedHeading) &&
