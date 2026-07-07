@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v51</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v52</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2972,7 +2972,8 @@ if (appliedMapLat != null) {
 	const wasMoving = movementState === "moving";
 	const canStop = wasMoving && targetSpeed < STOP_LOCK_SPEED;
 	const canResume = wasStopped && targetSpeed > RESUME_UNLOCK_SPEED;
-	const shouldCapturePrelock = targetSpeed < 3 && targetSpeed > 1.2 && isFinite(rotationController.lastStableHeading);
+	const shouldCapturePrelock = targetSpeed < 3 && targetSpeed > 1.2 &&
+    (lastAccuracy ?? 99) < 10 && isFinite(rotationController.lastStableHeading);
 	if (shouldCapturePrelock) {
 		lockedHeading = rotationController.lastStableHeading;
 		hasLockedHeading = true;
@@ -3022,7 +3023,7 @@ if (appliedMapLat != null) {
 	const renderLat = smoothedLat;
 	const renderLon = smoothedLon;
 	/// 4) History
-	const HISTORY_INTERVAL = 40;
+	const HISTORY_INTERVAL = 120;
 	if (movementState === "moving" && now - lastHistoryTime >= HISTORY_INTERVAL) {
 		const last = posHistory[posHistory.length - 1];
 		if (!last || haversineMeters(last.lat, last.lon, renderLat, renderLon) >= MIN_MOVE_FOR_HISTORY_M) {
