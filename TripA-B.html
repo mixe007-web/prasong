@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v52</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v53</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3855,7 +3855,7 @@ function normalizeGps(pos) {
 		);
 	}
 	const wakeUp =
-    gpsAccuracy < 50 &&
+    gpsAccuracy < 99 &&
     (
         sensorSpeedKmh > 0.5 ||
         filteredSpeedKmh > 0.3 ||
@@ -3890,7 +3890,7 @@ kf.P[1][1] = Math.max(kf.P[1][1],120);
 		if (
 			filteredSpeedKmh < 2 &&
 			sensorSpeedKmh < 1.2 &&
-			gpsAccuracy < 30
+			gpsAccuracy < 99
 		)
 		{
 			finalLat = lastRawGpsLat;
@@ -3906,7 +3906,7 @@ kf.P[1][1] = Math.max(kf.P[1][1],120);
         latitude: finalLat,
         longitude: finalLon,
         speedKmh,
-		heading: (isFinite(c.heading) && c.heading >= 0 && gpsAccuracy < 30 && filteredSpeedKmh > 3)
+		heading: (isFinite(c.heading) && c.heading >= 0 && gpsAccuracy < 99 && filteredSpeedKmh > 2)
 			? (c.heading % 360)
 			: null,
         altitude: c.altitude ?? null,
