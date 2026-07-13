@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v53</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v54</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2821,11 +2821,11 @@ function getMotionHeadingFromHistory() {
 	} else {
 		const diff = normalizeAngleDifference(h12, filteredMotionHeading);
 		const absDiff = Math.abs(diff);
-const deadband =
-    lastGpsSpeedKmh < 10 ? 0.8 :
-    lastGpsSpeedKmh < 40 ? 0.5 :
-    lastGpsSpeedKmh < 80 ? 0.3 :
-    0.2;
+		const deadband =
+			lastGpsSpeedKmh < 10 ? 0.8 :
+			lastGpsSpeedKmh < 40 ? 0.5 :
+			lastGpsSpeedKmh < 80 ? 0.3 :
+			0.2;
 		if (absDiff < deadband) {
 		} else {
 			const turning =
@@ -2862,12 +2862,12 @@ function mixHeading(gpsHeading, motionHeading, motionConfidence, speedKmh) {
     const speedW = clamp(speedKmh / 200, 0, 1);
     const confidenceBoost = clamp(motionConfidence + 0.1, 0, 1);
     let wMotion = lerp(0.35, 0.88, speedW) * confidenceBoost;
-if (motionConfidence < 0.20) {
-    wMotion *= 0.35;
-}
-else if (motionConfidence < 0.40) {
-    wMotion *= 0.65;
-}
+	if (motionConfidence < 0.20) {
+		wMotion *= 0.35;
+	}
+	else if (motionConfidence < 0.40) {
+		wMotion *= 0.65;
+	}
     const acc = lastAccuracy ?? 10;
 	const gpsPenalty =
 		acc > 40 ? 1.30 :
@@ -2893,64 +2893,27 @@ let panSpringLat = null;
 let panSpringLon = null;
 let panVelocityLat = 0;
 let panVelocityLon = 0;
-function springDamper(
-    current,
-    target,
-    velocity,
-    stiffness,
-    damping,
-    dt
-) {
-    const force = (target - current) * stiffness;
-
-    velocity += force * dt;
-
-    velocity *= Math.exp(-damping * dt);
-
-    current += velocity * dt;
-
-    return [current, velocity];
+function springDamper(current, target, velocity, stiffness, damping, dt) {
+		const force = (target - current) * stiffness;
+		velocity += force * dt;
+		velocity *= Math.exp(-damping * dt);
+		current += velocity * dt;
+		return [current, velocity];
 }
 function smoothTransformStep(now) {
    if (!isTracking || !map || !vehicleMarker || smoothTransformTarget.lat === null) {
         smoothTransformAnimFrame = null;
         return;
     } 
-let {
-    lat: targetLat,
-    lon: targetLon,
-    heading: targetHeading,
-    speedKmh: targetSpeed,
-    zoom: targetZoom,
-    iconSize: targetIconSize,
-    callback
-} = smoothTransformTarget;
-
-// ใส่หลัง destructuring
-const acc = lastAccuracy ?? 10;
-
-const accWeight =
-    acc < 5 ? 1.0 :
-    acc < 10 ? 0.80 :
-    acc < 20 ? 0.50 :
-    acc < 30 ? 0.25 :
-    0.10;
-if (appliedMapLat != null) {
-
-    targetLat =
-        lerp(
-            appliedMapLat,
-            targetLat,
-            accWeight
-        );
-
-    targetLon =
-        lerp(
-            appliedMapLon,
-            targetLon,
-            accWeight
-        );
-}
+	let {
+		lat: targetLat,
+		lon: targetLon,
+		heading: targetHeading,
+		speedKmh: targetSpeed,
+		zoom: targetZoom,
+		iconSize: targetIconSize,
+		callback
+	} = smoothTransformTarget;
 
     if (smoothTransformTarget.lastFrameTime == null) {
         smoothTransformTarget.lastFrameTime = now;
@@ -2973,7 +2936,7 @@ if (appliedMapLat != null) {
 	const canStop = wasMoving && targetSpeed < STOP_LOCK_SPEED;
 	const canResume = wasStopped && targetSpeed > RESUME_UNLOCK_SPEED;
 	const shouldCapturePrelock = targetSpeed < 3 && targetSpeed > 1.2 &&
-    (lastAccuracy ?? 99) < 10 && isFinite(rotationController.lastStableHeading);
+    (lastAccuracy ?? 99) < 20 && isFinite(rotationController.lastStableHeading);
 	if (shouldCapturePrelock) {
 		lockedHeading = rotationController.lastStableHeading;
 		hasLockedHeading = true;
@@ -3023,11 +2986,12 @@ if (appliedMapLat != null) {
 	const renderLat = smoothedLat;
 	const renderLon = smoothedLon;
 	/// 4) History
-	const HISTORY_INTERVAL = 150;
+	const HISTORY_INTERVAL = 120;
+	const minHistoryMove = targetSpeed < 10 ? 0.5 : MIN_MOVE_FOR_HISTORY_M;
 	if (movementState === "moving" && now - lastHistoryTime >= HISTORY_INTERVAL) {
 		const last = posHistory[posHistory.length - 1];
-		if (!last || haversineMeters(last.lat, last.lon, renderLat, renderLon) >= MIN_MOVE_FOR_HISTORY_M) {
-pushHistory(renderLat, renderLon, now);
+		if (!last || haversineMeters(last.lat, last.lon, renderLat, renderLon) >= minHistoryMove) {
+			pushHistory(renderLat, renderLon, now);
 		}
 		lastHistoryTime = now;
 	}
@@ -3041,17 +3005,13 @@ pushHistory(renderLat, renderLon, now);
 		targetSpeed >= MIN_MOTION_SPEED &&
 		isFinite(motion.heading) &&
 		motion.confidence >= 0.45;
-const rawHeading = mixHeading(
-    gpsHeading,
-    motion.heading,
-    motion.confidence,
-    targetSpeed
-);
-
-
-
-let baseHeading;
-let computedHeading = rawHeading;
+	const rawHeading = mixHeading(
+		gpsHeading,
+		motion.heading,
+		motion.confidence,
+		targetSpeed
+	);
+	let computedHeading = rawHeading;
 	if (movementState === "moving" && !isFinite(computedHeading) && posHistory.length >= 2) {
 		const p1 = posHistory[posHistory.length - 2];
 		const p2 = posHistory[posHistory.length - 1];
@@ -3064,23 +3024,19 @@ let computedHeading = rawHeading;
 			rotationController.current ??
 			0;
 	}
-
-if (movementState === "moving" && isFinite(computedHeading)) {
-
-const stableHeadingFollow =
-    targetSpeed < 15 ? 0.15 :
-    targetSpeed < 60 ? 0.22 :
-    0.30;
-
-rotationController.lastStableHeading =
-    lerpAngle(
-        rotationController.lastStableHeading ?? computedHeading,
-        computedHeading,
-        stableHeadingFollow,
-        targetSpeed
-    );
-
-}
+	if (movementState === "moving" && isFinite(computedHeading)) {
+		const stableHeadingFollow =
+			targetSpeed < 15 ? 0.15 :
+			targetSpeed < 60 ? 0.22 :
+			0.30;
+		rotationController.lastStableHeading =
+			lerpAngle(
+				rotationController.lastStableHeading ?? computedHeading,
+				computedHeading,
+				stableHeadingFollow,
+				targetSpeed
+			);
+	}
 	if (movementState === "stopped") {
 		computedHeading =
 			rotationController.lastStableHeading ??
@@ -3097,21 +3053,13 @@ rotationController.lastStableHeading =
 				hasLockedHeading = true;
 			}
 		if (hasLockedHeading && isFinite(lockedHeading)) {
-			baseHeading = lockedHeading;
 			computedHeading = lockedHeading;
-			lastHeading = lockedHeading;
 		} else {
-			    baseHeading =
-        rotationController.lastStableHeading ??
-        computedHeading;
+			computedHeading = rotationController.lastStableHeading ?? computedHeading;
 		}
-	} else {
-		    baseHeading =
-        rotationController.lastStableHeading ??
-        computedHeading;
 	}
     /// 6) Curve Model
-    const curveStrength01 = targetSpeed < 5
+    const curveStrength01 = targetSpeed < 3
         ? 0
         : computeCurveStrength(motionOk ? motion.turnRate : 0, targetSpeed);
     const isTurning = motionOk && (motion.turnRate > 10 || isUTurn(motion.turnRate, targetSpeed));
@@ -3125,33 +3073,33 @@ rotationController.lastStableHeading =
     }
 	if (isStopped && isFinite(lockedHeading)) {
 		lastHeading = lockedHeading;
-	} else if (isFinite(baseHeading)) {
-		lastHeading = baseHeading;
+	} else if (isFinite(computedHeading)) {
+		lastHeading = computedHeading;
 	}
     /// 7) Initial Heading Safety
-    if (!hasInitialHeading && isFinite(baseHeading) && targetSpeed > MIN_MOTION_SPEED) {
-        rotationController.current = baseHeading;
-        rotationController.lastStableHeading = baseHeading;
-        rotationController.lockedHeading = baseHeading;
+    if (!hasInitialHeading && isFinite(computedHeading) && targetSpeed > MIN_MOTION_SPEED) {
+        rotationController.current = computedHeading;
+        rotationController.lastStableHeading = computedHeading;
+        rotationController.lockedHeading = computedHeading;
         hasInitialHeading = true;
     }
 	    /// 8) Smooth Pan + Zoom
 	if (autoFollow) {
 		if (
-    appliedMapLat === null ||
-    appliedMapLon === null ||
-    panSpringLat === null ||
-    panSpringLon === null
-) {
-    appliedMapLat = renderLat;
-    appliedMapLon = renderLon;
+			appliedMapLat === null ||
+			appliedMapLon === null ||
+			panSpringLat === null ||
+			panSpringLon === null
+		) {
+			appliedMapLat = renderLat;
+			appliedMapLon = renderLon;
 
-    panSpringLat = renderLat;
-    panSpringLon = renderLon;
+			panSpringLat = renderLat;
+			panSpringLon = renderLon;
 
-    panVelocityLat = 0;
-    panVelocityLon = 0;
-}
+			panVelocityLat = 0;
+			panVelocityLon = 0;
+		}
 		if (lastAppliedZoom === null) {
 			lastAppliedZoom = targetZoom;
 		}
@@ -3163,52 +3111,44 @@ rotationController.lastStableHeading =
 		const zoomT = 1 - Math.exp(-zoomLambda * zoomDt * 0.35);
 		lastAppliedZoom = lerp(lastAppliedZoom, targetZoom, zoomT);
 		const zoomLevel = lastAppliedZoom;
-
-const isPanLocked = movementState === "stopped";
-
-if (isPanLocked) {
-
-    panSpringLat = targetLat;
-    panSpringLon = targetLon;
-
-    panVelocityLat = 0;
-    panVelocityLon = 0;
-
-    appliedMapLat = targetLat;
-    appliedMapLon = targetLon;
-
-} else {
-const stiffness =
-    targetSpeed < 20 ? 70 :
-    targetSpeed < 60 ? 55 :
-    45;
-
-const damping =
-    targetSpeed < 20 ? 22 :
-    targetSpeed < 60 ? 18 :
-    15;
-[panSpringLat, panVelocityLat] =
-    springDamper(
-        panSpringLat,
-        targetLat,
-        panVelocityLat,
-        stiffness,
-        damping,
-        dtSec
-    );
-
-[panSpringLon, panVelocityLon] =
-    springDamper(
-        panSpringLon,
-        targetLon,
-        panVelocityLon,
-        stiffness,
-        damping,
-        dtSec
-    );
-    appliedMapLat = panSpringLat;
-    appliedMapLon = panSpringLon;
-}
+		const isPanLocked = movementState === "stopped" && (lastAccuracy ?? 99) < 20;
+		if (isPanLocked) {
+			panSpringLat = renderLat;
+			panSpringLon = renderLon;
+			panVelocityLat = 0;
+			panVelocityLon = 0;
+			appliedMapLat = renderLat;
+			appliedMapLon = renderLon;
+		} else {
+			const stiffness =
+				targetSpeed < 20 ? 70 :
+				targetSpeed < 60 ? 55 :
+				45;
+			const damping =
+				targetSpeed < 20 ? 22 :
+				targetSpeed < 60 ? 18 :
+				15;
+			[panSpringLat, panVelocityLat] =
+				springDamper(
+					panSpringLat,
+					renderLat,
+					panVelocityLat,
+					stiffness,
+					damping,
+					dtSec
+				);
+			[panSpringLon, panVelocityLon] =
+				springDamper(
+					panSpringLon,
+					renderLon,
+					panVelocityLon,
+					stiffness,
+					damping,
+					dtSec
+				);
+			appliedMapLat = panSpringLat;
+			appliedMapLon = panSpringLon;
+		}
 		if (now - lastPanFrameTime >= 16) {
 			map.setView([appliedMapLat, appliedMapLon], zoomLevel, { animate:false, pan:false });
 			lastMapLat = appliedMapLat;
@@ -3222,25 +3162,24 @@ const damping =
     }
     const rotWrapper = rotationWrapperCache;
     if (rotWrapper && autoRotate) {
-const HEADING_DEADBAND =
-    isStopped
-        ? 0.8
-        : targetSpeed < 15 ? 0.02
-        : targetSpeed < 50 ? 0.01
-        : 0.005;
+	const HEADING_DEADBAND = isStopped
+			? 0.8
+			: targetSpeed < 15 ? 0.02
+			: targetSpeed < 50 ? 0.01
+			: 0.005;
 		if (isStopped && isFinite(lockedHeading)) {
-			baseHeading = lockedHeading;
+			computedHeading = lockedHeading;
 		}
-const shouldPrelockHeading =
-    targetSpeed < 3 &&
-    !isTurning &&
-    hasLockedHeading &&
-    isFinite(lockedHeading) &&
-    (lastAccuracy ?? 99) < 10;
+		const shouldPrelockHeading =
+			targetSpeed < 3 &&
+			!isTurning &&
+			hasLockedHeading &&
+			isFinite(lockedHeading) &&
+			(lastAccuracy ?? 99) < 20;
 		let finalTargetHeading = (rotationController.freeze || shouldPrelockHeading) &&
 			isFinite(lockedHeading)
 			? lockedHeading
-			: normalizeAngle(baseHeading ?? rotationController.current ?? 0);
+			: normalizeAngle(computedHeading ?? rotationController.current ?? 0);
 		finalTargetHeading = normalizeAngle(finalTargetHeading);
 		let diff = normalizeAngleDifference(
 			finalTargetHeading,
@@ -3261,10 +3200,8 @@ const shouldPrelockHeading =
 				absDiff > 20 ? 1.35 :
 				1.0;
 			const stiffnessRotation = lerp(65, 110, speedNorm) * turnBoost;
-const dampingRotation =
-    absDiff > 90
-    ? lerp(5,3,speedNorm)
-    : lerp(7,4,speedNorm);		  
+			const dampingRatio = lerp(1.05, 1.25, speedNorm);
+			const dampingRotation = dampingRatio * 2 * Math.sqrt(stiffnessRotation);	  
 			rotationController.velocity += diff * stiffnessRotation * dtSec;
 			rotationController.velocity *= Math.exp(-dampingRotation * dtSec);
 			rotationController.current =
@@ -3843,6 +3780,26 @@ function normalizeGps(pos) {
 	) {
 		sensorSpeedKmh = filteredSpeedKmh;
 	}
+	let finalLat = lat;
+    let finalLon = lon;
+	let jump = 0;
+	if (lastInputGpsLat != null) {
+		jump = haversineMeters(
+			lastInputGpsLat,
+			lastInputGpsLon,
+			lat,
+			lon
+		);
+	}
+	const refSpeed = Math.min(Math.max(sensorSpeedKmh, filteredSpeedKmh), 60);
+	const maxExpectedJump = (refSpeed * dt) / 3.6 + 40;
+	if (gpsAccuracy > 40 && jump > maxExpectedJump &&
+		filteredSpeedKmh < 15 &&
+		lastRawGpsLat != null
+	) {
+		finalLat = lastRawGpsLat;
+		finalLon = lastRawGpsLon;
+	}
 	let speedKmh;
 	let currentSlope = speedSlope;
 	if (lastSpeedSlopeTimestamp) {
@@ -3873,19 +3830,17 @@ function normalizeGps(pos) {
 		speedKmh = 0;		 
 		shownSpeed = 0;
 		displaySpeedInt = 0;
-kf.x[0] = Math.min(kf.x[0],0.3);
-kf.x[1] = Math.min(kf.x[1], 0.5);			
+		kf.x[0] = Math.min(kf.x[0],0.3);
+		kf.x[1] = Math.min(kf.x[1], 0.5);			
 	} else {
 		speedKmh = kalmanUpdate(sensorSpeedKmh, dt, Math.min(gpsAccuracy, 60));
 	}
 	if (wakeUp) {
-kf.P[0][0] = Math.max(kf.P[0][0],80);
-kf.P[1][1] = Math.max(kf.P[1][1],120);
+		kf.P[0][0] = Math.max(kf.P[0][0],80);
+		kf.P[1][1] = Math.max(kf.P[1][1],120);
 	}
 	filteredSpeedKmh = clamp(speedKmh, 0, 260);
 
-    let finalLat = lat;
-    let finalLon = lon;
     if (lastRawGpsLat != null) {
 		if (
 			filteredSpeedKmh < 2 &&
@@ -4132,7 +4087,8 @@ function startTracking() {
 			// --- Update display + map ---
 			updateSpeed(speedKmh);
 			const forceUpdate = !physicallyStopped && (speedKmh > 1.2 || (heading != null && Math.abs(speedSlope) > 8));
-			if (lastRouteLat === null || forceUpdate ||
+			const forcePosition = gpsIntervalSec > 1.5 || (lastAccuracy ?? 99) > 25;
+			if (lastRouteLat === null || forceUpdate || forcePosition ||
 				haversineMeters(lastRouteLat, lastRouteLon, latitude, longitude) > routeThreshold
 			) {
 				updateRoute(latitude, longitude, speedKmh, heading);
@@ -4217,8 +4173,8 @@ function startTracking() {
 				}
 			},{
 				enableHighAccuracy: true,
-				maximumAge: 0,
-				timeout: 1000
+				maximumAge: 500,
+				timeout: 3000
 			}
 		);
 
