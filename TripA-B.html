@@ -992,7 +992,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v54</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v55</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3780,26 +3780,6 @@ function normalizeGps(pos) {
 	) {
 		sensorSpeedKmh = filteredSpeedKmh;
 	}
-	let finalLat = lat;
-    let finalLon = lon;
-	let jump = 0;
-	if (lastInputGpsLat != null) {
-		jump = haversineMeters(
-			lastInputGpsLat,
-			lastInputGpsLon,
-			lat,
-			lon
-		);
-	}
-	const refSpeed = Math.min(Math.max(sensorSpeedKmh, filteredSpeedKmh), 60);
-	const maxExpectedJump = (refSpeed * dt) / 3.6 + 40;
-	if (gpsAccuracy > 40 && jump > maxExpectedJump &&
-		filteredSpeedKmh < 15 &&
-		lastRawGpsLat != null
-	) {
-		finalLat = lastRawGpsLat;
-		finalLon = lastRawGpsLon;
-	}
 	let speedKmh;
 	let currentSlope = speedSlope;
 	if (lastSpeedSlopeTimestamp) {
@@ -3841,6 +3821,8 @@ function normalizeGps(pos) {
 	}
 	filteredSpeedKmh = clamp(speedKmh, 0, 260);
 
+	let finalLat = lat;
+	let finalLon = lon;			   					   
     if (lastRawGpsLat != null) {
 		if (
 			filteredSpeedKmh < 2 &&
@@ -4173,8 +4155,8 @@ function startTracking() {
 				}
 			},{
 				enableHighAccuracy: true,
-				maximumAge: 500,
-				timeout: 3000
+				maximumAge: 0,
+				timeout: 5000
 			}
 		);
 
