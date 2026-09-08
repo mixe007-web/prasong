@@ -1028,7 +1028,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-67</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-89</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2781,8 +2781,10 @@ const RESUME_UNLOCK_SPEED = 3.5;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio = 0) {
     if (!map || !map._loaded) return;
-    // Existing code supplies -heading. MapLibre bearing uses +heading for heading-up navigation.
-    const bearing = normalizeAngle(-rotationDeg);
+    // Match the original V4 navigation direction.
+    // The caller supplies -heading; MapLibre bearing uses that value directly.
+    // Example: vehicle heading 90° (east) => map bearing -90° so east stays at screen top.
+    const bearing = normalizeAngle(rotationDeg);
     const speed = Number(smoothTransformTarget?.speedKmh || lastGpsSpeedKmh || 0);
     const targetPitch = speed >= 55 ? 52 : speed >= 25 ? 48 : speed >= 8 ? 42 : 30;
     const targetPadding = map3DNavigationEnabled && autoFollow
