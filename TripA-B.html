@@ -639,6 +639,10 @@ button:disabled {
   float: none;
 }
 .close-map-modal:hover { color: var(--red); }
+#leafletMap.history-map-canvas{height:500px;border-radius:12px;overflow:hidden;background:#0b1220}
+@media (max-width:560px){#leafletMap.history-map-canvas{height:58vh;min-height:320px}.map-mode-control{right:56px}.gps-status-panel{font-size:9px;min-width:150px}}
+.history-map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 32px 10px 0;font:600 11px/1.3 Rubik,sans-serif;color:var(--text-mid)}
+.history-map-toolbar strong{color:var(--cyan)}
 
 /* ============================================================
    TRIP RECORDER PANEL
@@ -1025,17 +1029,17 @@ span[id^="wltpSegment"] {
 
 
 /* ================= V5.1 GPS / Trip Status ================= */
-.gps-status-panel{position:absolute;left:10px;top:10px;z-index:60;min-width:190px;max-width:72%;padding:7px 9px;border:1px solid rgba(0,220,255,.28);border-radius:10px;background:rgba(4,10,18,.78);backdrop-filter:blur(7px);font:600 10px/1.35 Rubik,sans-serif;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.gps-status-panel{position:absolute;left:10px;top:10px;z-index:60;min-width:190px;max-width:calc(100% - 160px);padding:7px 9px;border:1px solid rgba(0,220,255,.28);border-radius:10px;background:rgba(4,10,18,.78);backdrop-filter:blur(7px);font:600 10px/1.35 Rubik,sans-serif;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,.25)}
 .gps-status-row{display:flex;justify-content:space-between;gap:10px}.gps-status-value{font-weight:800}.gps-state.good{color:var(--green)}.gps-state.fair{color:var(--amber)}.gps-state.weak,.gps-state.lost{color:var(--red)}.gps-state.acquiring,.gps-state.paused{color:var(--cyan)}
 .gps-status-bar{height:3px;margin-top:5px;border-radius:99px;background:currentColor;width:8%;transition:width .35s ease}.tracking-status{margin:7px 0 0;padding:7px 10px;border-radius:9px;border:1px solid rgba(0,220,255,.2);font:700 11px/1.25 Rubik,sans-serif}.tracking-status.info{color:var(--cyan)}.tracking-status.good{color:var(--green)}.tracking-status.warn{color:var(--amber)}.tracking-status.bad{color:var(--red)}
-.nav-mode-panel{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0 0;font:600 10px Rubik,sans-serif}.nav-mode-panel button{font-size:10px;padding:5px 8px}.nav-mode-label{opacity:.72}
+.map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.82);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-57-V5.1</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-58-V67</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1071,7 +1075,6 @@ span[id^="wltpSegment"] {
 		<button id="stopBtn" disabled>■ Stop Trip</button>
 	</div>
     <div id="trackingStatus" class="tracking-status info" aria-live="polite"><span id="trackingStatusText">READY</span><span id="trackingStatusMeta" style="float:right;opacity:.7;font-weight:500">GPS standby</span></div>
-    <div class="nav-mode-panel"><span class="nav-mode-label">Map mode:</span><button id="navModeBtn" type="button">🧭 NAV</button><span id="navModeText">Follow / 3D</span></div>
 <!-- ================= Trip Recorder Panel ================= -->
 	<div id="tripRecorderPanel">
 		<h2>📋 Trip Recorder</h2>
@@ -1092,6 +1095,10 @@ span[id^="wltpSegment"] {
 			<div id="map-container" style="position: relative; width: 100%; height: 370px; overflow: hidden;">
 			
 				<div id="map"></div>
+                <div class="map-mode-control" aria-label="Map mode control">
+                  <span class="map-mode-label">MODE</span>
+                  <button id="navModeBtn" type="button" title="สลับ NAV / EXPLORE">🧭 NAV</button>
+                </div>
                 <div id="gpsStatusPanel" class="gps-status-panel" aria-live="polite">
                   <div class="gps-status-row"><span>GPS</span><span id="gpsStateText" class="gps-status-value gps-state acquiring">ACQUIRING</span></div>
                   <div class="gps-status-row"><span>Accuracy</span><span id="gpsAccuracyStatus">±-- m</span></div>
@@ -2580,6 +2587,71 @@ async function loadHistory(limit = null) {
   });
 }
 
+// ============================================================
+// HISTORY MAP — independent MapLibre instance
+// Opening History never reuses or modifies the live tracking map.
+// ============================================================
+let historyMapInstance = null;
+let historyMapMarkers = [];
+function normalizeHistoryPath(path) {
+    if (!Array.isArray(path)) return [];
+    const out = [];
+    for (const p of path) {
+        let lat, lon, speed = 0, time = Date.now();
+        if (Array.isArray(p)) {
+            lat=Number(p[0]); lon=Number(p[1]); speed=Number(p[2])||0; time=Number(p[3])||time;
+        } else if (p && typeof p === 'object') {
+            if (typeof p.coord === 'string') {
+                const a=p.coord.split(',').map(Number); lat=a[0]; lon=a[1];
+            } else { lat=Number(p.lat ?? p.latitude); lon=Number(p.lon ?? p.lng ?? p.longitude); }
+            speed=Number(p.speed ?? p.speedKmh)||0; time=Number(p.time ?? p.timestamp)||time;
+        }
+        if(Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180) out.push([lat,lon,speed,time]);
+    }
+    const clean=[];
+    for(const p of out){const q=clean[clean.length-1];if(!q||q[0]!==p[0]||q[1]!==p[1])clean.push(p);}
+    return clean;
+}
+function closeHistoryMapModal(){
+    const modal=document.getElementById('mapModal'); if(modal) modal.style.display='none';
+    document.body.classList.remove('modal-open'); window.isHistoryModalOpen=false;
+    historyMapMarkers.forEach(m=>{try{m.remove();}catch(_){}}); historyMapMarkers=[];
+    if(historyMapInstance){try{historyMapInstance.remove();}catch(_){ } historyMapInstance=null;}
+}
+function showLeafletMapFromTrip(trip){
+    const points=normalizeHistoryPath(trip?.path);
+    if(!points.length){alert('Trip นี้ไม่มีข้อมูลเส้นทาง GPS สำหรับแสดงแผนที่');return;}
+    const modal=document.getElementById('mapModal'), container=document.getElementById('leafletMap'), info=document.getElementById('mapTripInfo');
+    if(!modal||!container||!info){console.error('History map modal elements are missing');return;}
+    closeHistoryMapModal(); modal.style.display='block'; window.isHistoryModalOpen=true; document.body.classList.add('modal-open'); container.classList.add('history-map-canvas');
+    info.innerHTML=`<div class="history-map-toolbar"><span><strong>${escapeHtml(trip?.plateNumber||trip?.tripName||'Trip')}</strong> · ${points.length.toLocaleString()} GPS points</span><span>${Number(trip?.distance||0).toFixed(3)} km</span></div>`;
+    if(!window.maplibregl||typeof maplibregl.Map!=='function'){info.innerHTML+='<div style="padding:12px 0;color:var(--red)">MapLibre ไม่พร้อมใช้งาน จึงไม่สามารถเปิดแผนที่ย้อนหลังได้</div>';return;}
+    const start=points[0], end=points[points.length-1];
+    const styleUrl=MAP_CONFIG.apiKey.trim()?`https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(MAP_CONFIG.apiKey.trim())}`:'https://demotiles.maplibre.org/style.json';
+    try{
+        historyMapInstance=new maplibregl.Map({container,style:styleUrl,center:[start[1],start[0]],zoom:14,bearing:0,pitch:0,attributionControl:false,antialias:true,renderWorldCopies:true,maxPitch:60});
+        const hm=historyMapInstance;
+        hm.on('load',()=>{
+            if(historyMapInstance!==hm)return;
+            try{
+                const features=[];
+                for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];features.push({type:'Feature',properties:{color:getSpeedColor(b[2]||0)},geometry:{type:'LineString',coordinates:[[a[1],a[0]],[b[1],b[0]]]}});}
+                hm.addSource('history-route-source',{type:'geojson',data:{type:'FeatureCollection',features},lineMetrics:true});
+                hm.addLayer({id:'history-route-layer',type:'line',source:'history-route-source',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['coalesce',['get','color'],'#00e5ff'],'line-width':4,'line-opacity':.95}});
+                const se=document.createElement('div');se.style.cssText='width:30px;height:30px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px';se.textContent='🚗';
+                const ee=document.createElement('div');ee.style.cssText='width:30px;height:30px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px';ee.textContent='🏁';
+                const sm=new maplibregl.Marker({element:se,anchor:'center'}).setLngLat([start[1],start[0]]).setPopup(new maplibregl.Popup({offset:18,closeButton:false}).setText('🚗 จุดเริ่มต้น')).addTo(hm);
+                const em=new maplibregl.Marker({element:ee,anchor:'center'}).setLngLat([end[1],end[0]]).setPopup(new maplibregl.Popup({offset:18,closeButton:false}).setText('🏁 จุดสิ้นสุด')).addTo(hm); historyMapMarkers=[sm,em];
+                if(points.length>1){const bounds=new maplibregl.LngLatBounds();points.forEach(p=>bounds.extend([p[1],p[0]]));hm.fitBounds(bounds,{padding:{top:55,bottom:55,left:45,right:45},maxZoom:17,animate:false});}else{hm.setCenter([start[1],start[0]]);hm.setZoom(17);}
+                requestAnimationFrame(()=>{try{hm.resize();}catch(_){}});
+            }catch(e){console.error('History map render failed',e);info.innerHTML+=`<div style="padding:8px 0;color:var(--red)">ไม่สามารถวาดเส้นทางย้อนหลังได้: ${escapeHtml(e?.message||'unknown error')}</div>`;}
+        });
+        hm.on('error',e=>console.warn('History MapLibre error',e));
+        requestAnimationFrame(()=>{try{hm.resize();}catch(_){}});
+    }catch(e){console.error('History map initialization failed',e);info.innerHTML+=`<div style="padding:8px 0;color:var(--red)">เปิดแผนที่ย้อนหลังไม่สำเร็จ: ${escapeHtml(e?.message||'unknown error')}</div>`;}
+}
+window.showHistoryMapFromTrip=showLeafletMapFromTrip;
+
 // 🚗 MAP TRACKING CORE (CLEAN)
 let map = null;
 let vehicleMarker = null;
@@ -3576,6 +3648,7 @@ function initMap(lat, lon) {
             map.jumpTo({center:[lon,lat],zoom:BASE_ZOOM,bearing:0,pitch:0});
             map3DSetActive(false);
             disableMapInteraction();
+            syncMapModeUi();
             map.resize();
         });
     }
@@ -3710,35 +3783,21 @@ if (tripInfoToggleBtn && tripInfoSection) {
     });
 }
 
-// 🔹 GPS FOLLOW BUTTON (FIXED)
-const navModeBtn=document.getElementById('navModeBtn');
-if(navModeBtn)navModeBtn.addEventListener('click',()=>{autoFollow=!autoFollow;autoRotate=autoFollow;map3DSetActive(autoFollow);const text=document.getElementById('navModeText');navModeBtn.textContent=autoFollow?'🧭 NAV':'🖐 EXPLORE';if(text)text.textContent=autoFollow?'Follow / 3D':'Manual map / Explore';if(autoFollow){disableMapInteraction();if(lastGpsLat!=null)forceRecenterToVehicle();}else enableMapInteraction();if(isTracking)setTrackingStatus(autoFollow?'TRACKING — NAV MODE':'TRACKING — EXPLORE MODE','good',autoFollow?'FOLLOW + 3D':'Manual map');});
-document.getElementById('gpsFollowBtn').addEventListener('click', () => {
-    if (!map || !vehicleMarker) return;
-    const btn = document.getElementById('gpsFollowBtn');
-    autoFollow = !autoFollow;
-	if (autoFollow) {
-		btn.classList.add('active');
-		btn.innerHTML = '🚗';
-		disableMapInteraction();
-		autoRotate = true;
-		forceRecenterToVehicle();
-	} else {
-        btn.classList.remove('active');
-        btn.innerHTML = '👆';
-        enableMapInteraction();
-        autoRotate = false;
-        if (smoothTransformAnimFrame) {
-            cancelAnimationFrame(smoothTransformAnimFrame);
-            smoothTransformAnimFrame = null;
-        }
-        resetMapRotation(() => {
-            if (vehicleMarker && typeof vehicleMarker.setRotationAngle === 'function') {
-                vehicleMarker.setRotationAngle(lastGpsHeading || 0);
-            }
-        });
-    }
-});
+// 🔹 UNIFIED MAP MODE CONTROL
+function syncMapModeUi(){
+    const navBtn=document.getElementById('navModeBtn'), followBtn=document.getElementById('gpsFollowBtn');
+    if(navBtn){navBtn.textContent=autoFollow?'🧭 NAV':'🖐 EXPLORE';navBtn.setAttribute('aria-pressed',String(autoFollow));navBtn.title=autoFollow?'NAV: ติดตามรถ + 3D':'EXPLORE: เลื่อน/ซูมแผนที่เอง';}
+    if(followBtn){followBtn.classList.toggle('active',autoFollow);followBtn.innerHTML='◎';followBtn.title=autoFollow?'NAV: จัดรถกลับตำแหน่งติดตาม':'กลับสู่ NAV และติดตามตำแหน่งรถ';}
+    map3DSetActive(autoFollow);
+}
+function setMapModeNavigation(enabled,recenter=true){
+    autoFollow=!!enabled; autoRotate=autoFollow; syncMapModeUi();
+    if(autoFollow){disableMapInteraction();if(recenter&&lastGpsLat!=null&&lastGpsLng!=null)forceRecenterToVehicle();}
+    else{enableMapInteraction();if(smoothTransformAnimFrame){cancelAnimationFrame(smoothTransformAnimFrame);smoothTransformAnimFrame=null;}resetMapRotation(()=>{if(vehicleMarker?.setRotationAngle)vehicleMarker.setRotationAngle(lastGpsHeading||0);});}
+    if(isTracking)setTrackingStatus(autoFollow?'TRACKING — NAV MODE':'TRACKING — EXPLORE MODE','good',autoFollow?'FOLLOW + 3D':'Manual map');
+}
+const navModeBtn=document.getElementById('navModeBtn'); if(navModeBtn)navModeBtn.addEventListener('click',()=>setMapModeNavigation(!autoFollow,true));
+const gpsFollowBtn=document.getElementById('gpsFollowBtn'); if(gpsFollowBtn)gpsFollowBtn.addEventListener('click',()=>{if(!map||!vehicleMarker)return;setMapModeNavigation(true,true);});
 function resetTrackingVisualState() {
 	resetFollowRotationState(true);
 	autoFollow = true;
@@ -3764,6 +3823,7 @@ panVelocityLon = 0;
 	}
 	try { if (map && map._loaded) map.jumpTo({bearing:0,pitch:0,padding:{top:0,right:0,bottom:0,left:0}}); } catch(e) {}
 	map3DSetActive(false);
+	syncMapModeUi();
 	if (vehicleMarker?.setRotationAngle) {
 		vehicleMarker.setRotationAngle(0);
 	}
@@ -4524,6 +4584,10 @@ document.getElementById("batterySOCUsed")
 	document.getElementById("showAllBtn").onclick = () => loadHistory();
   loadHistory();
   window.reloadTripHistory = loadHistory;
+  const historyModal=document.getElementById('mapModal'), historyClose=document.querySelector('.close-map-modal');
+  if(historyClose&&!historyClose._historyBound){historyClose._historyBound=true;historyClose.addEventListener('click',closeHistoryMapModal);}
+  if(historyModal&&!historyModal._historyBackdropBound){historyModal._historyBackdropBound=true;historyModal.addEventListener('click',e=>{if(e.target===historyModal)closeHistoryMapModal();});}
+  if(!window._historyEscapeBound){window._historyEscapeBound=true;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&window.isHistoryModalOpen)closeHistoryMapModal();});}
   setTrackingStatus("READY","info","GPS standby"); updateGpsUi("paused",null);
   setTimeout(recoverActiveTripDraft,500);
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reacquireWakeLockIfNeeded();if(isTracking)saveActiveTripDraft();updateGpsUi(isTracking?gpsConnectionState:"paused",lastAccuracy);},{passive:true});
