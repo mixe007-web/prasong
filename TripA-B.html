@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Real-time Trip A-B</title>
+<title>Trip A-B Professional GPS EV Tracker</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -15,7 +15,6 @@
 <!-- Leaflet Core -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/bbecquet/Leaflet.RotatedMarker/leaflet.rotatedMarker.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -992,7 +991,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v55</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-56</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1049,7 +1048,7 @@ span[id^="wltpSegment"] {
 				<div id="map"></div>
 				<div id="gpsAccuracy" class="gps-accuracy">±-- m</div>
 				<button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
-				<img src="https://img.icons8.com/fluency/48/place-marker.png" alt="GPS">
+				<span aria-hidden="true" style="font-size:20px;line-height:1">◎</span>
 				</button>
 			</div>
 			<div style="padding:10px 14px 0;">
@@ -1101,7 +1100,7 @@ span[id^="wltpSegment"] {
 		</div>
 	</div>
 	<h3 style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-	<button id="toggleTripInfoBtn">Trip Information ▼</button>
+	<button id="toggleTripInfoBtn" type="button" aria-expanded="false" aria-controls="tripInfoSection">Trip Information ▼</button>
 </h3>
 	<div id="tripInfoSection" style="display:none;">
 <div class="trip-grid">
@@ -1227,6 +1226,44 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 (() => {
+const APP_VERSION = "PRO-56";
+const VEHICLE_CONFIG = Object.freeze({
+  batteryKWh: 75.3,
+  nedcKm: 602,
+  wltpFactor: 1.275,
+  massKg: 2100,
+  idlePowerW: 350
+});
+
+// Embedded vector vehicle image: self-contained, no external image host or expiry.
+const VEHICLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#dff8ff"/><stop offset=".45" stop-color="#49d9ff"/><stop offset="1" stop-color="#007ea8"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#071522"/><stop offset="1" stop-color="#163b52"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <g filter="url(#glow)">
+    <rect x="17" y="8" width="86" height="164" rx="38" fill="#06111b" stroke="#00d8ff" stroke-width="3"/>
+    <path d="M30 49 Q32 18 60 16 Q88 18 90 49 L84 132 Q81 157 60 164 Q39 157 36 132Z" fill="url(#body)" stroke="#aaf3ff" stroke-width="2"/>
+    <path d="M38 53 Q40 27 60 24 Q80 27 82 53 L76 79 Q60 86 44 79Z" fill="url(#glass)" stroke="#6ee9ff" stroke-width="1.5"/>
+    <path d="M44 86 Q60 93 76 86 L79 119 Q60 129 41 119Z" fill="#0a2433" opacity=".9"/>
+    <path d="M41 120 Q60 130 79 120 L75 139 Q60 151 45 139Z" fill="#b7f7ff" opacity=".75"/>
+    <path d="M20 57 h13 M20 123 h13 M87 57 h13 M87 123 h13" stroke="#00ff9a" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="60" cy="12" r="3" fill="#fff"/>
+    <circle cx="60" cy="168" r="3" fill="#00ff9a"/>
+  </g>
+</svg>`;
+const VEHICLE_ICON_URL = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(VEHICLE_SVG);
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[ch]));
+}
+
 //Trip Recorder - Standalone
 const tripRecorderBtn = document.getElementById("tripRecorderBtn");
 const tripRecorderPanel = document.getElementById("tripRecorderPanel");
@@ -1284,7 +1321,7 @@ function renderTrips(){
 		div.innerHTML=`
 		<div class="trip-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
 			<label for="tripName${trip.id}" style="flex: 0 0 auto;">Trip:</label>
-			<input type="text" id="tripName${trip.id}" value="${trip.name || ''}" placeholder="กรอกชื่อทริป" style="flex: 1 1 auto; min-width: 0;">
+			<input type="text" id="tripName${trip.id}" value="${escapeHtml(trip.name || '')}" placeholder="กรอกชื่อทริป" style="flex: 1 1 auto; min-width: 0;">
 		</div>
 		<div class="trip-row battery-wrapper">
 			<label>Start/km:</label>
@@ -1459,7 +1496,7 @@ function updateHistory() {
 			div.className = 'trip-history-record';
 			div.innerHTML = `
 			<div class="record-header">
-				${record.tripName || `Trip ${record.tripId}`} | ${new Date(record.timestamp).toLocaleDateString()}
+				${escapeHtml(record.tripName || `Trip ${record.tripId}`)} | ${new Date(record.timestamp).toLocaleDateString()}
 			</div>
 			<div class="record-details">
 				<div><span class="field-name">Start/SOC:</span> <span class="field-value">${(Number(record.startSOC)||0).toFixed(2)}%</span></div>
@@ -1535,7 +1572,7 @@ updateHistory();
   let driveEnergyWh = 0;
   let driveDistanceKm = 0;
   let rawSpeedKmh = 0;
-  const idlePowerWatts = 350; //มีระบบ A/C, จอ ฯลฯ 
+  const idlePowerWatts = VEHICLE_CONFIG.idlePowerW; //มีระบบ A/C, จอ ฯลฯ 
   const plateInput = document.getElementById("plateNumber");
   const startBtn = document.getElementById("startBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -1588,7 +1625,7 @@ function updateBatterySOCUsedDisplay() {
     const socPercent = parseFloat(
         document.getElementById("socPercent").textContent.replace('%', '')
     );
-    const currentSOCUsed = (totalEnergyWh / 1000) / 75.3 * 100;
+    const currentSOCUsed = (totalEnergyWh / 1000) / VEHICLE_CONFIG.batteryKWh * 100;
     const deltaSOC = currentSOCUsed - lastSOCUsed;
     if (deltaSOC > 0 && socPercent >= 17 && socPercent <= 32) {
         socBonusPercent += deltaSOC * SocOver;
@@ -2027,7 +2064,7 @@ let socUsedInSegment = [0, 0, 0];
 let startSOCOfSegment = [0, 0, 0];
 
 function kmToSOC(km) {
-	return parseFloat(((km / 602) * 100).toFixed(2));
+	return parseFloat(((km / VEHICLE_CONFIG.nedcKm) * 100).toFixed(2));
 }
 function updateSOCLogic() {
 	const inputKm = [
@@ -2099,7 +2136,7 @@ function updateWLTPDisplay() {
 		if (chk.checked) {
 			const km = parseFloat(input.value);
 			if (!isNaN(km) && km > 0) {
-				const wltp = km / 1.275;
+				const wltp = km / VEHICLE_CONFIG.wltpFactor;
 				output.textContent = ` WLTP : ${wltp.toFixed(3)} km`;
 			} else {
 				output.textContent = `= กรุณากรอกระยะทาง`;
@@ -2155,7 +2192,7 @@ function updateBatteryBars(socValue) {
 	const socPercent = document.getElementById("socPercent");
 	socPercent.textContent = `${clampedSOC.toFixed(2)}%`;
 	socPercent.style.color = barColor; 
-	const wltpKm = (((clampedSOC * 602) / 100) / 1.275);
+	const wltpKm = (((clampedSOC * VEHICLE_CONFIG.nedcKm) / 100) / VEHICLE_CONFIG.wltpFactor);
 	const wltpKmValueElem = document.getElementById("wltpKmValue");
 	const wltpKmLabelElem = document.getElementById("wltpKmLabel");
 	wltpKmValueElem.classList.remove("blinking-red");
@@ -2232,7 +2269,7 @@ function updatePosition(lat, lon, alt, speedKmh) {
 	prevAlt = alt;
 }
 function applyExtraEnergyByUphill(deltaAlt, speedKmh) {
-	const vehicleMassKg = 2100;
+	const vehicleMassKg = VEHICLE_CONFIG.massKg;
 	const gravity = 9.81;
 	const uphillEfficiencyFactor = 1.05;
 	const uphillEnergyJ = vehicleMassKg * gravity * Math.abs(deltaAlt);
@@ -2248,7 +2285,7 @@ updateBatterySOCUsedDisplay();
 	if (typeof updateSOCLogic === 'function') updateSOCLogic();
 }
 function applyRegenBySlope(deltaAlt, speedKmh) {
-	const vehicleMassKg = 2100;
+	const vehicleMassKg = VEHICLE_CONFIG.massKg;
 	const gravity = 9.81;
 	const regenEfficiency = getDynamicRegenEfficiency(speedKmh, deltaAlt);
 	const regenEnergyJ = vehicleMassKg * gravity * Math.abs(deltaAlt);
@@ -2289,7 +2326,7 @@ function applyRegenBraking(prevSpeedKmh, currentSpeedKmh, dt) {
 	const now = Date.now();
 	if (now - lastRegenTime < 200) return;
 	lastRegenTime = now;
-	const vehicleMassKg = 2100;
+	const vehicleMassKg = VEHICLE_CONFIG.massKg;
 	if (currentSpeedKmh < 20) return;
 	const vOld = prevSpeedKmh / 3.6;
 	const vNew = currentSpeedKmh / 3.6;
@@ -2328,174 +2365,167 @@ updateBatterySOCUsedDisplay();
 	if (typeof updateEfficiency === 'function') updateEfficiency();
 	if (typeof updateSOCLogic === 'function') updateSOCLogic();
 }
-function saveTripToStorage(trip) {
-    let trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
-    trips.push(trip);
-    if (trips.length > 100) trips.shift();
-    localStorage.setItem("tripHistory", JSON.stringify(trips));
-}
-function updateLastTripInStorage(newData) {
-	let trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
-	if (trips.length === 0) return;
-	let last = trips[trips.length - 1];
-	trips[trips.length - 1] = Object.assign({}, last, newData);
-	localStorage.setItem("tripHistory", JSON.stringify(trips));
-}
-function clearTrip(index) {
-	let trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
-	if (index >= 0 && index < trips.length) {
-		if (confirm("ลบ Trip นี้ใช่หรือไม่?")) {
-			trips.splice(index, 1);
-			localStorage.setItem("tripHistory", JSON.stringify(trips));
-			loadHistory(); 
-		}
-	}
-}
-function loadHistory(limit = null) {
-	const allTrips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
-	if (allTrips.length === 0) {
-		historyContainer.innerHTML = "<p>ไม่มีประวัติ Trip</p>";
-		return;
-	}
-	const limitedTrips = limit != null
-		? allTrips.slice(-limit)
-		: allTrips.slice(-100);
-	const shownTrips = limitedTrips.map((trip, i) => ({
-		...trip,
-		originalIndex: allTrips.length - limitedTrips.length + i
-	})).reverse();
-	let html = "";
-	shownTrips.forEach((trip) => {
-		html += `
-		<div class="trip-entry" data-index="${trip.originalIndex}">
-        <div class="trip-header">
-          <strong>เดินทาง: ${trip.plateNumber || "-"}</strong>
-          <button class="clear-trip-btn" data-index="${trip.originalIndex}">ล้างข้อมูล</button>
-          <button class="show-map-btn" data-index="${trip.originalIndex}">แผนที่</button>
-        </div>
-        <p>ระยะทางทั้งหมด : ${parseFloat(trip.distance || 0).toFixed(3)}km</p>
-        <p>พลังงานรีเจน : ${(trip.totalRegenEnergy || 0).toFixed(2)} kWh</p>
-        <p>เวลาที่รถหยุด : ${formatTime(trip.idleTimeSeconds || 0)}</p>
-		<p>เวลาที่ใช้เดินทางทั้งหมด : ${formatTime(trip.elapsedTime || 0)}</p>
-        <p>ความเร็วสูงสุด : ${parseFloat(trip.maxSpeed || 0).toFixed(1)}km/h</p>
-        <p>ความเร็วเฉลี่ย : ${parseFloat(trip.avgSpeed || 0).toFixed(1)}km/h</p>
-        <p>Energy/Trip : ${(trip.energyConsumption || 0).toFixed(2)} kWh</p>
-        <p>SOC/Trip : ${(trip.batterySOCUsedPercent || 0).toFixed(2)}%</p>
-        <p>พลังงานใช้เฉลี่ย : ${(trip.energyPer100km || 0).toFixed(2)} kWh/100km : ${(trip.avgEfficiencyPerPercent || 0).toFixed(3)} km/1%</p>
-        <p>เริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"} , ${trip.startCoord || "-"}</p>
-        <p>สิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"} , ${trip.endCoord || "-"}</p>	
-      </div>`;
-	});
-	historyContainer.innerHTML = html;
-	document.querySelectorAll(".clear-trip-btn").forEach(btn => {
-		btn.onclick = (e) => {
-			const index = parseInt(e.target.dataset.index);
-			clearTrip(index);
-		};
-	});
-	document.querySelectorAll(".show-map-btn").forEach((btn, i) => {
-		const trip = shownTrips[i];
-			btn.onclick = () => {
-				showLeafletMapFromTrip(trip);
-			};
-	});
-}
-document.getElementById("toggleTripInfoBtn").addEventListener("click", function () {
-	const section = document.getElementById("tripInfoSection");
+let activeTripId = null;
+let historyLoadSeq = 0;
 
-	if (section.style.display === "none") {
-		section.style.display = "block";
-		this.innerHTML = "Trip information ▲";
-	} else {
-		section.style.display = "none";
-		this.innerHTML = "Trip information ▼";
-	}
-});
-// 🚗 SHOW HISTORY MAP (MODAL) — FINAL FIXED VERSION
-const startIcon = L.divIcon({
-	html: '🚗',
-	className: '',
-	iconSize: [30, 30],
-	iconAnchor: [15, 15]
-});
-const endIcon = L.divIcon({
-	html: '🏁',
-	className: '',
-	iconSize: [30, 30],
-	iconAnchor: [15, 15]
-});
-// ✅ showLeafletMapFromTrip
-function showLeafletMapFromTrip(trip) {
-	if (!trip?.path?.length) return alert("Trip นี้ไม่มีข้อมูลตำแหน่ง");
-	const mapModal = document.getElementById('mapModal');
-	const tripInfo = document.getElementById("mapTripInfo");
-	const mapContainer = document.getElementById("leafletMap");
-	if (!mapModal || !tripInfo || !mapContainer) return;
-	if (window.map) {
-		["dragging","scrollWheelZoom","doubleClickZoom","boxZoom","keyboard","touchZoom"].forEach(f => {
-			window.map[f]?.disable?.();
-		});
-		mapContainer.style.pointerEvents = "auto";
-	}
-	mapModal.style.display = "block";
-	document.body.classList.add('modal-open');
-	window.isHistoryModalOpen = true;
-	if (window.replayMap) window.replayMap.remove();
-	if (mapContainer._leaflet_id) mapContainer._leaflet_id = null;
-	const m = L.map('leafletMap', { center: [13.7563, 100.5018], zoom: BASE_ZOOM });
-	window.replayMap = m;
-	L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-		attribution: '&copy; OpenStreetMap contributors, &copy; CARTO', noWrap: true
-	}).addTo(m);
-	const entries = trip.path
-    .map(p => {
-		if (!p.coord) return null;
-			const [lat, lng] = p.coord.split(',').map(Number);
-		return (isFinite(lat) && isFinite(lng)) ? { lat, lng, speed: p.speed ?? 0 } : null;
-    })
-    .filter(Boolean);
-	for (let i = 0; i < entries.length - 1; i++) {
-		const a = entries[i];
-		const b = entries[i + 1];
-		L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
-			color: getSpeedColor(b.speed),
-			weight: 5,
-			opacity: 0.9
-		}).addTo(m).bindTooltip(`${b.speed.toFixed(1)} km/h`, { permanent: false, offset: [0, -5] });
-	}
-	const start = entries[0];
-	const end = entries[entries.length - 1];
-	L.marker([start.lat, start.lng], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(m);
-	L.marker([end.lat, end.lng], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(m);
-	const latlngs = entries.map(e => [e.lat, e.lng]);
-	if (latlngs.length >= 2) m.fitBounds(latlngs, { padding: [40, 40], maxZoom: BASE_ZOOM });
-	else m.setView(latlngs[0], BASE_ZOOM);
-	setTimeout(() => m.invalidateSize(), 300);
-	tripInfo.innerHTML = `
-		<strong>ระยะทาง (กม.):</strong> ${trip.distance?.toFixed(3) ?? 0} km<br/>
-		<strong>เวลารถจอดนิ่ง:</strong> ${formatTime(trip.idleTimeSeconds ?? 0)}<br/>
-		<strong>เวลาเดินทางทั้งหมด:</strong> ${formatTime(trip.elapsedTime ?? 0)}<br/>
-		<strong>ความเร็วสูงสุด:</strong> ${trip.maxSpeed?.toFixed(1) ?? 0} km/h<br/>
-		<strong>ความเร็วเฉลี่ย:</strong> ${trip.avgSpeed?.toFixed(1) ?? 0} km/h<br/>
-		<strong>พลังงานใช้เฉลี่ย:</strong> ${trip.energyPer100km?.toFixed(2) ?? 0} kWh/100km<br/>
-		<strong>Energy/Trip:</strong> ${trip.energyConsumption?.toFixed(2) ?? 0} kWh<br/>
-		<strong>SOC/Trip:</strong> ${trip.batterySOCUsedPercent?.toFixed(2) ?? 0} %
-	`;
-	const closeModal = () => {
-		window.isHistoryModalOpen = false;
-		mapModal.style.display = "none";
-		document.body.classList.remove('modal-open');
-		tripInfo.innerHTML = '';
-		mapModal.scrollTop = 0;
-		if (window.replayMap) { window.replayMap.remove(); window.replayMap = null; }
-		if (window.map) ["dragging","scrollWheelZoom","doubleClickZoom","boxZoom","keyboard","touchZoom"].forEach(f => window.map[f]?.enable?.());
-			mapContainer.style.pointerEvents = "auto";
-	};
-	document.querySelector(".close-map-modal")?.addEventListener('click', closeModal);
-	window.removeEventListener('click', window._mapModalClickHandler);
-	window._mapModalClickHandler = (e) => { if (e.target === mapModal) closeModal(); };
-	window.addEventListener('click', window._mapModalClickHandler);
+async function saveTripToStorage(trip) {
+  try {
+    const saved = await saveTripToIndexedDB({ ...trip });
+    activeTripId = saved?.id ?? activeTripId;
+    return saved;
+  } catch (err) {
+    console.warn("[Storage] IndexedDB save failed; using localStorage fallback", err);
+    const trips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+    const fallbackTrip = { ...trip };
+    if (!fallbackTrip.id) fallbackTrip.id = `ls-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    trips.push(fallbackTrip);
+    if (trips.length > 100) trips.splice(0, trips.length - 100);
+    localStorage.setItem("tripHistory", JSON.stringify(trips));
+    activeTripId = fallbackTrip.id;
+    return fallbackTrip;
+  }
 }
+
+async function updateLastTripInStorage(newData) {
+  try {
+    const trips = await getTripDataFromIndexedDB();
+    let target = activeTripId != null
+      ? trips.find(t => String(t.id) === String(activeTripId))
+      : trips[trips.length - 1];
+
+    if (!target) {
+      const legacy = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+      target = legacy[legacy.length - 1];
+    }
+    if (!target) return null;
+
+    const merged = { ...target, ...newData, id: target.id };
+    if (typeof target.id === "number") {
+      await saveTripToIndexedDB(merged);
+      activeTripId = target.id;
+    } else {
+      const legacy = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+      const idx = legacy.findIndex(t => String(t.id) === String(target.id));
+      if (idx >= 0) {
+        legacy[idx] = merged;
+        localStorage.setItem("tripHistory", JSON.stringify(legacy));
+      }
+      activeTripId = target.id;
+    }
+    return merged;
+  } catch (err) {
+    console.warn("[Storage] update failed", err);
+    return null;
+  }
+}
+
+async function deleteTripFromIndexedDB(id) {
+  const db = await openTripDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(TRIP_STORE, "readwrite");
+    const req = tx.objectStore(TRIP_STORE).delete(id);
+    req.onerror = () => reject(req.error || new Error("Delete failed"));
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); reject(tx.error || new Error("Delete transaction failed")); };
+  });
+}
+
+async function migrateLegacyTripsToIndexedDB(legacyTrips) {
+  if (!Array.isArray(legacyTrips) || !legacyTrips.length) return [];
+  const migrated = [];
+  for (const legacy of legacyTrips) {
+    try {
+      const copy = { ...legacy };
+      delete copy.id;
+      const saved = await saveTripToIndexedDB(copy);
+      migrated.push(saved);
+    } catch (e) {
+      console.warn("[Storage] legacy migration skipped", e);
+    }
+  }
+  return migrated;
+}
+
+async function loadHistory(limit = null) {
+  const requestId = ++historyLoadSeq;
+  let allTrips = [];
+  try {
+    allTrips = await getTripDataFromIndexedDB();
+    if (!allTrips.length) {
+      const legacy = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+      if (legacy.length) {
+        allTrips = await migrateLegacyTripsToIndexedDB(legacy);
+        if (allTrips.length) localStorage.removeItem("tripHistory");
+      }
+    }
+  } catch (err) {
+    console.warn("[Storage] history read failed", err);
+    allTrips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+  }
+
+  if (requestId !== historyLoadSeq) return;
+  allTrips.sort((a, b) => (Number(b.startTime || b.timestamp || b.id) || 0) -
+                           (Number(a.startTime || a.timestamp || a.id) || 0));
+
+  if (!allTrips.length) {
+    historyContainer.innerHTML = "<p>ไม่มีประวัติ Trip</p>";
+    return;
+  }
+
+  const shownTrips = limit != null ? allTrips.slice(0, limit) : allTrips.slice(0, 100);
+  let html = "";
+  shownTrips.forEach((trip) => {
+    const tripName = escapeHtml(trip.plateNumber || "-");
+    html += `
+      <div class="trip-entry" data-id="${escapeHtml(trip.id)}">
+        <div class="trip-header">
+          <strong>เดินทาง: ${tripName}</strong>
+          <button class="clear-trip-btn" data-id="${escapeHtml(trip.id)}">ล้างข้อมูล</button>
+          <button class="show-map-btn" data-id="${escapeHtml(trip.id)}">แผนที่</button>
+        </div>
+        <p>ระยะทางทั้งหมด : ${parseFloat(trip.distance || 0).toFixed(3)} km</p>
+        <p>พลังงานรีเจน : ${(Number(trip.totalRegenEnergy) || 0).toFixed(2)} kWh</p>
+        <p>เวลาที่รถหยุด : ${formatTime(trip.idleTimeSeconds || 0)}</p>
+        <p>เวลาที่ใช้เดินทางทั้งหมด : ${formatTime(trip.elapsedTime || 0)}</p>
+        <p>ความเร็วสูงสุด : ${parseFloat(trip.maxSpeed || 0).toFixed(1)} km/h</p>
+        <p>ความเร็วเฉลี่ย : ${parseFloat(trip.avgSpeed || 0).toFixed(1)} km/h</p>
+        <p>Energy/Trip : ${(Number(trip.energyConsumption) || 0).toFixed(2)} kWh</p>
+        <p>SOC/Trip : ${(Number(trip.batterySOCUsedPercent) || 0).toFixed(2)}%</p>
+        <p>พลังงานใช้เฉลี่ย : ${(Number(trip.energyPer100km) || 0).toFixed(2)} kWh/100km : ${(Number(trip.avgEfficiencyPerPercent) || 0).toFixed(3)} km/1%</p>
+        <p>เริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"} , ${escapeHtml(trip.startCoord || "-")}</p>
+        <p>สิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"} , ${escapeHtml(trip.endCoord || "-")}</p>
+      </div>`;
+  });
+  historyContainer.innerHTML = html;
+
+  document.querySelectorAll(".clear-trip-btn").forEach(btn => {
+    btn.onclick = async (e) => {
+      const id = e.currentTarget.dataset.id;
+      if (!confirm("ลบ Trip นี้ใช่หรือไม่?")) return;
+      try {
+        if (/^\d+$/.test(String(id))) await deleteTripFromIndexedDB(Number(id));
+        else {
+          const legacy = JSON.parse(localStorage.getItem("tripHistory") || "[]")
+            .filter(t => String(t.id) !== String(id));
+          localStorage.setItem("tripHistory", JSON.stringify(legacy));
+        }
+      } catch (err) {
+        console.error("[Storage] delete trip failed", err);
+        alert("ไม่สามารถลบ Trip ได้");
+      }
+      await loadHistory(limit);
+    };
+  });
+
+  document.querySelectorAll(".show-map-btn").forEach(btn => {
+    btn.onclick = async (e) => {
+      const id = e.currentTarget.dataset.id;
+      const trip = shownTrips.find(t => String(t.id) === String(id));
+      if (trip) showLeafletMapFromTrip(trip);
+    };
+  });
+}
+
 // 🚗 MAP TRACKING CORE (CLEAN)
 let map = null;
 let vehicleMarker = null;
@@ -2518,11 +2548,11 @@ let pathCoordinatesRender = [];
 let lastRenderLat = null;
 let lastRenderLon = null;
 const BASE_ZOOM = 17;
-const BASE_ICON_SIZE = 32;
+const BASE_ICON_SIZE = 38;
 const POLYLINE_BATCH_SIZE = 200;
 const vehicleIcon = L.divIcon({
     className: 'vehicle-marker',
-    html: `<div class="vehicle-inner"><img src="https://img2.pic.in.th/pic/image-381fd3590ede4d53c.png" /></div>`,
+    html: `<div class="vehicle-inner" aria-hidden="true"><img src="${VEHICLE_ICON_URL}" alt="" /></div>`,
     iconSize: [BASE_ICON_SIZE, BASE_ICON_SIZE],
     iconAnchor: [BASE_ICON_SIZE / 2, BASE_ICON_SIZE / 2]
 });
@@ -3392,11 +3422,30 @@ function initMap(lat, lon) {
 		zoomSnap: 1,
 		zoomDelta: 1
 	});
-	L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
-		keepBuffer: 12,
-		updateWhenIdle: true,
-		updateWhenZooming: false
-	}).addTo(map);
+	// MAP CONFIG — API Key is optional.
+// Leave apiKey empty to use the no-key Carto map (same behavior as the original).
+// If you have a MapTiler API key, put it in apiKey to use MapTiler automatically.
+const MAP_CONFIG = Object.freeze({
+    apiKey: "m03QINzrXTHePj5nVcyn",
+    maxZoom: 20,
+    tileSize: 256
+});
+
+const tileUrl = MAP_CONFIG.apiKey.trim()
+    ? `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${encodeURIComponent(MAP_CONFIG.apiKey.trim())}`
+    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+
+const tileOptions = {
+    keepBuffer: 12,
+    updateWhenIdle: true,
+    updateWhenZooming: false,
+    maxZoom: MAP_CONFIG.maxZoom,
+    tileSize: MAP_CONFIG.tileSize,
+    crossOrigin: true
+};
+if (!MAP_CONFIG.apiKey.trim()) tileOptions.subdomains = "abcd";
+
+L.tileLayer(tileUrl, tileOptions).addTo(map);
     routeLayer = L.layerGroup().addTo(map);
     vehicleMarker = L.marker([lat, lon], {icon: vehicleIcon, interactive: false}).addTo(map);
     map.whenReady(() => {
@@ -3587,6 +3636,19 @@ panVelocityLon = 0;
 		);
     }
 }
+// 🔹 TRIP INFORMATION TOGGLE
+// Kept inside the main app script so it is initialized with the rest of the UI.
+const tripInfoToggleBtn = document.getElementById('toggleTripInfoBtn');
+const tripInfoSection = document.getElementById('tripInfoSection');
+if (tripInfoToggleBtn && tripInfoSection) {
+    tripInfoToggleBtn.addEventListener('click', () => {
+        const isOpen = tripInfoSection.style.display !== 'none';
+        tripInfoSection.style.display = isOpen ? 'none' : 'block';
+        tripInfoToggleBtn.setAttribute('aria-expanded', String(!isOpen));
+        tripInfoToggleBtn.textContent = isOpen ? 'Trip Information ▼' : 'Trip Information ▲';
+    });
+}
+
 // 🔹 GPS FOLLOW BUTTON (FIXED)
 document.getElementById('gpsFollowBtn').addEventListener('click', () => {
     if (!map || !vehicleMarker) return;
@@ -3919,6 +3981,13 @@ function startTracking() {
 	lastGpsUpdateTime = performance.now();
 	prevTimestamp = null;
 	totalEnergyWh = 0;
+	cumulativeEnergyWh = 0;
+	driveEnergyWh = 0;
+	driveDistanceKm = 0;
+	prevAlt = null;
+	prevSpeed = 0;
+	lastRegenTime = 0;
+	lastAccuracy = null;
 	document.getElementById("energyConsumption").textContent = "0.00 kWh";
 	totalRegenEnergyWh = 0;
 	document.getElementById("totalRegenEnergy").textContent = "0.00";
@@ -3976,6 +4045,7 @@ function startTracking() {
 	stopBtn.disabled = false;
 	navigator.geolocation.getCurrentPosition(
 		async (pos) => {
+			if (!isTracking || stopcallback || isFinalizing) return;
 			const { latitude, longitude, heading } = pos.coords;
 			const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 			const headingDeg = (typeof heading === 'number' && isFinite(heading) && heading >= 0) ? heading : 0;
@@ -4033,7 +4103,7 @@ function startTracking() {
 			}
 			// --- Watch position ---
 		watchId = navigator.geolocation.watchPosition(async (pos) => {
-			if (!isTracking || stopcallback) return;
+			if (!isTracking || stopcallback || isFinalizing) return;
 			const gps = normalizeGps(pos);
 			if (!gps) return;
 			const {latitude, longitude, speedKmh, heading, altitude, altitudeAccuracy, accuracy, timestamp} = gps;
@@ -4065,6 +4135,9 @@ function startTracking() {
 				routeThreshold = Math.min(routeThreshold, 2.0);
 			}
 			updateSpeedSlope(speedKmh, timestamp);
+			// Feed altitude into the energy model; the previous version defined this
+			// subsystem but never called it from the live GPS loop.
+			updatePosition(latitude, longitude, altitude, speedKmh);
 			rawSpeedKmh = speedKmh;
 			// --- Update display + map ---
 			updateSpeed(speedKmh);
@@ -4341,6 +4414,10 @@ async function stopTracking() {
 	lastInputTimestamp = null;
 	lastGpsTimestamp = null;
 	gpsIntervalSec = 1;
+	prevAlt = null;
+	prevSpeed = 0;
+	lastRegenTime = 0;
+	lastAccuracy = null;
 	autoFollow = false;
     autoRotate = false;
 	resetFollowRotationState(true);
@@ -4531,6 +4608,9 @@ document.getElementById("batterySOCUsed")
 		avgEfficiencyPerPercent: parseFloat(finalAvgEfficiency.toFixed(3)) || 0,
 		path: compactPath
 	};
+	if (activeTripId != null && /^\d+$/.test(String(activeTripId))) {
+		finalTrip.id = Number(activeTripId);
+	}
 	try {
 		await saveQueue.catch(() => {});
 		await enqueueSave(async () => {
@@ -4568,6 +4648,7 @@ document.getElementById("batterySOCUsed")
 	stopcallback = false;
 	positions = [];
 	loadHistory();
+	activeTripId = null;
 	startBtn.disabled = false;
 	stopBtn.disabled = true;
 }
@@ -4579,6 +4660,7 @@ document.getElementById("batterySOCUsed")
 	document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
 	document.getElementById("showAllBtn").onclick = () => loadHistory();
   loadHistory();
+  window.reloadTripHistory = loadHistory;
 })();
 // PATCH: bind resize/orientation ONCE (global scope)
 (function bindResizeOnce() {
@@ -4602,7 +4684,7 @@ window.addEventListener("beforeunload", () => {
 });
 })();
 const TRIP_DB_NAME = 'tripDataDB';
-const TRIP_DB_VERSION = 2;
+const TRIP_DB_VERSION = 3;
 const TRIP_STORE = 'trips';
 function openTripDB() {
   return new Promise((resolve, reject) => {
@@ -4682,23 +4764,27 @@ function getTripDataFromIndexedDB() {
  });
 }
 
-function clearAllTrips() {
+async function clearAllTrips() {
   if (!confirm("คุณแน่ใจหรือไม่ที่จะลบประวัติทั้งหมด?")) return;
-  localStorage.removeItem("tripHistory");
-	openTripDB().then(db => {
-  const tx = db.transaction(TRIP_STORE, 'readwrite');
-  const store = tx.objectStore(TRIP_STORE);
-  const req = store.clear();
-  req.onsuccess = () => {
-    alert('ประวัติการเดินทางทั้งหมดถูกลบแล้ว!');
-    loadHistory();
-  };
-  req.onerror = () => {
-    alert('ไม่สามารถลบข้อมูลจากฐานข้อมูลได้');
-  };
- tx.oncomplete = () => db.close();
- tx.onerror = () => db.close();
-});
+  try {
+    const db = await openTripDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(TRIP_STORE, "readwrite");
+      const req = tx.objectStore(TRIP_STORE).clear();
+      req.onerror = () => reject(req.error || new Error("Clear failed"));
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error || new Error("Clear transaction failed")); };
+    });
+    localStorage.removeItem("tripHistory");
+    activeTripId = null;
+    if (typeof window.reloadTripHistory === "function") {
+      await window.reloadTripHistory();
+    }
+    alert("ประวัติการเดินทางทั้งหมดถูกลบแล้ว!");
+  } catch (err) {
+    console.error("[Storage] clear all failed", err);
+    alert("ไม่สามารถลบประวัติทั้งหมดได้");
+  }
 }
 function triggerSync() {
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
