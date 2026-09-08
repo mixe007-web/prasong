@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker</title>
+<title>Trip A-B Professional GPS EV Tracker — V5 3D Navigation</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -15,6 +15,9 @@
 <!-- Leaflet Core -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- MapLibre GL JS: true 3D camera / terrain / building rendering -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -986,12 +989,46 @@ span[id^="wltpSegment"] {
   word-break: break-word; /* กันข้อความยาวล้น */
 }
 
+
+/* ============================================================
+   MAPLIBRE 3D NAVIGATION
+   ============================================================ */
+#map { position: relative; }
+#map .maplibregl-canvas { outline: none; }
+.maplibre-vehicle-marker {
+  width: 46px; height: 46px;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 4px 7px rgba(0,0,0,.55));
+  z-index: 20;
+}
+.maplibre-vehicle-marker .vehicle-inner {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  transform: rotate(var(--marker-rotate, 0deg)) scale(var(--marker-scale, 1));
+  transform-origin: center center;
+  will-change: transform;
+}
+.maplibre-vehicle-marker img { width: 100%; height: 100%; object-fit: contain; display:block; }
+.maplibre-nav-badge {
+  position:absolute; right:12px; top:12px; z-index:50;
+  padding:6px 10px; border-radius:999px;
+  background:rgba(5,8,16,.78); color:#fff;
+  border:1px solid rgba(0,200,255,.45);
+  font:700 11px/1 Orbitron, sans-serif; letter-spacing:.08em;
+  box-shadow:0 4px 14px rgba(0,0,0,.35);
+  pointer-events:none; opacity:0; transform:translateY(-4px);
+  transition:opacity .25s ease, transform .25s ease;
+}
+.maplibre-nav-badge.active { opacity:1; transform:translateY(0); }
+
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-56</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-67</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2547,6 +2584,11 @@ let lastPanTime = 0;
 let pathCoordinatesRender = [];
 let lastRenderLat = null;
 let lastRenderLon = null;
+const MAP_CONFIG = Object.freeze({
+    apiKey: "m03QINzrXTHePj5nVcyn",
+    maxZoom: 20,
+    tileSize: 256
+});
 const BASE_ZOOM = 17;
 const BASE_ICON_SIZE = 38;
 const POLYLINE_BATCH_SIZE = 200;
@@ -2658,27 +2700,10 @@ function getSpeedColor(s) {
     return '#00FF00';
 }
 function ensureRotationWrapper(targetMap = map) {
-	if (!targetMap) return null;
-	const container = targetMap.getContainer?.();
-	if (!container) return null;
-	let wrapper = container.querySelector(".leaflet-rotate-wrapper");
-	if (wrapper) return wrapper;
-	const paneRoot = container.querySelector(".leaflet-pane");
-	if (!paneRoot) return null;
-	wrapper = document.createElement("div");
-	wrapper.className = "leaflet-rotate-wrapper";
-	paneRoot.parentNode.insertBefore(wrapper, paneRoot);
-	wrapper.appendChild(paneRoot);
-	return wrapper;
+    return targetMap ? { _mapLibre3D: true } : null;
 }
 function setMapPaneTransformOriginToCenter(targetMap = map) {
-	if (!targetMap) return;
-	const container = targetMap.getContainer?.();
-	if (!container) return;
-	const wrapper = container.querySelector(".leaflet-rotate-wrapper");
-	const size = targetMap.getSize?.();
-	if (!wrapper || !size) return;
-	wrapper.style.transformOrigin = `${size.x / 2}px ${size.y / 2}px`;
+    // MapLibre owns the camera transform; no DOM rotation wrapper is needed.
 }
 // 🔹 SMOOTH TRANSFORM STEP
 let smoothTransformTarget = {
@@ -2755,21 +2780,30 @@ const STOP_LOCK_SPEED = 2.5;
 const RESUME_UNLOCK_SPEED = 3.5;
 // =====  NAVI_CENTER_OFFSET_RATIO 15%
 function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio = 0) {
-    if (!wrapper) return;
-    const container = wrapper.closest('.leaflet-container');
-    if (!container) return;
-    const offsetPx = container.clientHeight * offsetRatio;
-    const rot = rotationDeg.toFixed(4);
-    const tx  = panX.toFixed(3);
-    const ty  = (panY + offsetPx).toFixed(3);
-    const transform = `translate3d(${tx}px,${ty}px,0px) rotate(${rot}deg)`;
-    if (transform === lastAppliedTransform) return;
-    lastAppliedTransform = transform;
-    if (!wrapper._willChangeSet) {
-        wrapper.style.willChange = 'transform';
-        wrapper._willChangeSet = true;
+    if (!map || !map._loaded) return;
+    // Existing code supplies -heading. MapLibre bearing uses +heading for heading-up navigation.
+    const bearing = normalizeAngle(-rotationDeg);
+    const speed = Number(smoothTransformTarget?.speedKmh || lastGpsSpeedKmh || 0);
+    const targetPitch = speed >= 55 ? 52 : speed >= 25 ? 48 : speed >= 8 ? 42 : 30;
+    const targetPadding = map3DNavigationEnabled && autoFollow
+        ? { top: 0, right: 0, bottom: Math.round((map.getContainer()?.clientHeight || 500) * offsetRatio), left: 0 }
+        : { top: 0, right: 0, bottom: 0, left: 0 };
+    const center = [Number(appliedMapLon), Number(appliedMapLat)];
+    if (!Number.isFinite(center[0]) || !Number.isFinite(center[1])) return;
+    const currentBearing = typeof map.getBearing === 'function' ? map.getBearing() : 0;
+    const currentPitch = typeof map.getPitch === 'function' ? map.getPitch() : 0;
+    const bearingChanged = Math.abs(normalizeAngleDifference(bearing, currentBearing)) > 0.05;
+    const pitchChanged = Math.abs(targetPitch - currentPitch) > 0.05;
+    if (!bearingChanged && !pitchChanged && !panX && !panY) {
+        try { map.setCenter(center); } catch(e) {}
+        return;
     }
-    wrapper.style.transform = transform;
+    try {
+        map.jumpTo({ center, bearing, pitch: targetPitch, padding: targetPadding });
+        map3DSetActive(targetPitch > 5);
+    } catch (e) {
+        console.warn('MapLibre camera update failed:', e);
+    }
 }
 // ===== helpers (local) =====
 function resetFollowRotationState(full = false) {
@@ -3327,36 +3361,21 @@ function smoothTransformStep(now) {
 }
 // PATCH: hard clear map rotation
 function hardClearMapRotation(targetMap = map) {
-	if (!targetMap) return;
-	const wrapper = ensureRotationWrapper(targetMap);
-	if (!wrapper) return;
-	applyMapTransform(wrapper, 0, 0);
+    if (!targetMap || !targetMap._loaded) return;
+    try { targetMap.jumpTo({bearing:0,pitch:0,padding:{top:0,right:0,bottom:0,left:0}}); } catch(e) {}
+    lastAppliedTransform = "";
+    map3DSetActive(false);
 }
 // PATCH: remove rotation wrapper safely (FIX: wrapper wraps .leaflet-pane)
-function removeRotationWrapper(targetMap = map) {
-	if (!targetMap) return;
-	const container = targetMap.getContainer?.();
-	if (!container) return;
-	const wrapper = container.querySelector(".leaflet-rotate-wrapper");
-	if (!wrapper) return;
-	const paneRoot = wrapper.querySelector(".leaflet-pane");
-	if (paneRoot) {
-		const parent = wrapper.parentNode;
-		parent.insertBefore(paneRoot, wrapper);
-	}
-	try { wrapper.remove(); } catch (e) {}
-}
+function removeRotationWrapper(targetMap = map) { return; }
 // Reset Map Rotation
 function resetMapRotation(callback = null) {
-	hardClearMapRotation(map);
-	resetFollowRotationState(false);
-	if (map) {
-		map.invalidateSize(true);
-	}
-	if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") {
-		vehicleMarker.setRotationAngle(lastGpsHeading || 0);
-	}
-	if (callback) callback();
+    hardClearMapRotation(map);
+    resetFollowRotationState(false);
+    if (map) { try { map.jumpTo({bearing:0,pitch:0,padding:{top:0,right:0,bottom:0,left:0}}); map.invalidateSize(); } catch(e) {} }
+    map3DSetActive(false);
+    if (vehicleMarker && typeof vehicleMarker.setRotationAngle === "function") vehicleMarker.setRotationAngle(lastGpsHeading || 0);
+    if (callback) callback();
 }
 // RELIABLE HEADING
 function getReliableHeading(speedKmh, gpsHeading) {
@@ -3384,80 +3403,163 @@ let mapInteractionLocked = true;
 function disableMapInteraction() {
     if (!map) return;
     try {
-        map.dragging.disable();
-        map.touchZoom.disable();
-        map.doubleClickZoom.disable();
-        map.scrollWheelZoom.disable();
-        map.boxZoom.disable();
-        map.keyboard.disable();
-        if (map.tap) map.tap.disable();
+        map.dragPan?.disable();
+        map.touchZoomRotate?.disable();
+        map.doubleClickZoom?.disable();
+        map.scrollZoom?.disable();
+        map.boxZoom?.disable();
+        map.keyboard?.disable();
+        map.dragRotate?.disable();
     } catch (e) {}
     mapInteractionLocked = true;
 }
 function enableMapInteraction() {
     if (!map) return;
     try {
-        map.dragging.enable();
-        map.touchZoom.enable();
-        map.doubleClickZoom.enable();
-        map.scrollWheelZoom.enable();
-        map.boxZoom.enable();
-        map.keyboard.enable();
-        if (map.tap) map.tap.enable();
+        map.dragPan?.enable();
+        map.touchZoomRotate?.enable();
+        map.doubleClickZoom?.enable();
+        map.scrollZoom?.enable();
+        map.boxZoom?.enable();
+        map.keyboard?.enable();
+        map.dragRotate?.enable();
     } catch (e) {}
     mapInteractionLocked = false;
 }
-// initMap 
+
+let map3DNavigationEnabled = false;
+function map3DSetActive(active) {
+    map3DNavigationEnabled = !!active;
+    const badge = document.getElementById('map3DNavBadge');
+    if (badge) badge.classList.toggle('active', map3DNavigationEnabled && autoFollow);
+}
+function createMapLibreRouteManager(targetMap) {
+    const sourceId = 'trip-route-source';
+    const lineLayerId = 'trip-route-layer';
+    const state = { features: [], markers: [] };
+    const emptyFC = () => ({ type:'FeatureCollection', features:[] });
+    const sync = () => {
+        if (!targetMap?.getSource(sourceId)) return;
+        try { targetMap.getSource(sourceId).setData({type:'FeatureCollection', features:state.features}); } catch(e) {}
+    };
+    return {
+        _state: state,
+        addSegment(a,b,color) {
+            state.features.push({type:'Feature', properties:{color:String(color)}, geometry:{type:'LineString',coordinates:[[a[1],a[0]],[b[1],b[0]]]}});
+            if (state.features.length > 12000) state.features.splice(0, state.features.length-12000);
+            sync();
+        },
+        setHistory(coords) {
+            state.features=[];
+            for(let i=1;i<coords.length;i++){
+                const a=coords[i-1], b=coords[i];
+                state.features.push({type:'Feature',properties:{color:String(getSpeedColor(b[2]||0))},geometry:{type:'LineString',coordinates:[[a[1],a[0]],[b[1],b[0]]]}});
+            }
+            sync();
+        },
+        clearLayers() { state.features=[]; state.markers.forEach(m=>{try{m.remove();}catch(e){}}); state.markers=[]; sync(); },
+        addMarker(marker) { state.markers.push(marker); return marker; },
+        removeLayer(item) {
+            const i=state.markers.indexOf(item); if(i>=0){try{item.remove();}catch(e){} state.markers.splice(i,1);}
+            const f=state.features.indexOf(item); if(f>=0) state.features.splice(f,1);
+            sync();
+        }
+    };
+}
+function makeMapLibreMarker(lat, lon, html, className='maplibre-marker', popupText=null) {
+    const el=document.createElement('div'); el.className=className; el.innerHTML=html;
+    const marker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lon,lat]).addTo(map);
+    if(popupText) marker.setPopup(new maplibregl.Popup({offset:18,closeButton:false,closeOnClick:false}).setText(popupText));
+    return marker;
+}
+function createVehicleMarker(lat, lon) {
+    const el=document.createElement('div');
+    el.className='maplibre-vehicle-marker';
+    el.innerHTML=`<div class="vehicle-inner" aria-hidden="true"><img src="${VEHICLE_ICON_URL}" alt="" /></div>`;
+    const marker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lon,lat]).addTo(map);
+    marker._icon=el;
+    marker.setLatLng=function(pos){ this.setLngLat([pos[1],pos[0]]); return this; };
+    marker.setRotationAngle=function(angle){
+        this._rotationAngle=angle;
+        const inner=this._icon?.querySelector('.vehicle-inner');
+        if(inner) inner.style.setProperty('--marker-rotate', map3DNavigationEnabled && autoFollow ? '0deg' : `${angle}deg`);
+        return this;
+    };
+    return marker;
+}
+function add3DBuildings(targetMap) {
+    if (!targetMap || !targetMap.isStyleLoaded?.()) return;
+    try {
+        const style=targetMap.getStyle();
+        if(style.layers.some(l=>l.type==='fill-extrusion')) return;
+        const building=style.layers.find(l=>l.type==='fill' && /building/i.test(String(l['source-layer']||l.id||'')) && l.source);
+        if(!building) return;
+        targetMap.addLayer({
+            id:'trip-3d-buildings', type:'fill-extrusion',
+            source:building.source, 'source-layer':building['source-layer'], minzoom:13,
+            paint:{
+                'fill-extrusion-color':'#9aa7b7',
+                'fill-extrusion-opacity':0.78,
+                'fill-extrusion-height':['interpolate',['linear'],['zoom'],13,0,15,['coalesce',['get','render_height'],['get','height'],10]],
+                'fill-extrusion-base':['coalesce',['get','render_min_height'],['get','min_height'],0]
+            }
+        }, building.id);
+    } catch(e) { console.warn('3D buildings unavailable:',e); }
+}
+function addMapLibreTerrain(targetMap) {
+    if(!MAP_CONFIG.apiKey.trim() || targetMap.getSource('trip-terrain')) return;
+    try {
+        targetMap.addSource('trip-terrain',{type:'raster-dem',url:`https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${encodeURIComponent(MAP_CONFIG.apiKey.trim())}`,tileSize:256,maxzoom:14,encoding:'mapbox'});
+        targetMap.setTerrain({source:'trip-terrain',exaggeration:1.05});
+    } catch(e) { console.warn('Terrain unavailable:',e); }
+}
 function initMap(lat, lon) {
     destroyMap();
-	rotationWrapperCache = null;
-	map = L.map("map", {
-		center: [lat, lon],
-		zoom: BASE_ZOOM,
-		zoomControl: false,
-		attributionControl: false,
-		worldCopyJump: true,
-		keepBuffer: 12,
-		inertia: false,
-		zoomSnap: 1,
-		zoomDelta: 1
-	});
-	// MAP CONFIG — API Key is optional.
-// Leave apiKey empty to use the no-key Carto map (same behavior as the original).
-// If you have a MapTiler API key, put it in apiKey to use MapTiler automatically.
-const MAP_CONFIG = Object.freeze({
-    apiKey: "m03QINzrXTHePj5nVcyn",
-    maxZoom: 20,
-    tileSize: 256
-});
-
-const tileUrl = MAP_CONFIG.apiKey.trim()
-    ? `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${encodeURIComponent(MAP_CONFIG.apiKey.trim())}`
-    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-
-const tileOptions = {
-    keepBuffer: 12,
-    updateWhenIdle: true,
-    updateWhenZooming: false,
-    maxZoom: MAP_CONFIG.maxZoom,
-    tileSize: MAP_CONFIG.tileSize,
-    crossOrigin: true
-};
-if (!MAP_CONFIG.apiKey.trim()) tileOptions.subdomains = "abcd";
-
-L.tileLayer(tileUrl, tileOptions).addTo(map);
-    routeLayer = L.layerGroup().addTo(map);
-    vehicleMarker = L.marker([lat, lon], {icon: vehicleIcon, interactive: false}).addTo(map);
-    map.whenReady(() => {
-        ensureRotationWrapper(map);
-        setMapPaneTransformOriginToCenter(map);
-		rotationWrapperCache = ensureRotationWrapper(map);
-        resetFollowRotationState(true);
-        bindFlyToUnlockEvents(map);
-        hardClearMapRotation(map);
-        disableMapInteraction();
-        map.invalidateSize(true);
+    const container=document.getElementById('map');
+    if(!container) return;
+    container.innerHTML='';
+    const badge=document.createElement('div');
+    badge.id='map3DNavBadge'; badge.className='maplibre-nav-badge'; badge.textContent='3D NAV';
+    container.appendChild(badge);
+    if(!MAP_CONFIG.apiKey.trim()) {
+        console.warn('MapTiler API key is empty. V5 3D requires the same MapTiler key used by V4.');
+    }
+    map=new maplibregl.Map({
+        container,
+        style: MAP_CONFIG.apiKey.trim() ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(MAP_CONFIG.apiKey.trim())}` : 'https://demotiles.maplibre.org/style.json',
+        center:[lon,lat], zoom:BASE_ZOOM, bearing:0, pitch:0, maxZoom:MAP_CONFIG.maxZoom,
+        attributionControl:false, antialias:true, renderWorldCopies:true, maxPitch:60,
+        pitchWithRotate:true, dragRotate:true
     });
+    map._loaded=false;
+    const nativeSetCenter=map.setCenter.bind(map), nativeFitBounds=map.fitBounds.bind(map), nativeResize=map.resize.bind(map);
+    map.setView=function(center,zoom){ const c=[center[1],center[0]]; this.jumpTo({center:c,zoom:zoom??this.getZoom(),bearing:this.getBearing(),pitch:this.getPitch(),padding:this.getPadding?.()||{top:0,bottom:0,left:0,right:0}}); return this; };
+    map.invalidateSize=function(){ try{nativeResize();}catch(e){} return this; };
+    map.getSize=function(){ return {x:container.clientWidth,y:container.clientHeight}; };
+    map.getBounds=function(){ const b=maplibregl.Map.prototype.getBounds.call(this); return L.latLngBounds([[b.getSouth(),b.getWest()],[b.getNorth(),b.getEast()]]); };
+    map.fitBounds=function(bounds,opts={}){
+        const sw=bounds.getSouthWest(), ne=bounds.getNorthEast();
+        let padding=opts.padding ?? 0;
+        if(opts.paddingTopLeft || opts.paddingBottomRight){ const a=opts.paddingTopLeft||[0,0], b=opts.paddingBottomRight||[0,0]; padding={top:a[1],left:a[0],bottom:b[1],right:b[0]}; }
+        return nativeFitBounds([[sw.lng,sw.lat],[ne.lng,ne.lat]],{padding,maxZoom:opts.maxZoom,animate:!!opts.animate});
+    };
+    map.whenReady=function(cb){ if(this.loaded?.()||this.isStyleLoaded?.()) setTimeout(cb,0); else this.once('load',cb); };
+    routeLayer=createMapLibreRouteManager(map);
+    if(map.getSource('trip-route-source')){} else {
+        map.on('load',()=>{
+            map._loaded=true;
+            map.addSource('trip-route-source',{type:'geojson',data:{type:'FeatureCollection',features:[]},lineMetrics:true});
+            map.addLayer({id:'trip-route-layer',type:'line',source:'trip-route-source',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['coalesce',['get','color'],'#00e5ff'],'line-width':4,'line-opacity':0.95}});
+            addMapLibreTerrain(map);
+            add3DBuildings(map);
+            map.jumpTo({center:[lon,lat],zoom:BASE_ZOOM,bearing:0,pitch:0});
+            map3DSetActive(false);
+            disableMapInteraction();
+            map.resize();
+        });
+    }
+    vehicleMarker=createVehicleMarker(lat,lon);
+    map.on('styledata',()=>{ if(map._loaded){ addMapLibreTerrain(map); add3DBuildings(map); }});
 }
 // PATCH: flyTo animation unlock (SAFE + removable)
 function bindFlyToUnlockEvents(targetMap) {
@@ -3479,68 +3581,20 @@ function bindFlyToUnlockEvents(targetMap) {
 	};
 }
 function destroyMap() {
-	if (!map) return;
-	hardClearMapRotation(map);
-	removeRotationWrapper(map);
-	if (map._invalidateTimeout) {
-		clearTimeout(map._invalidateTimeout);
-		map._invalidateTimeout = null;
-	}
-	if (map._flyUnlockTimeout) {
-		clearTimeout(map._flyUnlockTimeout);
-		map._flyUnlockTimeout = null;
-	}
-	if (smoothTransformAnimFrame) {
-		cancelAnimationFrame(smoothTransformAnimFrame);
-		smoothTransformAnimFrame = null;
-	}
-	try {
-		if (map._flyUnlockHandler) {
-			map.off("moveend", map._flyUnlockHandler);
-			map.off("zoomend", map._flyUnlockHandler);
-			map._flyUnlockHandler = null;
-		}
-	} catch (e) {}
-	try { map.remove(); } catch (e) {}
-	map = null;
-	routeLayer = null;
-	vehicleMarker = null;
-	pathCoordinates = [];
-	pathCoordinatesRender = [];
-	routeBatchLayers = [];
-	hasInitialHeading = false;
-	resetFollowRotationState(true);
-	lastMarkerAngle = 0;
-	lastIconSize = BASE_ICON_SIZE;
-	rotationWrapperCache = null;
+    if (!map) return;
+    if (smoothTransformAnimFrame) { cancelAnimationFrame(smoothTransformAnimFrame); smoothTransformAnimFrame=null; }
+    try { if(routeLayer) routeLayer.clearLayers(); } catch(e) {}
+    try { vehicleMarker?.remove?.(); } catch(e) {}
+    try { map.remove(); } catch(e) {}
+    map=null; routeLayer=null; vehicleMarker=null; pathCoordinates=[]; pathCoordinatesRender=[]; routeBatchLayers=[];
+    hasInitialHeading=false; resetFollowRotationState(true); lastMarkerAngle=0; lastIconSize=BASE_ICON_SIZE; rotationWrapperCache=null;
+    map3DSetActive(false);
 }
 function addRealtimePolylineSegment(lat, lon, speedKmh) {
-    if (!map || !routeLayer) return;
-    const len = pathCoordinatesRender.length;
-    if (len < 2) return;
-    const prev = pathCoordinatesRender[len - 2];
-    const curr = pathCoordinatesRender[len - 1];
-    const color = getSpeedColor(speedKmh || 0);
-	if (routeBatchLayers.length > 40) {
-		const oldBatch = routeBatchLayers.shift();
-		oldBatch?.forEach(p => {routeLayer.removeLayer(p);});
-	}
-    let currentBatch = routeBatchLayers[routeBatchLayers.length - 1];
-    if (!currentBatch) { currentBatch = []; routeBatchLayers.push(currentBatch); }
-    let currentPolyline = currentBatch[currentBatch.length - 1];
-    const normalizedNewColor = String(color).toLowerCase();
-    const currentColor = currentPolyline?.options?.color ? String(currentPolyline.options.color).toLowerCase() : null;
-    if (!currentPolyline || currentColor !== normalizedNewColor) {
-        currentPolyline = L.polyline([[prev[0], prev[1]], [curr[0], curr[1]]], {
-            color, weight: 4, opacity: 0.95, interactive: false, smoothFactor: 1.5
-        }).addTo(routeLayer);
-        currentBatch.push(currentPolyline);
-    } else {
-        currentPolyline.addLatLng([curr[0], curr[1]]);
-    }
-    if (currentBatch.length >= POLYLINE_BATCH_SIZE) {
-        routeBatchLayers.push([]);
-    }
+    if (!map || !routeLayer || pathCoordinatesRender.length < 2) return;
+    const len=pathCoordinatesRender.length;
+    const prev=pathCoordinatesRender[len-2], curr=pathCoordinatesRender[len-1];
+    routeLayer.addSegment(prev,curr,getSpeedColor(speedKmh||0));
 }
 // Update route and autoFollow target
 const MIN_DIST_KM = 0.002;
@@ -3575,29 +3629,15 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
 // DRAW HISTORY ROUTE (UNCHANGED)
 function drawHistoryRoute(pathCoords) {
     if (!map || pathCoords.length < 2) return;
-    if (!routeLayer) routeLayer = L.layerGroup().addTo(map);
-    else routeLayer.clearLayers();
-    routeBatchLayers = [];
-    let batch = [];
-    for (let i = 1; i < pathCoords.length; i++) {
-        const a = pathCoords[i - 1];
-        const b = pathCoords[i];
-        const color = getSpeedColor(b[2] || 0);
-        const seg = L.polyline([[a[0], a[1]], [b[0], b[1]]], { color, weight: 4, opacity: 0.95, interactive: false }).addTo(routeLayer);
-        batch.push(seg);
-        if (batch.length >= POLYLINE_BATCH_SIZE) { routeBatchLayers.push(batch); batch = []; }
-    }
-    if (batch.length > 0) routeBatchLayers.push(batch);
-    const start = pathCoords[0];
-	const startMarker = L.marker([start[0], start[1]], { icon: startIcon })
-    .bindPopup("🚗 จุดเริ่มต้น", {autoPan: false, closeOnClick: false })
-    .addTo(routeLayer);
-	startMarker.openPopup();
-    const end = pathCoords[pathCoords.length - 1];
-    const endMarker = L.marker([end[0], end[1]], { icon: endIcon })
-    .bindPopup("🏁 จุดสิ้นสุด", {autoPan: false, closeOnClick: false })
-    .addTo(routeLayer);
-	endMarker.openPopup();
+    if (!routeLayer) routeLayer=createMapLibreRouteManager(map);
+    routeLayer.clearLayers();
+    routeLayer.setHistory(pathCoords);
+    const start=pathCoords[0], end=pathCoords[pathCoords.length-1];
+    const startEl=document.createElement('div'); startEl.style.cssText='width:28px;height:28px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;'; startEl.textContent='🚗';
+    const endEl=document.createElement('div'); endEl.style.cssText='width:30px;height:30px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;'; endEl.textContent='🏁';
+    const sm=new maplibregl.Marker({element:startEl,anchor:'center'}).setLngLat([start[1],start[0]]).setPopup(new maplibregl.Popup({offset:18,closeButton:false,closeOnClick:false}).setText('🚗 จุดเริ่มต้น')).addTo(map);
+    const em=new maplibregl.Marker({element:endEl,anchor:'center'}).setLngLat([end[1],end[0]]).setPopup(new maplibregl.Popup({offset:18,closeButton:false,closeOnClick:false}).setText('🏁 จุดสิ้นสุด')).addTo(map);
+    routeLayer.addMarker(sm); routeLayer.addMarker(em);
 }
 function forceRecenterToVehicle() {
 	if (!map || lastGpsLat == null || lastGpsLng == null) return;
@@ -3699,8 +3739,8 @@ panVelocityLon = 0;
 		smoothTransformTarget.speedKmh = 0;
 		smoothTransformTarget.lastFrameTime = null;
 	}
-	const rotWrapper = document.querySelector(".leaflet-rotate-wrapper");
-	if (rotWrapper) rotWrapper.style.transform = "";
+	try { if (map && map._loaded) map.jumpTo({bearing:0,pitch:0,padding:{top:0,right:0,bottom:0,left:0}}); } catch(e) {}
+	map3DSetActive(false);
 	if (vehicleMarker?.setRotationAngle) {
 		vehicleMarker.setRotationAngle(0);
 	}
@@ -4668,13 +4708,11 @@ document.getElementById("batterySOCUsed")
 	window._mapResizeBound = true;
 	window.addEventListener("resize", () => {
 		if (!map || !map._loaded) return;
-		ensureRotationWrapper(map);
-		setMapPaneTransformOriginToCenter(map);
+		try { map.resize(); } catch(e) {}
 	}, { passive: true });
 	window.addEventListener("orientationchange", () => {
 		if (!map || !map._loaded) return;
-		ensureRotationWrapper(map);
-		setMapPaneTransformOriginToCenter(map);
+		try { map.resize(); } catch(e) {}
 	}, { passive: true });
 })();
 window.addEventListener("beforeunload", () => {
