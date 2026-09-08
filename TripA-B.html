@@ -1039,7 +1039,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-58-V67</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-58-8</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1286,7 +1286,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 (() => {
-const APP_VERSION = "PRO-57-V5.1";
+const APP_VERSION = "PRO-59-V5.1-HISTORY";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -2507,42 +2507,109 @@ async function migrateLegacyTripsToIndexedDB(legacyTrips) {
   return migrated;
 }
 
+function historyFingerprint(trip) {
+  const path = Array.isArray(trip?.path) ? trip.path : [];
+  const first = path[0];
+  const last = path[path.length - 1];
+  const coord = p => {
+    if (!p) return '';
+    if (typeof p.coord === 'string') return p.coord;
+    if (Array.isArray(p)) return `${p[0]},${p[1]}`;
+    return `${p.lat ?? p.latitude ?? ''},${p.lon ?? p.lng ?? p.longitude ?? ''}`;
+  };
+  return [
+    trip?.startTime ?? trip?.timestamp ?? '',
+    trip?.endTime ?? '',
+    trip?.startCoord ?? coord(first),
+    trip?.endCoord ?? coord(last),
+    trip?.distance ?? trip?.newDistance ?? '',
+    path.length
+  ].join('|');
+}
+
+function normalizeHistoryPath(path) {
+  if (!Array.isArray(path)) return [];
+  const out = [];
+  for (const p of path) {
+    let lat, lon, speed = 0, time = Date.now();
+    if (Array.isArray(p)) {
+      lat = Number(p[0]); lon = Number(p[1]);
+      speed = Number(p[2]) || 0; time = Number(p[3]) || time;
+    } else if (p && typeof p === 'object') {
+      if (typeof p.coord === 'string') {
+        const a = p.coord.split(',').map(Number);
+        lat = a[0]; lon = a[1];
+      } else {
+        lat = Number(p.lat ?? p.latitude);
+        lon = Number(p.lon ?? p.lng ?? p.longitude);
+      }
+      speed = Number(p.speed ?? p.speedKmh) || 0;
+      time = Number(p.time ?? p.timestamp) || time;
+    }
+    if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+      out.push({ lat, lon, speed, time });
+    }
+  }
+  const clean = [];
+  for (const p of out) {
+    const q = clean[clean.length - 1];
+    if (!q || q.lat !== p.lat || q.lon !== p.lon) clean.push(p);
+  }
+  return clean;
+}
+
+async function getAllHistoryRecords() {
+  let indexed = [];
+  let legacy = [];
+  try { indexed = await getTripDataFromIndexedDB(); } catch (e) { console.warn('[History] IndexedDB read failed', e); }
+  try { legacy = JSON.parse(localStorage.getItem('tripHistory') || '[]'); } catch (e) { console.warn('[History] legacy read failed', e); }
+
+  const merged = [];
+  const seen = new Set();
+  const add = (trip, source) => {
+    if (!trip || typeof trip !== 'object') return;
+    const fp = historyFingerprint(trip);
+    const idKey = trip.id != null ? `${source}:id:${trip.id}` : '';
+    // Prefer IndexedDB when an identical record exists in both stores.
+    const duplicate = seen.has(`fp:${fp}`);
+    if (duplicate) return;
+    seen.add(`fp:${fp}`);
+    merged.push({ ...trip, _historySource: source });
+  };
+  // Prefer the current IndexedDB record when both stores contain the same trip.
+  indexed.forEach(t => add(t, 'indexeddb'));
+  legacy.forEach(t => add(t, 'legacy'));
+  merged.sort((a, b) => (Number(b.startTime || b.timestamp || b.id) || 0) - (Number(a.startTime || a.timestamp || a.id) || 0));
+  return merged;
+}
+
 async function loadHistory(limit = null) {
   const requestId = ++historyLoadSeq;
   let allTrips = [];
   try {
-    allTrips = await getTripDataFromIndexedDB();
-    if (!allTrips.length) {
-      const legacy = JSON.parse(localStorage.getItem("tripHistory") || "[]");
-      if (legacy.length) {
-        allTrips = await migrateLegacyTripsToIndexedDB(legacy);
-        if (allTrips.length) localStorage.removeItem("tripHistory");
-      }
-    }
+    allTrips = await getAllHistoryRecords();
   } catch (err) {
-    console.warn("[Storage] history read failed", err);
-    allTrips = JSON.parse(localStorage.getItem("tripHistory") || "[]");
+    console.warn('[History] load failed', err);
   }
-
   if (requestId !== historyLoadSeq) return;
-  allTrips.sort((a, b) => (Number(b.startTime || b.timestamp || b.id) || 0) -
-                           (Number(a.startTime || a.timestamp || a.id) || 0));
 
   if (!allTrips.length) {
-    historyContainer.innerHTML = "<p>ไม่มีประวัติ Trip</p>";
+    historyContainer.innerHTML = '<p>ไม่มีประวัติ Trip</p>';
     return;
   }
 
   const shownTrips = limit != null ? allTrips.slice(0, limit) : allTrips.slice(0, 100);
-  let html = "";
+  let html = '';
   shownTrips.forEach((trip) => {
-    const tripName = escapeHtml(trip.plateNumber || "-");
+    const id = trip.id ?? '';
     html += `
-      <div class="trip-entry" data-id="${escapeHtml(trip.id)}">
+      <div class="trip-entry" data-id="${escapeHtml(id)}">
         <div class="trip-header">
-          <strong>เดินทาง: ${tripName}</strong>
-          <button class="clear-trip-btn" data-id="${escapeHtml(trip.id)}">ล้างข้อมูล</button>
-          <button class="show-map-btn" data-id="${escapeHtml(trip.id)}">แผนที่</button>
+          <strong>เดินทาง: ${escapeHtml(trip.plateNumber || trip.tripName || '-')}</strong>
+          <div class="history-actions">
+            <button class="show-map-btn" data-id="${escapeHtml(id)}">แผนที่</button>
+            <button class="clear-trip-btn" data-id="${escapeHtml(id)}">ล้างข้อมูล</button>
+          </div>
         </div>
         <p>ระยะทางทั้งหมด : ${parseFloat(trip.distance || 0).toFixed(3)} km</p>
         <p>พลังงานรีเจน : ${(Number(trip.totalRegenEnergy) || 0).toFixed(2)} kWh</p>
@@ -2553,33 +2620,36 @@ async function loadHistory(limit = null) {
         <p>Energy/Trip : ${(Number(trip.energyConsumption) || 0).toFixed(2)} kWh</p>
         <p>SOC/Trip : ${(Number(trip.batterySOCUsedPercent) || 0).toFixed(2)}%</p>
         <p>พลังงานใช้เฉลี่ย : ${(Number(trip.energyPer100km) || 0).toFixed(2)} kWh/100km : ${(Number(trip.avgEfficiencyPerPercent) || 0).toFixed(3)} km/1%</p>
-        <p>เริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"} , ${escapeHtml(trip.startCoord || "-")}</p>
-        <p>สิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"} , ${escapeHtml(trip.endCoord || "-")}</p>
+        <p>เริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'} , ${escapeHtml(trip.startCoord || '-')}</p>
+        <p>สิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : '-'} , ${escapeHtml(trip.endCoord || '-')}</p>
       </div>`;
   });
   historyContainer.innerHTML = html;
 
-  document.querySelectorAll(".clear-trip-btn").forEach(btn => {
+  historyContainer.querySelectorAll('.clear-trip-btn').forEach(btn => {
     btn.onclick = async (e) => {
       const id = e.currentTarget.dataset.id;
-      if (!confirm("ลบ Trip นี้ใช่หรือไม่?")) return;
+      const trip = shownTrips.find(t => String(t.id) === String(id));
+      if (!trip || !confirm('ลบ Trip นี้ใช่หรือไม่?')) return;
       try {
-        if (/^\d+$/.test(String(id))) await deleteTripFromIndexedDB(Number(id));
-        else {
-          const legacy = JSON.parse(localStorage.getItem("tripHistory") || "[]")
-            .filter(t => String(t.id) !== String(id));
-          localStorage.setItem("tripHistory", JSON.stringify(legacy));
+        if (typeof trip.id === 'number') {
+          try { await deleteTripFromIndexedDB(trip.id); } catch (_) {}
         }
+        let legacy = [];
+        try { legacy = JSON.parse(localStorage.getItem('tripHistory') || '[]'); } catch (_) {}
+        const fp = historyFingerprint(trip);
+        legacy = legacy.filter(t => historyFingerprint(t) !== fp && String(t.id) !== String(id));
+        localStorage.setItem('tripHistory', JSON.stringify(legacy));
+        await loadHistory(limit);
       } catch (err) {
-        console.error("[Storage] delete trip failed", err);
-        alert("ไม่สามารถลบ Trip ได้");
+        console.error('[History] delete failed', err);
+        alert('ไม่สามารถลบ Trip ได้');
       }
-      await loadHistory(limit);
     };
   });
 
-  document.querySelectorAll(".show-map-btn").forEach(btn => {
-    btn.onclick = async (e) => {
+  historyContainer.querySelectorAll('.show-map-btn').forEach(btn => {
+    btn.onclick = (e) => {
       const id = e.currentTarget.dataset.id;
       const trip = shownTrips.find(t => String(t.id) === String(id));
       if (trip) showLeafletMapFromTrip(trip);
@@ -2588,69 +2658,120 @@ async function loadHistory(limit = null) {
 }
 
 // ============================================================
-// HISTORY MAP — independent MapLibre instance
-// Opening History never reuses or modifies the live tracking map.
+// HISTORY MAP — restored to the original TripA-B.html behavior.
+// Uses Leaflet + CARTO so it does not depend on the live MapLibre map
+// or on a MapTiler API key.
 // ============================================================
-let historyMapInstance = null;
-let historyMapMarkers = [];
-function normalizeHistoryPath(path) {
-    if (!Array.isArray(path)) return [];
-    const out = [];
-    for (const p of path) {
-        let lat, lon, speed = 0, time = Date.now();
-        if (Array.isArray(p)) {
-            lat=Number(p[0]); lon=Number(p[1]); speed=Number(p[2])||0; time=Number(p[3])||time;
-        } else if (p && typeof p === 'object') {
-            if (typeof p.coord === 'string') {
-                const a=p.coord.split(',').map(Number); lat=a[0]; lon=a[1];
-            } else { lat=Number(p.lat ?? p.latitude); lon=Number(p.lon ?? p.lng ?? p.longitude); }
-            speed=Number(p.speed ?? p.speedKmh)||0; time=Number(p.time ?? p.timestamp)||time;
-        }
-        if(Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180) out.push([lat,lon,speed,time]);
+let historyReplayMap = null;
+
+function closeHistoryMapModal() {
+  const modal = document.getElementById('mapModal');
+  const container = document.getElementById('leafletMap');
+  if (historyReplayMap) {
+    try { historyReplayMap.remove(); } catch (_) {}
+    historyReplayMap = null;
+  }
+  if (container) {
+    container.innerHTML = '';
+    try { delete container._leaflet_id; } catch (_) {}
+  }
+  if (modal) modal.style.display = 'none';
+  document.body.classList.remove('modal-open');
+  window.isHistoryModalOpen = false;
+  const info = document.getElementById('mapTripInfo');
+  if (info) info.innerHTML = '';
+}
+
+function showLeafletMapFromTrip(trip) {
+  const entries = normalizeHistoryPath(trip?.path);
+  if (!entries.length) {
+    alert('Trip นี้ไม่มีข้อมูลตำแหน่งสำหรับแสดงแผนที่ย้อนหลัง');
+    return;
+  }
+
+  const modal = document.getElementById('mapModal');
+  const tripInfo = document.getElementById('mapTripInfo');
+  const mapContainer = document.getElementById('leafletMap');
+  if (!modal || !tripInfo || !mapContainer) {
+    console.error('[History Map] modal elements missing');
+    return;
+  }
+  if (!window.L || typeof L.map !== 'function') {
+    alert('ไม่สามารถเปิดแผนที่ย้อนหลังได้: Leaflet ไม่พร้อมใช้งาน');
+    return;
+  }
+
+  closeHistoryMapModal();
+  modal.style.display = 'block';
+  document.body.classList.add('modal-open');
+  window.isHistoryModalOpen = true;
+
+  const start = entries[0];
+  const end = entries[entries.length - 1];
+  const startIcon = L.divIcon({ html: '🚗', className: '', iconSize: [30,30], iconAnchor: [15,15] });
+  const endIcon = L.divIcon({ html: '🏁', className: '', iconSize: [30,30], iconAnchor: [15,15] });
+
+  try {
+    historyReplayMap = L.map('leafletMap', {
+      center: [start.lat, start.lon],
+      zoom: BASE_ZOOM,
+      zoomControl: true,
+      attributionControl: true,
+      worldCopyJump: true
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      maxZoom: 20,
+      noWrap: true
+    }).addTo(historyReplayMap);
+
+    const latlngs = entries.map(p => [p.lat, p.lon]);
+    for (let i = 0; i < entries.length - 1; i++) {
+      const a = entries[i], b = entries[i + 1];
+      const speed = Number(b.speed) || 0;
+      L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+        color: typeof getSpeedColor === 'function' ? getSpeedColor(speed) : '#00d8ff',
+        weight: 5,
+        opacity: 0.9
+      }).addTo(historyReplayMap).bindTooltip(`${speed.toFixed(1)} km/h`, { permanent: false, offset: [0, -5] });
     }
-    const clean=[];
-    for(const p of out){const q=clean[clean.length-1];if(!q||q[0]!==p[0]||q[1]!==p[1])clean.push(p);}
-    return clean;
+
+    L.marker([start.lat, start.lon], { icon: startIcon })
+      .bindPopup('🚗 จุดเริ่มต้น')
+      .addTo(historyReplayMap);
+    L.marker([end.lat, end.lon], { icon: endIcon })
+      .bindPopup('🏁 จุดสิ้นสุด')
+      .addTo(historyReplayMap);
+
+    if (latlngs.length >= 2) {
+      historyReplayMap.fitBounds(latlngs, { padding: [40,40], maxZoom: BASE_ZOOM });
+    } else {
+      historyReplayMap.setView(latlngs[0], BASE_ZOOM);
+    }
+
+    tripInfo.innerHTML = `
+      <strong>ระยะทาง (กม.):</strong> ${Number(trip.distance || 0).toFixed(3)} km<br/>
+      <strong>เวลารถจอดนิ่ง:</strong> ${formatTime(trip.idleTimeSeconds || 0)}<br/>
+      <strong>เวลาเดินทางทั้งหมด:</strong> ${formatTime(trip.elapsedTime || 0)}<br/>
+      <strong>ความเร็วสูงสุด:</strong> ${Number(trip.maxSpeed || 0).toFixed(1)} km/h<br/>
+      <strong>ความเร็วเฉลี่ย:</strong> ${Number(trip.avgSpeed || 0).toFixed(1)} km/h<br/>
+      <strong>พลังงานใช้เฉลี่ย:</strong> ${Number(trip.energyPer100km || 0).toFixed(2)} kWh/100km<br/>
+      <strong>Energy/Trip:</strong> ${Number(trip.energyConsumption || 0).toFixed(2)} kWh<br/>
+      <strong>SOC/Trip:</strong> ${Number(trip.batterySOCUsedPercent || 0).toFixed(2)} %<br/>
+      <strong>พลังงานรีเจน:</strong> ${Number(trip.totalRegenEnergy || 0).toFixed(2)} kWh<br/>
+      <strong>เริ่มต้น:</strong> ${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'} , ${escapeHtml(trip.startCoord || `${start.lat.toFixed(6)}, ${start.lon.toFixed(6)}`)}<br/>
+      <strong>สิ้นสุด:</strong> ${trip.endTime ? new Date(trip.endTime).toLocaleString() : '-'} , ${escapeHtml(trip.endCoord || `${end.lat.toFixed(6)}, ${end.lon.toFixed(6)}`)}
+    `;
+
+    setTimeout(() => { try { historyReplayMap.invalidateSize(true); } catch (_) {} }, 300);
+  } catch (e) {
+    console.error('[History Map] render failed', e);
+    alert('ไม่สามารถแสดงแผนที่ย้อนหลังได้');
+    closeHistoryMapModal();
+  }
 }
-function closeHistoryMapModal(){
-    const modal=document.getElementById('mapModal'); if(modal) modal.style.display='none';
-    document.body.classList.remove('modal-open'); window.isHistoryModalOpen=false;
-    historyMapMarkers.forEach(m=>{try{m.remove();}catch(_){}}); historyMapMarkers=[];
-    if(historyMapInstance){try{historyMapInstance.remove();}catch(_){ } historyMapInstance=null;}
-}
-function showLeafletMapFromTrip(trip){
-    const points=normalizeHistoryPath(trip?.path);
-    if(!points.length){alert('Trip นี้ไม่มีข้อมูลเส้นทาง GPS สำหรับแสดงแผนที่');return;}
-    const modal=document.getElementById('mapModal'), container=document.getElementById('leafletMap'), info=document.getElementById('mapTripInfo');
-    if(!modal||!container||!info){console.error('History map modal elements are missing');return;}
-    closeHistoryMapModal(); modal.style.display='block'; window.isHistoryModalOpen=true; document.body.classList.add('modal-open'); container.classList.add('history-map-canvas');
-    info.innerHTML=`<div class="history-map-toolbar"><span><strong>${escapeHtml(trip?.plateNumber||trip?.tripName||'Trip')}</strong> · ${points.length.toLocaleString()} GPS points</span><span>${Number(trip?.distance||0).toFixed(3)} km</span></div>`;
-    if(!window.maplibregl||typeof maplibregl.Map!=='function'){info.innerHTML+='<div style="padding:12px 0;color:var(--red)">MapLibre ไม่พร้อมใช้งาน จึงไม่สามารถเปิดแผนที่ย้อนหลังได้</div>';return;}
-    const start=points[0], end=points[points.length-1];
-    const styleUrl=MAP_CONFIG.apiKey.trim()?`https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(MAP_CONFIG.apiKey.trim())}`:'https://demotiles.maplibre.org/style.json';
-    try{
-        historyMapInstance=new maplibregl.Map({container,style:styleUrl,center:[start[1],start[0]],zoom:14,bearing:0,pitch:0,attributionControl:false,antialias:true,renderWorldCopies:true,maxPitch:60});
-        const hm=historyMapInstance;
-        hm.on('load',()=>{
-            if(historyMapInstance!==hm)return;
-            try{
-                const features=[];
-                for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];features.push({type:'Feature',properties:{color:getSpeedColor(b[2]||0)},geometry:{type:'LineString',coordinates:[[a[1],a[0]],[b[1],b[0]]]}});}
-                hm.addSource('history-route-source',{type:'geojson',data:{type:'FeatureCollection',features},lineMetrics:true});
-                hm.addLayer({id:'history-route-layer',type:'line',source:'history-route-source',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['coalesce',['get','color'],'#00e5ff'],'line-width':4,'line-opacity':.95}});
-                const se=document.createElement('div');se.style.cssText='width:30px;height:30px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px';se.textContent='🚗';
-                const ee=document.createElement('div');ee.style.cssText='width:30px;height:30px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px';ee.textContent='🏁';
-                const sm=new maplibregl.Marker({element:se,anchor:'center'}).setLngLat([start[1],start[0]]).setPopup(new maplibregl.Popup({offset:18,closeButton:false}).setText('🚗 จุดเริ่มต้น')).addTo(hm);
-                const em=new maplibregl.Marker({element:ee,anchor:'center'}).setLngLat([end[1],end[0]]).setPopup(new maplibregl.Popup({offset:18,closeButton:false}).setText('🏁 จุดสิ้นสุด')).addTo(hm); historyMapMarkers=[sm,em];
-                if(points.length>1){const bounds=new maplibregl.LngLatBounds();points.forEach(p=>bounds.extend([p[1],p[0]]));hm.fitBounds(bounds,{padding:{top:55,bottom:55,left:45,right:45},maxZoom:17,animate:false});}else{hm.setCenter([start[1],start[0]]);hm.setZoom(17);}
-                requestAnimationFrame(()=>{try{hm.resize();}catch(_){}});
-            }catch(e){console.error('History map render failed',e);info.innerHTML+=`<div style="padding:8px 0;color:var(--red)">ไม่สามารถวาดเส้นทางย้อนหลังได้: ${escapeHtml(e?.message||'unknown error')}</div>`;}
-        });
-        hm.on('error',e=>console.warn('History MapLibre error',e));
-        requestAnimationFrame(()=>{try{hm.resize();}catch(_){}});
-    }catch(e){console.error('History map initialization failed',e);info.innerHTML+=`<div style="padding:8px 0;color:var(--red)">เปิดแผนที่ย้อนหลังไม่สำเร็จ: ${escapeHtml(e?.message||'unknown error')}</div>`;}
-}
-window.showHistoryMapFromTrip=showLeafletMapFromTrip;
+window.showHistoryMapFromTrip = showLeafletMapFromTrip;
 
 // 🚗 MAP TRACKING CORE (CLEAN)
 let map = null;
