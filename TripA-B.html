@@ -317,6 +317,12 @@ button:disabled {
 }
 .map-gps-btn img { width: 18px; height: 18px; }
 
+/* V5.1 REAL-WORLD TRACKING STATUS */
+.gps-status-panel{position:absolute;left:12px;bottom:12px;z-index:9999;display:flex;flex-direction:column;gap:4px;min-width:150px;padding:7px 10px;border:1px solid var(--border-glow);border-radius:10px;background:rgba(5,8,16,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 0 14px rgba(0,0,0,.35);pointer-events:none;font-family:var(--font-hud);font-size:9px;letter-spacing:.06em}
+.gps-status-line{display:flex;align-items:center;justify-content:space-between;gap:10px}.gps-status-value{color:var(--text-hi);white-space:nowrap}.gps-state{font-weight:700}.gps-state.good{color:var(--green)}.gps-state.fair{color:var(--amber)}.gps-state.weak{color:#ff8a3d}.gps-state.lost{color:var(--red)}.gps-state.acquiring{color:var(--cyan)}.gps-state.paused{color:var(--text-mid)}.gps-status-bar{margin-top:5px;height:3px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,.08)}.gps-status-bar>span{display:block;height:100%;width:0%;transition:width .25s ease;background:currentColor}
+.tracking-status{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 4px;padding:7px 10px;border:1px solid var(--border-dim);border-radius:10px;background:rgba(0,200,255,.035);font-family:var(--font-hud);font-size:9px;letter-spacing:.06em}.tracking-status-main{display:flex;align-items:center;gap:7px;min-width:0}.tracking-status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-lo);box-shadow:0 0 8px currentColor;flex:0 0 auto}.tracking-status.good .tracking-status-dot{background:var(--green);color:var(--green)}.tracking-status.warn .tracking-status-dot{background:var(--amber);color:var(--amber)}.tracking-status.bad .tracking-status-dot{background:var(--red);color:var(--red)}.tracking-status.info .tracking-status-dot{background:var(--cyan);color:var(--cyan)}.tracking-status-text{color:var(--text-hi);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tracking-status-meta{color:var(--text-mid);white-space:nowrap;font-size:8px}.map-gps-btn.active{border-color:var(--green)!important;box-shadow:0 0 18px var(--green-dim)}.map-gps-btn.follow-off{border-color:var(--amber)!important}@media(max-width:430px){.gps-status-panel{min-width:138px;font-size:8px}.tracking-status{font-size:8px}.tracking-status-meta{display:none}}
+.history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}.history-stat{padding:7px;border:1px solid var(--border-dim);border-radius:8px;background:rgba(0,200,255,.035);text-align:center}.history-stat .v{display:block;font-family:var(--font-hud);font-size:12px;color:var(--cyan)}.history-stat .k{display:block;margin-top:2px;font-size:8px;color:var(--text-mid)}.trip-entry{border:1px solid var(--border-dim);border-radius:12px;padding:10px;margin:8px 0;background:rgba(13,20,40,.7);box-shadow:0 4px 12px rgba(0,0,0,.18)}.trip-entry .trip-header{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:6px}.trip-entry .trip-header strong{flex:1 1 180px;color:var(--cyan)}.trip-entry p{margin:3px 0;color:var(--text-mid);font-size:11px}.trip-entry p b{color:var(--text-hi)}.trip-entry .trip-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 8px;margin:7px 0;padding:7px;border-radius:8px;background:rgba(0,0,0,.18)}.trip-entry .trip-metrics div{display:flex;justify-content:space-between;gap:5px}.trip-entry .trip-metrics span:first-child{color:var(--text-mid)}.trip-entry .trip-metrics span:last-child{color:var(--text-hi);font-family:var(--font-hud);font-size:10px}.history-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}.history-actions button{font-size:9px;padding:6px 9px}
+
 /* ============================================================
    SPEED DISPLAY
    ============================================================ */
@@ -1028,7 +1034,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-3D</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-67</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1084,10 +1090,21 @@ span[id^="wltpSegment"] {
 			
 				<div id="map"></div>
 				<div id="gpsAccuracy" class="gps-accuracy">±-- m</div>
-				<button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
+                <div id="gpsStatusPanel" class="gps-status-panel" aria-live="polite">
+                    <div class="gps-status-line"><span>GPS</span><span id="gpsStateText" class="gps-status-value gps-state acquiring">ACQUIRING</span></div>
+                    <div class="gps-status-line"><span>ACCURACY</span><span id="gpsAccuracyStatus" class="gps-status-value">±-- m</span></div>
+                    <div class="gps-status-line"><span>LAST FIX</span><span id="gpsLastFix" class="gps-status-value">--</span></div>
+                    <div class="gps-status-line"><span>HEADING</span><span id="gpsHeadingConfidence" class="gps-status-value">--%</span></div>
+                    <div class="gps-status-bar"><span id="gpsStatusBar"></span></div>
+                </div>
+                <button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
 				<span aria-hidden="true" style="font-size:20px;line-height:1">◎</span>
 				</button>
 			</div>
+                <div id="trackingStatus" class="tracking-status info" aria-live="polite">
+                    <div class="tracking-status-main"><span id="trackingStatusDot" class="tracking-status-dot"></span><span id="trackingStatusText" class="tracking-status-text">READY</span></div>
+                    <span id="trackingStatusMeta" class="tracking-status-meta">GPS standby</span>
+                </div>
 			<div style="padding:10px 14px 0;">
 				<div class="label">Speed</div>
 				<div id="digitalSpeed">0 km/h</div>
@@ -1263,7 +1280,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 (() => {
-const APP_VERSION = "PRO-56";
+const APP_VERSION = "PRO-57-V5.1";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -2510,28 +2527,30 @@ async function loadHistory(limit = null) {
   }
 
   const shownTrips = limit != null ? allTrips.slice(0, limit) : allTrips.slice(0, 100);
-  let html = "";
+  const totalKm=shownTrips.reduce((n,t)=>n+(Number(t.distance)||0),0);
+  const totalEnergy=shownTrips.reduce((n,t)=>n+(Number(t.energyConsumption)||0),0);
+  const avgKwh100=totalKm>0?(totalEnergy/totalKm*100):0;
+  let html=`<div class="history-summary"><div class="history-stat"><span class="v">${shownTrips.length}</span><span class="k">TRIPS</span></div><div class="history-stat"><span class="v">${totalKm.toFixed(1)}</span><span class="k">KM</span></div><div class="history-stat"><span class="v">${avgKwh100.toFixed(1)}</span><span class="k">kWh/100km</span></div></div>`;
   shownTrips.forEach((trip) => {
-    const tripName = escapeHtml(trip.plateNumber || "-");
-    html += `
-      <div class="trip-entry" data-id="${escapeHtml(trip.id)}">
-        <div class="trip-header">
-          <strong>เดินทาง: ${tripName}</strong>
-          <button class="clear-trip-btn" data-id="${escapeHtml(trip.id)}">ล้างข้อมูล</button>
-          <button class="show-map-btn" data-id="${escapeHtml(trip.id)}">แผนที่</button>
-        </div>
-        <p>ระยะทางทั้งหมด : ${parseFloat(trip.distance || 0).toFixed(3)} km</p>
-        <p>พลังงานรีเจน : ${(Number(trip.totalRegenEnergy) || 0).toFixed(2)} kWh</p>
-        <p>เวลาที่รถหยุด : ${formatTime(trip.idleTimeSeconds || 0)}</p>
-        <p>เวลาที่ใช้เดินทางทั้งหมด : ${formatTime(trip.elapsedTime || 0)}</p>
-        <p>ความเร็วสูงสุด : ${parseFloat(trip.maxSpeed || 0).toFixed(1)} km/h</p>
-        <p>ความเร็วเฉลี่ย : ${parseFloat(trip.avgSpeed || 0).toFixed(1)} km/h</p>
-        <p>Energy/Trip : ${(Number(trip.energyConsumption) || 0).toFixed(2)} kWh</p>
-        <p>SOC/Trip : ${(Number(trip.batterySOCUsedPercent) || 0).toFixed(2)}%</p>
-        <p>พลังงานใช้เฉลี่ย : ${(Number(trip.energyPer100km) || 0).toFixed(2)} kWh/100km : ${(Number(trip.avgEfficiencyPerPercent) || 0).toFixed(3)} km/1%</p>
-        <p>เริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : "-"} , ${escapeHtml(trip.startCoord || "-")}</p>
-        <p>สิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : "-"} , ${escapeHtml(trip.endCoord || "-")}</p>
-      </div>`;
+    const id=escapeHtml(trip.id), tripName=escapeHtml(trip.plateNumber||"-");
+    const start=trip.startTime?new Date(trip.startTime):null, end=trip.endTime?new Date(trip.endTime):null;
+    const duration=formatTime(trip.elapsedTime||0);
+    html += `<div class="trip-entry" data-id="${id}">
+      <div class="trip-header"><strong>🚗 ${tripName}</strong><span style="color:var(--text-mid);font-size:9px">${start?start.toLocaleString():"-"}</span></div>
+      <div class="trip-metrics">
+        <div><span>Distance</span><span>${(Number(trip.distance)||0).toFixed(3)} km</span></div>
+        <div><span>Duration</span><span>${duration}</span></div>
+        <div><span>Avg speed</span><span>${(Number(trip.avgSpeed)||0).toFixed(1)} km/h</span></div>
+        <div><span>Max speed</span><span>${(Number(trip.maxSpeed)||0).toFixed(1)} km/h</span></div>
+        <div><span>Energy</span><span>${(Number(trip.energyConsumption)||0).toFixed(2)} kWh</span></div>
+        <div><span>Consumption</span><span>${(Number(trip.energyPer100km)||0).toFixed(2)} kWh/100km</span></div>
+        <div><span>SOC used</span><span>${(Number(trip.batterySOCUsedPercent)||0).toFixed(2)}%</span></div>
+        <div><span>Regen</span><span>${(Number(trip.totalRegenEnergy)||0).toFixed(2)} kWh</span></div>
+      </div>
+      <p>หยุดรถ: ${formatTime(trip.idleTimeSeconds||0)} · Efficiency: ${(Number(trip.avgEfficiencyPerPercent)||0).toFixed(3)} km/1%</p>
+      <p>เริ่ม: ${escapeHtml(trip.startCoord||"-")}</p><p>สิ้นสุด: ${escapeHtml(trip.endCoord||"-")}${end?` · ${end.toLocaleString()}`:""}</p>
+      <div class="history-actions"><button class="show-map-btn" data-id="${id}">แผนที่</button><button class="clear-trip-btn" data-id="${id}">ลบ Trip</button></div>
+    </div>`;
   });
   historyContainer.innerHTML = html;
 
@@ -3697,13 +3716,13 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
     const btn = document.getElementById('gpsFollowBtn');
     autoFollow = !autoFollow;
 	if (autoFollow) {
-		btn.classList.add('active');
+		btn.classList.add('active'); btn.classList.remove('follow-off');
 		btn.innerHTML = '🚗';
 		disableMapInteraction();
 		autoRotate = true;
-		forceRecenterToVehicle();
+		forceRecenterToVehicle(); setTrackingStatus(isTracking?"TRACKING — FOLLOW ON":"READY — FOLLOW ON","good","Camera locked to vehicle");
 	} else {
-        btn.classList.remove('active');
+        btn.classList.remove('active'); btn.classList.add('follow-off');
         btn.innerHTML = '👆';
         enableMapInteraction();
         autoRotate = false;
@@ -3716,6 +3735,7 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
                 vehicleMarker.setRotationAngle(lastGpsHeading || 0);
             }
         });
+        setTrackingStatus(isTracking?"TRACKING — FOLLOW OFF":"READY — FOLLOW OFF","warn","ลากแผนที่ได้");
     }
 });
 function resetTrackingVisualState() {
@@ -3983,6 +4003,36 @@ function formatAccuracy(acc) {
     return `±${acc.toFixed(1)}m`;
 }
 let lastAccuracy = null;
+let lastGpsFixWallClock = 0;
+let gpsConnectionState = "acquiring";
+let gpsWatchdogInterval = null;
+let gpsWatchdogLastState = "";
+let headingConfidencePercent = 0;
+let lastHeadingConfidence = 0;
+let wakeLock = null;
+let wakeLockWanted = false;
+const DRAFT_STORAGE_KEY = "tripA-B-active-draft-v51";
+function setTrackingStatus(text,tone="info",meta=""){
+ const el=document.getElementById("trackingStatus"),t=document.getElementById("trackingStatusText"),m=document.getElementById("trackingStatusMeta");
+ if(t)t.textContent=text;if(m)m.textContent=meta;if(el)el.className=`tracking-status ${tone}`;
+}
+function updateGpsUi(state,accuracy=null){
+ const s=document.getElementById("gpsStateText"),a=document.getElementById("gpsAccuracyStatus"),l=document.getElementById("gpsLastFix"),h=document.getElementById("gpsHeadingConfidence"),b=document.getElementById("gpsStatusBar");
+ const labels={good:"GOOD",fair:"FAIR",weak:"WEAK",lost:"LOST",acquiring:"ACQUIRING",paused:"PAUSED"};
+ if(s){s.textContent=labels[state]||String(state).toUpperCase();s.className=`gps-status-value gps-state ${state}`;} if(a)a.textContent=isFinite(accuracy)?formatAccuracy(accuracy):"±-- m";
+ if(l){if(lastGpsFixWallClock>0){const sec=Math.max(0,(Date.now()-lastGpsFixWallClock)/1000);l.textContent=sec<1?"NOW":`${sec.toFixed(1)}s`;}else l.textContent="--";}
+ if(h)h.textContent=`${Math.round(headingConfidencePercent)}%`;if(b){const w={good:100,fair:70,weak:38,lost:5,acquiring:18,paused:8};b.style.width=`${w[state]??20}%`;b.parentElement.style.color=state==="good"?"var(--green)":state==="fair"?"var(--amber)":state==="lost"?"var(--red)":"var(--cyan)";}gpsConnectionState=state;
+}
+function calculateHeadingConfidence(speedKmh,accuracy,gpsHeadingValid){const sp=Number(speedKmh)||0,acc=isFinite(accuracy)?Number(accuracy):99;let c=sp<2?20:sp<5?42:sp<10?68:sp<25?84:94;if(acc>50)c*=.45;else if(acc>30)c*=.68;else if(acc>15)c*=.86;if(!gpsHeadingValid)c*=.65;if(isFinite(lastReliableHeading))c=Math.max(c,sp<5?38:55);return clamp(c,0,100);}
+function classifyGpsState(ageSec,accuracy){if(!isTracking)return "paused";if(ageSec>15)return "lost";if(ageSec>6)return "weak";if(!isFinite(accuracy))return "acquiring";if(accuracy<=12)return "good";if(accuracy<=30)return "fair";return "weak";}
+function updateGpsWatchdog(){if(!isTracking){updateGpsUi("paused",lastAccuracy);return;}const age=lastGpsFixWallClock>0?(Date.now()-lastGpsFixWallClock)/1000:999,state=classifyGpsState(age,lastAccuracy);updateGpsUi(state,lastAccuracy);if(state!==gpsWatchdogLastState){gpsWatchdogLastState=state;if(state==="lost")setTrackingStatus("GPS LOST — กำลังรอสัญญาณ","bad",`last fix ${Math.round(age)}s`);else if(state==="weak")setTrackingStatus("GPS WEAK — ความแม่นยำต่ำ","warn",`±${isFinite(lastAccuracy)?Math.round(lastAccuracy):"--"}m`);else if(state==="good")setTrackingStatus("TRACKING — GPS GOOD","good",autoFollow?"FOLLOW ON":"FOLLOW OFF");else if(state==="fair")setTrackingStatus("TRACKING — GPS FAIR","warn",autoFollow?"FOLLOW ON":"FOLLOW OFF");else if(state==="acquiring")setTrackingStatus("กำลังค้นหา GPS...","info","Acquiring fix");}}
+async function requestWakeLock(){wakeLockWanted=true;if(!("wakeLock" in navigator))return false;try{if(wakeLock&&!wakeLock.released)return true;wakeLock=await navigator.wakeLock.request("screen");wakeLock.addEventListener?.("release",()=>{wakeLock=null;});return true;}catch(e){console.warn("Wake Lock unavailable:",e);return false;}}
+async function releaseWakeLock(){wakeLockWanted=false;try{await wakeLock?.release();}catch(e){}wakeLock=null;}
+async function reacquireWakeLockIfNeeded(){if(isTracking&&wakeLockWanted&&document.visibilityState==="visible")await requestWakeLock();}
+function buildActiveTripDraft(){if(!isTracking||!tripStartTime)return null;return{version:1,savedAt:Date.now(),plateNumber:plateInput.value.trim(),startTime:tripStartTime,distance:cumulativeDistance,maxSpeed,elapsedTime,energyUsedWh:totalEnergyWh,batterySOCUsedPercent:parseFloat(document.getElementById("batterySOCUsed")?.textContent)||0,idleEnergyUsedWh:idleEnergyWhTotal,idleTimeSeconds:idleTimeTotal,totalRegenEnergy:totalRegenEnergyWh/1000,startCoord:tripLog[0]?.coord||"-",endCoord:tripLog[tripLog.length-1]?.coord||"-",path:compressPath(tripLog)};}
+function saveActiveTripDraft(){const d=buildActiveTripDraft();if(!d)return;try{localStorage.setItem(DRAFT_STORAGE_KEY,JSON.stringify(d));}catch(e){console.warn("Draft save failed",e);}}
+function clearActiveTripDraft(){try{localStorage.removeItem(DRAFT_STORAGE_KEY);}catch(e){}}
+async function recoverActiveTripDraft(){let d=null;try{d=JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY)||"null");}catch(e){}if(!d?.startTime||!Array.isArray(d.path)||!d.path.length)return;const ageMin=(Date.now()-Number(d.savedAt||d.startTime))/60000;if(ageMin>7*24*60){clearActiveTripDraft();return;}const ok=confirm(`พบ Trip ที่ยังไม่จบ\n\n${d.plateNumber||"Trip"}\nระยะทางล่าสุด ${Number(d.distance||0).toFixed(3)} km\nบันทึกล่าสุด ${Math.max(0,ageMin).toFixed(0)} นาทีที่แล้ว\n\nกด OK เพื่อกู้คืนเป็นประวัติการเดินทาง\nกด Cancel เพื่อทิ้งข้อมูลนี้`);if(!ok){clearActiveTripDraft();return;}const elapsed=Number(d.elapsedTime)||Math.max(0,(Date.now()-d.startTime)/1000),distance=Number(d.distance)||0,energy=Number(d.energyUsedWh)||0;const r={plateNumber:d.plateNumber||"Recovered Trip",startTime:Number(d.startTime),endTime:Number(d.savedAt)||Date.now(),startCoord:d.startCoord||"-",endCoord:d.endCoord||d.startCoord||"-",distance,maxSpeed:Number(d.maxSpeed)||0,avgSpeed:elapsed>0?distance/(elapsed/3600):0,elapsedTime,energyUsedWh:energy,energyUsed:energy/1000,avgEnergyPerKm:distance>0?energy/distance:0,energyConsumption:Number((energy/1000).toFixed(2)),batterySOCUsedPercent:Number(d.batterySOCUsedPercent)||0,idleEnergyUsedWh:Number(d.idleEnergyUsedWh)||0,energyPer100km:distance>0?(energy/1000)/distance*100:0,idleTimeFormatted:formatTime(Math.floor(Number(d.idleTimeSeconds)||0)),idleTimeSeconds:Number(d.idleTimeSeconds)||0,totalRegenEnergy:Number(d.totalRegenEnergy)||0,avgEfficiencyPerPercent:0,path:d.path};try{await enqueueSave(()=>safeSaveTrip(r));clearActiveTripDraft();loadHistory();alert("กู้คืน Trip สำเร็จ");}catch(e){console.error("Recovery failed",e);alert("กู้คืน Trip ไม่สำเร็จ");}}
 function smoothAccuracy(acc) {
     if (lastAccuracy == null) {
         lastAccuracy = acc;
@@ -4050,6 +4100,8 @@ function startTracking() {
 	shownSpeed = 0;
 	gpsLossTime = 0;
 	lastGpsTimestamp = null;
+    lastGpsFixWallClock = 0;
+    gpsConnectionState = "acquiring"; gpsWatchdogLastState = ""; headingConfidencePercent = 0; lastHeadingConfidence = 0;
 	gpsIntervalSec = 1;
 	if (!speedAnimFrame) {
 		speedAnimFrame = requestAnimationFrame(animateDigitalSpeed);
@@ -4078,6 +4130,11 @@ function startTracking() {
 	lastSpeedClass = "";
 	if (elapsedTimeInterval) clearInterval(elapsedTimeInterval);
 	if (updateEndTimeInterval) clearInterval(updateEndTimeInterval);
+    if (gpsWatchdogInterval) clearInterval(gpsWatchdogInterval);
+    gpsWatchdogInterval=setInterval(updateGpsWatchdog,1000);
+    requestWakeLock();
+    setTrackingStatus("กำลังค้นหา GPS...","info","Acquiring fix");
+    updateGpsUi("acquiring",null);
 	elapsedTimeInterval = setInterval(() => {
 		checkIdleStatus();
 		updateTripTime();
@@ -4098,12 +4155,18 @@ function startTracking() {
 			lastGpsLat = latitude;
 			lastGpsLng = longitude;
 			lastGpsHeading = headingDeg;
+            lastGpsFixWallClock=Date.now();
+            lastAccuracy=smoothAccuracy(pos.coords.accuracy ?? 99);
+            headingConfidencePercent=calculateHeadingConfidence(0,lastAccuracy,typeof pos.coords.heading==="number"&&pos.coords.heading>=0);
+            lastHeadingConfidence=headingConfidencePercent;
+            updateGpsUi(classifyGpsState(0,lastAccuracy),lastAccuracy);
 			lastGpsSpeedKmh = 0;
 			smoothedLat = latitude;
 			smoothedLon = longitude;
 			prevPos = { latitude, longitude };
 			prevTimestamp = pos.timestamp;
 			tripLog.push({ time: pos.timestamp, coord: coordText, speed: 0 });
+            saveActiveTripDraft();
 			startCoordSpan.textContent = coordText;
 			startTimeSpan.textContent = new Date(pos.timestamp).toLocaleString();
 			tripStartTime = pos.timestamp;
@@ -4136,7 +4199,8 @@ function startTracking() {
 				);
 			} catch (err) {
 				console.error("saveTripToStorage failed", err);
-				clearWatchId();
+				clearWatchId(); if(gpsWatchdogInterval){clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=null;} await releaseWakeLock();
+				setTrackingStatus("START FAILED","bad","ไม่สามารถบันทึก Trip เริ่มต้นได้");
 				isTracking = false;
 				isFinalizing = false;
 				stopcallback = false;
@@ -4162,10 +4226,14 @@ function startTracking() {
 			const accEl = document.getElementById("gpsAccuracy");
 			const rawAcc = gps.accuracy ?? 5;
 			const smoothAcc = smoothAccuracy(rawAcc);
+            lastGpsFixWallClock=Date.now();
+            headingConfidencePercent=calculateHeadingConfidence(speedKmh,smoothAcc,heading!=null);
+            lastHeadingConfidence=headingConfidencePercent;
 			if (accEl) {
 				accEl.textContent = formatAccuracy(smoothAcc);
 				accEl.style.color = getAccuracyColor(smoothAcc);
 			}
+            updateGpsUi(classifyGpsState(0,smoothAcc),smoothAcc);
 			const accClamped = Math.min(Math.max(smoothAcc, 1), 150);
 			const accFactor = Math.log10(accClamped + 1);
 			const intervalFactor = Math.min(Math.max(gpsIntervalSec, 0.5), 2.0);
@@ -4263,11 +4331,11 @@ function startTracking() {
 				}
 			},
 			(err) => {
-				if (err.code === 1) {
-					alert("ไม่ได้รับอนุญาตเข้าถึง GPS: " + err.message);
-					stopTracking();
-					isTracking = false;
-				}
+                console.warn("GPS watch error",err);
+                if (err.code === 1) {
+                    setTrackingStatus("GPS PERMISSION DENIED","bad","ตรวจสอบสิทธิ์ตำแหน่ง"); updateGpsUi("lost",lastAccuracy);
+                    alert("ไม่ได้รับอนุญาตเข้าถึง GPS: " + err.message); stopTracking(); isTracking=false;
+                } else { updateGpsUi("weak",lastAccuracy); setTrackingStatus("GPS SIGNAL ERROR — กำลังรอใหม่","warn",err.code===2?"Position unavailable":"Timeout"); }
 			},{
 				enableHighAccuracy: true,
 				maximumAge: 0,
@@ -4278,7 +4346,7 @@ function startTracking() {
 	},
 		(err) => {
 			alert("ไม่สามารถรับตำแหน่งเริ่มต้นได้: " + err.message);
-			clearWatchId();
+			clearWatchId(); if(gpsWatchdogInterval){clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=null;} releaseWakeLock(); setTrackingStatus("GPS START FAILED","bad","ไม่พบตำแหน่งเริ่มต้น");
 			isTracking = false;
 			isFinalizing = false;
 			stopcallback = false;
@@ -4403,6 +4471,7 @@ function enqueueSave(fn) {
 async function stopTracking() {
 	if (!isTracking || isFinalizing) return;
 	isFinalizing = true;
+    setTrackingStatus("กำลังบันทึก Trip...","info","Finalizing data"); saveActiveTripDraft();
 	const oldWatchId = watchId;
 	watchId = null;
 	await wait(Math.max(1500, gpsIntervalSec * 2000));
@@ -4415,6 +4484,7 @@ async function stopTracking() {
 	const frozenTripLog = structuredClone(tripLog);
 	isTracking = false;
 	stopcallback = true;
+    if (gpsWatchdogInterval) {clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=null;} await releaseWakeLock(); updateGpsUi("paused",lastAccuracy);
 	if (oldWatchId != null) {
 		navigator.geolocation.clearWatch(oldWatchId);
 	}
@@ -4666,6 +4736,7 @@ document.getElementById("batterySOCUsed")
 		startBtn.disabled = false;
 		stopBtn.disabled = true;
 		alert("บันทึก Trip ไม่สำเร็จ");
+        setTrackingStatus("SAVE FAILED — เก็บไว้เป็น Draft","bad","ลอง Stop อีกครั้ง"); saveActiveTripDraft();
 		return;
 	}
 	distanceSpan.textContent = cumulativeDistance.toFixed(3);
@@ -4689,8 +4760,10 @@ document.getElementById("batterySOCUsed")
 	isFinalizing = false;
 	stopcallback = false;
 	positions = [];
+    clearActiveTripDraft();
 	loadHistory();
 	activeTripId = null;
+    setTrackingStatus("TRIP COMPLETED — บันทึกแล้ว","good","Ready for next trip");
 	startBtn.disabled = false;
 	stopBtn.disabled = true;
 }
@@ -4703,6 +4776,10 @@ document.getElementById("batterySOCUsed")
 	document.getElementById("showAllBtn").onclick = () => loadHistory();
   loadHistory();
   window.reloadTripHistory = loadHistory;
+  setTrackingStatus("READY","info","GPS standby"); updateGpsUi("paused",null);
+  setTimeout(recoverActiveTripDraft,450);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reacquireWakeLockIfNeeded();if(isTracking)saveActiveTripDraft();},{passive:true});
+  window.addEventListener("beforeunload",()=>{if(isTracking)saveActiveTripDraft();});
 })();
 // PATCH: bind resize/orientation ONCE (global scope)
 (function bindResizeOnce() {
