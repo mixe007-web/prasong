@@ -1034,7 +1034,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-67</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-87</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -4171,42 +4171,25 @@ function startTracking() {
 			startTimeSpan.textContent = new Date(pos.timestamp).toLocaleString();
 			tripStartTime = pos.timestamp;
 			    // --- Save trip skeleton ---
-			try {
-				await enqueueSave(() =>
-					saveTripToStorage({
-						plateNumber: plateInput.value.trim(),
-						startTime: tripStartTime,
-						endTime: tripStartTime,
-						startCoord: coordText,
-						endCoord: coordText,
-						distance: 0,
-						maxSpeed: 0,
-						avgSpeed: 0,
-						elapsedTime: 0,
-						energyUsedWh: 0,
-						energyUsed: 0,
-						avgEnergyPerKm: 0,
-						energyConsumption: 0,
-						batterySOCUsedPercent: 0,
-						idleEnergyUsedWh: 0,
-						energyPer100km: 0,
-						idleTimeFormatted: "00:00:00",
-						idleTimeSeconds: 0,
-						totalRegenEnergy: 0,
-						avgEfficiencyPerPercent: 0,
-						path: [],
-					})
-				);
-			} catch (err) {
-				console.error("saveTripToStorage failed", err);
-				clearWatchId(); if(gpsWatchdogInterval){clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=null;} await releaseWakeLock();
-				setTrackingStatus("START FAILED","bad","ไม่สามารถบันทึก Trip เริ่มต้นได้");
-				isTracking = false;
-				isFinalizing = false;
-				stopcallback = false;
-				alert("ไม่สามารถเริ่มบันทึก Trip ได้");
-				return;
-			}
+			// Do not block GPS startup on the IndexedDB/localStorage write.
+			// The previous V5.1 implementation awaited this queue before starting
+			// watchPosition(), so a slow/locked storage operation could make the
+			// Start button appear to hang forever. GPS tracking must be independent
+			// of the initial persistence operation.
+			const skeletonTrip = {
+				plateNumber: plateInput.value.trim(),
+				startTime: tripStartTime, endTime: tripStartTime,
+				startCoord: coordText, endCoord: coordText,
+				distance: 0, maxSpeed: 0, avgSpeed: 0, elapsedTime: 0,
+				energyUsedWh: 0, energyUsed: 0, avgEnergyPerKm: 0,
+				energyConsumption: 0, batterySOCUsedPercent: 0,
+				idleEnergyUsedWh: 0, energyPer100km: 0,
+				idleTimeFormatted: "00:00:00", idleTimeSeconds: 0,
+				totalRegenEnergy: 0, avgEfficiencyPerPercent: 0, path: []
+			};
+			Promise.resolve(enqueueSave(() => saveTripToStorage(skeletonTrip)))
+				.catch(err => console.error("Initial trip skeleton save failed (tracking continues):", err));
+
 			// --- Watch position ---
 		watchId = navigator.geolocation.watchPosition(async (pos) => {
 			if (!isTracking || stopcallback || isFinalizing) return;
@@ -4345,14 +4328,25 @@ function startTracking() {
 
 	},
 		(err) => {
-			alert("ไม่สามารถรับตำแหน่งเริ่มต้นได้: " + err.message);
-			clearWatchId(); if(gpsWatchdogInterval){clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=null;} releaseWakeLock(); setTrackingStatus("GPS START FAILED","bad","ไม่พบตำแหน่งเริ่มต้น");
+			console.warn("Initial GPS fix failed:", err);
+			clearWatchId();
+			if(gpsWatchdogInterval){clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=null;}
+			releaseWakeLock();
 			isTracking = false;
 			isFinalizing = false;
 			stopcallback = false;
+			startBtn.disabled = false;
+			stopBtn.disabled = true;
+			setTrackingStatus("GPS START FAILED","bad",err.code === 1 ? "อนุญาต Location ก่อนเริ่ม" : "ไม่พบตำแหน่งภายใน 12 วินาที");
+			updateGpsUi("lost", lastAccuracy);
+			alert(err.code === 1
+				? "ไม่ได้รับอนุญาตเข้าถึงตำแหน่ง (Location) กรุณาอนุญาตแล้วกด Trip Start ใหม่"
+				: "ยังไม่พบตำแหน่ง GPS ภายใน 12 วินาที กรุณาอยู่ในบริเวณที่รับ GPS ได้ แล้วกด Trip Start ใหม่");
 		},
 		{
-			enableHighAccuracy: true
+			enableHighAccuracy: true,
+			maximumAge: 0,
+			timeout: 12000
 		}
 	);
 }
