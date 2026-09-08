@@ -1039,7 +1039,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-58-8</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-67</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2659,8 +2659,8 @@ async function loadHistory(limit = null) {
 
 // ============================================================
 // HISTORY MAP — restored to the original TripA-B.html behavior.
-// Uses Leaflet + CARTO so it does not depend on the live MapLibre map
-// or on a MapTiler API key.
+// Uses Leaflet + OpenStreetMap tiles so it does not depend on the live MapLibre map
+// or on a MapTiler/CARTO API key.
 // ============================================================
 let historyReplayMap = null;
 
@@ -2720,9 +2720,9 @@ function showLeafletMapFromTrip(trip) {
       worldCopyJump: true
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-      maxZoom: 20,
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
       noWrap: true
     }).addTo(historyReplayMap);
 
