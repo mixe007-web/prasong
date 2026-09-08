@@ -1034,7 +1034,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-87</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-56</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3535,6 +3535,10 @@ function addMapLibreTerrain(targetMap) {
     } catch(e) { console.warn('Terrain unavailable:',e); }
 }
 function initMap(lat, lon) {
+    if (!window.maplibregl || typeof maplibregl.Map !== "function") {
+        console.warn("MapLibre GL JS is not available.");
+        return null;
+    }
     destroyMap();
     const container=document.getElementById('map');
     if(!container) return;
@@ -4148,9 +4152,21 @@ function startTracking() {
 			const { latitude, longitude, heading } = pos.coords;
 			const coordText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 			const headingDeg = (typeof heading === 'number' && isFinite(heading) && heading >= 0) ? heading : 0;
+			// Map is an optional presentation layer. GPS tracking and trip analysis must
+			// never stop just because MapLibre/CDN/style initialization fails.
 			if (!map) {
-				initMap(latitude, longitude);
-				requestAnimationFrame(() => forceRecenterToVehicle());
+				try {
+					if (window.maplibregl && typeof maplibregl.Map === "function") {
+						initMap(latitude, longitude);
+						requestAnimationFrame(() => { try { forceRecenterToVehicle(); } catch(e) {} });
+					} else {
+					console.warn("MapLibre GL JS unavailable; continuing without map.");
+						setTrackingStatus("TRACKING — MAP UNAVAILABLE", "warn", "GPS/analysis ยังทำงาน");
+					}
+				} catch (e) {
+					console.error("Map initialization failed; tracking continues:", e);
+					setTrackingStatus("TRACKING — MAP ERROR", "warn", "GPS/analysis ยังทำงาน");
+				}
 			}
 			lastGpsLat = latitude;
 			lastGpsLng = longitude;
@@ -4239,7 +4255,11 @@ function startTracking() {
 			if (lastRouteLat === null || forceUpdate || forcePosition ||
 				haversineMeters(lastRouteLat, lastRouteLon, latitude, longitude) > routeThreshold
 			) {
-				updateRoute(latitude, longitude, speedKmh, heading);
+				try {
+					if (map && map._loaded) updateRoute(latitude, longitude, speedKmh, heading);
+				} catch (e) {
+					console.warn("Map route update failed; GPS/analysis continues:", e);
+				}
 			}
 			// --- Logging ---
 			const coordText = latitude.toFixed(6) + "," + longitude.toFixed(6);
@@ -4317,7 +4337,11 @@ function startTracking() {
                 console.warn("GPS watch error",err);
                 if (err.code === 1) {
                     setTrackingStatus("GPS PERMISSION DENIED","bad","ตรวจสอบสิทธิ์ตำแหน่ง"); updateGpsUi("lost",lastAccuracy);
-                    alert("ไม่ได้รับอนุญาตเข้าถึง GPS: " + err.message); stopTracking(); isTracking=false;
+                    alert("ไม่ได้รับอนุญาตเข้าถึง GPS: " + (err.message || "Permission denied"));
+                    clearWatchId();
+                    isTracking = false; isFinalizing = false; stopcallback = false;
+                    if (gpsWatchdogInterval) { clearInterval(gpsWatchdogInterval); gpsWatchdogInterval = null; }
+                    releaseWakeLock(); startBtn.disabled = false; stopBtn.disabled = true;
                 } else { updateGpsUi("weak",lastAccuracy); setTrackingStatus("GPS SIGNAL ERROR — กำลังรอใหม่","warn",err.code===2?"Position unavailable":"Timeout"); }
 			},{
 				enableHighAccuracy: true,
@@ -4764,7 +4788,18 @@ document.getElementById("batterySOCUsed")
 (function bindUIOnce() {
 	if (window._uiBoundOnce) return;
 	window._uiBoundOnce = true;
-	startBtn.onclick = startTracking;
+	startBtn.onclick = () => {
+		try { startTracking(); } catch (e) {
+			console.error("Trip Start fatal error:", e);
+			isTracking = false; isFinalizing = false; stopcallback = false;
+			try { clearWatchId(); } catch(_) {}
+			try { if (gpsWatchdogInterval) { clearInterval(gpsWatchdogInterval); gpsWatchdogInterval = null; } } catch(_) {}
+			try { releaseWakeLock(); } catch(_) {}
+			startBtn.disabled = false; stopBtn.disabled = true;
+			setTrackingStatus("START ERROR", "bad", e?.message || "ตรวจสอบ Console");
+			alert("ไม่สามารถเริ่ม Trip ได้: " + (e?.message || "เกิดข้อผิดพลาดของระบบ"));
+		}
+	};
 	stopBtn.onclick = stopTracking;
 	document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
 	document.getElementById("showAllBtn").onclick = () => loadHistory();
