@@ -1031,12 +1031,28 @@ span[id^="wltpSegment"] {
 /* ================= NAV MODE ================= */
 .map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.38);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
+
+/* ===== V5.3 ROUTE PLANNER ===== */
+.route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}
+.route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}
+.route-planner summary::-webkit-details-marker{display:none}
+.route-planner .planner-row{display:grid;grid-template-columns:88px 1fr auto;gap:6px;align-items:center;margin-top:7px}
+.route-planner .planner-row label{font-size:11px;color:rgba(255,255,255,.72)}
+.route-planner input{width:100%;box-sizing:border-box;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.15);color:inherit;border-radius:7px;padding:7px 8px;font-size:11px}
+.route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.route-planner button{font-size:11px;padding:6px 9px}
+.route-planner .planner-hint{font-size:10px;opacity:.65;margin-top:7px;line-height:1.45}
+.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none}
+.route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}
+.route-plan-marker{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+.map-mode-control{background:rgba(4,12,22,.42)!important;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+@media (max-width:560px){.route-planner .planner-row{grid-template-columns:64px 1fr auto}.route-planner{margin-left:8px;margin-right:8px}}
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-199-V67</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-58-V5.3</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1099,6 +1115,25 @@ span[id^="wltpSegment"] {
 				<span aria-hidden="true" style="font-size:20px;line-height:1">◎</span>
 				</button>
 			</div>
+            <details id="routePlanner" class="route-planner">
+              <summary>🧭 วางแผนเส้นทาง: จุดเริ่มต้น → จุดแวะ → จุดหมาย</summary>
+              <div class="planner-row">
+                <label>จุดเริ่ม</label><input id="routeStartInput" placeholder="lat,lon หรือเลือกจากแผนที่"><button type="button" id="routeStartPickBtn">เลือก</button>
+              </div>
+              <div id="routeStopsRows"></div>
+              <div class="planner-row">
+                <label>จุดหมาย</label><input id="routeDestInput" placeholder="lat,lon หรือเลือกจากแผนที่"><button type="button" id="routeDestPickBtn">เลือก</button>
+              </div>
+              <div class="planner-actions">
+                <button type="button" id="routeUseGpsBtn">📍 ใช้ตำแหน่งปัจจุบัน</button>
+                <button type="button" id="routeAddStopBtn">＋ เพิ่มจุดแวะ</button>
+                <button type="button" id="routeBuildBtn">🗺 คำนวณเส้นทาง</button>
+                <button type="button" id="routeNavigateBtn" disabled>▶ นำทาง</button>
+                <button type="button" id="routeClearBtn">ล้าง</button>
+              </div>
+              <div id="routePlannerHint" class="planner-hint">โหมดเลือก: กด “เลือก” แล้วแตะตำแหน่งบนแผนที่ · จุดแวะเพิ่มได้หลายจุด · การคำนวณใช้เส้นทางรถยนต์</div>
+              <div id="routeSummary" class="route-summary"></div>
+            </details>
 			<div style="padding:10px 14px 0;">
 				<div class="label">Speed</div>
 				<div id="digitalSpeed">0 km/h</div>
@@ -3759,6 +3794,7 @@ function initMap(lat, lon) {
             disableMapInteraction();
             syncMapModeUi();
             map.resize();
+            if(routePlan?.route?.length>1){ try { ensureRoutePlanLayer()?.set(routePlan.route); renderRoutePlanMarkers(); } catch(e){} }
         });
     }
     vehicleMarker=createVehicleMarker(lat,lon);
@@ -3789,7 +3825,7 @@ function destroyMap() {
     try { if(routeLayer) routeLayer.clearLayers(); } catch(e) {}
     try { vehicleMarker?.remove?.(); } catch(e) {}
     try { map.remove(); } catch(e) {}
-    map=null; routeLayer=null; vehicleMarker=null; pathCoordinates=[]; pathCoordinatesRender=[]; routeBatchLayers=[];
+    map=null; routeLayer=null; vehicleMarker=null; pathCoordinates=[]; pathCoordinatesRender=[]; routeBatchLayers=[]; routePlanLayer=null; routePlanMarkers=[];
     hasInitialHeading=false; resetFollowRotationState(true); lastMarkerAngle=0; lastIconSize=BASE_ICON_SIZE; rotationWrapperCache=null;
     map3DSetActive(false);
 }
@@ -4233,12 +4269,12 @@ function startTracking() {
                     if(!isTracking||stopcallback||isFinalizing)return;const c=pos?.coords;if(!c||!Number.isFinite(c.latitude)||!Number.isFinite(c.longitude))return;const rawHeading=(typeof c.heading==='number'&&isFinite(c.heading)&&c.heading>=0)?c.heading:0;const coordText=`${c.latitude.toFixed(6)},${c.longitude.toFixed(6)}`;
                     if(!tripInitialized){
                         tripInitialized=true;if(firstFixTimer){clearTimeout(firstFixTimer);firstFixTimer=null;}lastGpsFixWallClock=Date.now();lastGpsLat=c.latitude;lastGpsLng=c.longitude;lastGpsHeading=rawHeading;lastGpsSpeedKmh=0;smoothedLat=c.latitude;smoothedLon=c.longitude;prevPos={latitude:c.latitude,longitude:c.longitude};prevTimestamp=pos.timestamp;tripLog.push({time:pos.timestamp,coord:coordText,speed:0});startCoordSpan.textContent=coordText;startTimeSpan.textContent=new Date(pos.timestamp).toLocaleString();tripStartTime=pos.timestamp;lastAccuracy=smoothAccuracy(c.accuracy??99);headingConfidencePercent=calculateHeadingConfidence(0,lastAccuracy,typeof c.heading==='number'&&c.heading>=0);lastHeadingConfidence=headingConfidencePercent;updateGpsUi(classifyGpsState(0,lastAccuracy),lastAccuracy);
-                        if(!map){try{if(window.maplibregl&&typeof maplibregl.Map==='function'){const mm=initMap(c.latitude,c.longitude);if(mm!==null)requestAnimationFrame(()=>{try{forceRecenterToVehicle();}catch(e){}});}else setTrackingStatus("TRACKING — MAP UNAVAILABLE","warn","GPS/analysis ยังทำงาน");}catch(e){console.error("Map initialization failed",e);setTrackingStatus("TRACKING — MAP ERROR","warn","GPS/analysis ยังทำงาน");}}
+                        if(!map){try{if(window.maplibregl&&typeof maplibregl.Map==='function'){const mm=initMap(c.latitude,c.longitude);if(mm!==null)requestAnimationFrame(()=>{try{bindRouteMapEvents(map);if(routePlan.route.length>1){ensureRoutePlanLayer()?.set(routePlan.route);renderRoutePlanMarkers();}forceRecenterToVehicle();}catch(e){}});}else setTrackingStatus("TRACKING — MAP UNAVAILABLE","warn","GPS/analysis ยังทำงาน");}catch(e){console.error("Map initialization failed",e);setTrackingStatus("TRACKING — MAP ERROR","warn","GPS/analysis ยังทำงาน");}}
                         const skeletonTrip={plateNumber:plateInput.value.trim(),startTime:tripStartTime,endTime:tripStartTime,startCoord:coordText,endCoord:coordText,distance:0,maxSpeed:0,avgSpeed:0,elapsedTime:0,energyUsedWh:0,energyUsed:0,avgEnergyPerKm:0,energyConsumption:0,batterySOCUsedPercent:0,idleEnergyUsedWh:0,energyPer100km:0,idleTimeFormatted:"00:00:00",idleTimeSeconds:0,totalRegenEnergy:0,avgEfficiencyPerPercent:0,path:[]};Promise.resolve().then(()=>enqueueSave(()=>saveTripToStorage(skeletonTrip))).catch(e=>console.warn("Initial skeleton save failed; tracking continues",e));saveActiveTripDraft();setTrackingStatus("TRACKING — GPS LOCKED","good",autoFollow?"NAV FOLLOW":"EXPLORE");
                     }
                     const gps=normalizeGps(pos);if(!gps)return;const {latitude,longitude,speedKmh,heading,altitude,accuracy,timestamp}=gps;lastGpsFixWallClock=Date.now();lastGpsLat=latitude;lastGpsLng=longitude;if(heading!=null)lastGpsHeading=heading;if(lastGpsTimestamp!==null&&timestamp>lastGpsTimestamp)gpsIntervalSec=clamp((timestamp-lastGpsTimestamp)/1000,.1,2);lastGpsTimestamp=timestamp;const rawAcc=gps.accuracy??5;const smoothAcc=smoothAccuracy(rawAcc);lastAccuracy=smoothAcc;headingConfidencePercent=calculateHeadingConfidence(speedKmh,smoothAcc,heading!=null);lastHeadingConfidence=headingConfidencePercent;updateGpsUi(classifyGpsState(0,smoothAcc),smoothAcc);
                     const accClamped=Math.min(Math.max(smoothAcc,1),150),accFactor=Math.log10(accClamped+1),intervalFactor=Math.min(Math.max(gpsIntervalSec,.5),2),dynamicThreshold=accFactor*9+speedKmh*.035+intervalFactor*1.8;routeThreshold=Math.min(Math.max(dynamicThreshold,.8),smoothAcc>35?30:8);const physicallyStopped=speedKmh<STOP_LOCK_SPEED&&checkIfStopped(latitude,longitude);if(physicallyStopped)routeThreshold=Math.min(routeThreshold,2);updateSpeedSlope(speedKmh,timestamp);updatePosition(latitude,longitude,altitude,speedKmh);rawSpeedKmh=speedKmh;updateSpeed(speedKmh);
-                    const forceUpdate=!physicallyStopped&&(speedKmh>1.2||(heading!=null&&Math.abs(speedSlope)>8)),forcePosition=gpsIntervalSec>1.5||smoothAcc>25;if(lastRouteLat===null||forceUpdate||forcePosition||haversineMeters(lastRouteLat,lastRouteLon,latitude,longitude)>routeThreshold){try{if(map&&map._loaded)updateRoute(latitude,longitude,speedKmh,heading);}catch(e){console.warn("Map route update failed",e);}}
+                    const forceUpdate=!physicallyStopped&&(speedKmh>1.2||(heading!=null&&Math.abs(speedSlope)>8)),forcePosition=gpsIntervalSec>1.5||smoothAcc>25;if(lastRouteLat===null||forceUpdate||forcePosition||haversineMeters(lastRouteLat,lastRouteLon,latitude,longitude)>routeThreshold){try{if(map&&map._loaded)updateRoute(latitude,longitude,speedKmh,heading);}catch(e){console.warn("Map route update failed",e);}}if(routePlan.navigating)updatePlannedNavigationProgress(latitude,longitude);
                     const ctext=`${latitude.toFixed(6)},${longitude.toFixed(6)}`;endCoordSpan.textContent=ctext;const lastLog=tripLog[tripLog.length-1],roundedSpeed=Math.round(speedKmh*10)/10;if(!lastLog||lastLog.coord!==ctext||lastLog.speed!==roundedSpeed){tripLog.push({time:timestamp,coord:ctext,speed:roundedSpeed});if(tripLog.length>100000)tripLog.splice(1,1000);}
                     if(prevPos){if(!prevTimestamp){prevTimestamp=timestamp;prevPos={latitude,longitude};return;}const dist=getDistanceFromLatLonInKm(prevPos.latitude,prevPos.longitude,latitude,longitude);let deltaTimeSec=clamp((timestamp-prevTimestamp)/1000,.05,2.5);const speedBasedDist=speedKmh*deltaTimeSec/3600;let finalDist=dist;if(speedBasedDist>0&&dist>speedBasedDist*4.5&&dist>.08)finalDist=speedBasedDist;if(speedKmh<STOP_LOCK_SPEED)finalDist=0;if(!physicallyStopped&&finalDist>=getDynamicMinDist(speedKmh,deltaTimeSec)){totalDistance+=finalDist;cumulativeDistance+=finalDist;updateEnergyConsumptionRealTime(finalDist,speedKmh);}prevPos={latitude,longitude};prevTimestamp=timestamp;}
                     distanceSpan.textContent=cumulativeDistance.toFixed(3);startCoordSpan.textContent=tripLog[0]?.coord||"-";endCoordSpan.textContent=tripLog[tripLog.length-1]?.coord||"-";const now=Date.now();if(!isPeriodicSaving&&now-lastStorageUpdate>10000){lastStorageUpdate=now;isPeriodicSaving=true;enqueueSave(async()=>{try{await updateLastTripInStorage({plateNumber:plateInput.value.trim(),startTime:tripStartTime,endTime:Date.now(),startCoord:tripLog[0]?.coord||"-",endCoord:ctext,distance:cumulativeDistance,maxSpeed,avgSpeed:elapsedTime>0?cumulativeDistance/(elapsedTime/3600):0,elapsedTime,path:compressPath(tripLog)});}catch(e){console.warn("Periodic save failed",e);}finally{isPeriodicSaving=false;}});}if(now-lastStorageUpdate>5000)saveActiveTripDraft();
@@ -4604,9 +4640,201 @@ async function stopTracking() {
 	startBtn.disabled = false;
 	stopBtn.disabled = true;
 }
+/* ============================================================
+   V5.3 ROUTE PLANNER
+   Planning is independent from trip recording. EXPLORE remains safe for viewing;
+   NAV follows the live vehicle. A planned route is only activated when the user
+   explicitly presses "นำทาง".
+   ============================================================ */
+const routePlan = {
+  start: null,
+  stops: [],
+  destination: null,
+  selecting: null,
+  route: [],
+  distanceKm: 0,
+  durationSec: 0,
+  navigating: false
+};
+let routePlanMarkers = [];
+let routePlanLayer = null;
+let routeStopSeq = 0;
+
+function routeCoordText(p){ return p ? `${p.lat.toFixed(6)},${p.lon.toFixed(6)}` : ''; }
+function parseRouteCoord(text){
+  const m=String(text||'').trim().match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if(!m)return null;
+  const lat=Number(m[1]),lon=Number(m[2]);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180)return null;
+  return {lat,lon};
+}
+function routePlannerHint(t){ const el=document.getElementById('routePlannerHint'); if(el)el.textContent=t; }
+function clearRoutePlanMarkers(){ routePlanMarkers.forEach(m=>{try{m.remove();}catch(e){}});routePlanMarkers=[]; }
+function ensureRoutePlanLayer(){
+  if(!map||!map._loaded)return null;
+  if(routePlanLayer)return routePlanLayer;
+  const source='planned-route-source-v53',layer='planned-route-layer-v53';
+  if(!map.getSource(source)){
+    map.addSource(source,{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+    map.addLayer({id:layer,type:'line',source,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffd34d','line-width':6,'line-opacity':.92}});
+  }
+  routePlanLayer={source,layer,set(coords){try{map.getSource(source)?.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords.map(p=>[p[1],p[0]])}})}catch(e){console.warn('planned route render failed',e)}},clear(){try{map.getSource(source)?.setData({type:'FeatureCollection',features:[]})}catch(e){}}};
+  return routePlanLayer;
+}
+function addRoutePlanMarker(p,label,emoji){
+  if(!map||!map._loaded||!window.maplibregl)return;
+  const el=document.createElement('div');el.className='route-plan-marker';el.textContent=emoji;el.title=label;
+  const m=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([p.lon,p.lat]).addTo(map);routePlanMarkers.push(m);
+}
+function refreshRoutePlannerRows(){
+  const wrap=document.getElementById('routeStopsRows');if(!wrap)return;wrap.innerHTML='';
+  routePlan.stops.forEach((p,i)=>{
+    const row=document.createElement('div');row.className='planner-row';
+    row.innerHTML=`<label>จุดแวะ ${i+1}</label><input data-stop-index="${i}" value="${p?routeCoordText(p):''}" placeholder="lat,lon"><button type="button" data-remove-stop="${i}">ลบ</button>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('input[data-stop-index]').forEach(inp=>inp.addEventListener('change',()=>{const i=Number(inp.dataset.stopIndex),p=parseRouteCoord(inp.value);if(p)routePlan.stops[i]=p;}));
+  wrap.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.addEventListener('click',()=>{routePlan.stops.splice(Number(btn.dataset.removeStop),1);refreshRoutePlannerRows();renderRoutePlanMarkers();}));
+}
+function syncRoutePlannerInputs(){
+  const s=document.getElementById('routeStartInput'),d=document.getElementById('routeDestInput');
+  if(s)s.value=routeCoordText(routePlan.start);if(d)d.value=routeCoordText(routePlan.destination);refreshRoutePlannerRows();
+}
+function renderRoutePlanMarkers(){
+  clearRoutePlanMarkers();
+  if(routePlan.start)addRoutePlanMarker(routePlan.start,'จุดเริ่มต้น','🟢');
+  routePlan.stops.forEach((p,i)=>{if(p)addRoutePlanMarker(p,`จุดแวะ ${i+1}`,'🔵');});
+  if(routePlan.destination)addRoutePlanMarker(routePlan.destination,'จุดหมาย','🏁');
+  if(routePlan.route.length>1){const rl=ensureRoutePlanLayer();rl?.set(routePlan.route);}
+  else ensureRoutePlanLayer()?.clear();
+}
+function setRouteSelectMode(mode){
+  routePlan.selecting=mode;
+  const panel=document.getElementById('routePlanner');panel?.classList.toggle('route-selecting',!!mode);
+  routePlannerHint(mode==='start'?'แตะแผนที่เพื่อกำหนดจุดเริ่มต้น':mode==='dest'?'แตะแผนที่เพื่อกำหนดจุดหมาย':mode?.startsWith('stop')?'แตะแผนที่เพื่อกำหนดจุดแวะ':'เลือกจุดที่ต้องการ');
+}
+function ensurePlannerMap(){
+  if(map&&map._loaded)return Promise.resolve(true);
+  if(!navigator.geolocation){routePlannerHint('อุปกรณ์ไม่รองรับ GPS');return Promise.resolve(false);}
+  routePlannerHint('กำลังขอตำแหน่งเพื่อเปิดแผนที่สำหรับวางจุด...');
+  return new Promise(resolve=>navigator.geolocation.getCurrentPosition(pos=>{
+    try{if(!map)initMap(pos.coords.latitude,pos.coords.longitude);setTimeout(()=>{if(map&&map._loaded){map.jumpTo({center:[pos.coords.longitude,pos.coords.latitude],zoom:BASE_ZOOM,pitch:0,bearing:0});resolve(true)}else{routePlannerHint('แผนที่ยังโหลดไม่เสร็จ');resolve(false)}},500);}catch(e){console.warn(e);resolve(false)}
+  },()=>{routePlannerHint('เปิดแผนที่ไม่ได้ เพราะยังไม่มีตำแหน่ง GPS');resolve(false)},{enableHighAccuracy:true,timeout:10000,maximumAge:10000}));
+}
+async function chooseRoutePoint(mode){
+  if(!(await ensurePlannerMap()))return;
+  setRouteSelectMode(mode); if(map&&map._loaded){map.getCanvas().style.cursor='crosshair';}
+}
+function onRoutePlannerMapClick(e){
+  if(!routePlan.selecting)return;
+  const p={lat:e.lngLat.lat,lon:e.lngLat.lng};
+  if(routePlan.selecting==='start')routePlan.start=p;
+  else if(routePlan.selecting==='dest')routePlan.destination=p;
+  else if(routePlan.selecting.startsWith('stop')){const i=Number(routePlan.selecting.slice(4));routePlan.stops[i]=p;}
+  setRouteSelectMode(null);if(map&&map._loaded)map.getCanvas().style.cursor='';syncRoutePlannerInputs();renderRoutePlanMarkers();
+}
+function routeCurrentPosition(){
+  if(lastGpsLat!=null&&lastGpsLng!=null){routePlan.start={lat:lastGpsLat,lon:lastGpsLng};syncRoutePlannerInputs();renderRoutePlanMarkers();return;}
+  navigator.geolocation?.getCurrentPosition(pos=>{routePlan.start={lat:pos.coords.latitude,lon:pos.coords.longitude};syncRoutePlannerInputs();ensurePlannerMap().then(renderRoutePlanMarkers)},()=>routePlannerHint('ยังรับตำแหน่งปัจจุบันไม่ได้'),{enableHighAccuracy:true,timeout:10000,maximumAge:5000});
+}
+async function fetchOsrmRoute(points){
+  if(points.length<2)throw new Error('ต้องมีจุดเริ่มและจุดหมาย');
+  const coords=points.map(p=>`${p.lon},${p.lat}`).join(';');
+  const url=`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
+  const r=await fetch(url,{mode:'cors'});if(!r.ok)throw new Error(`Routing HTTP ${r.status}`);const data=await r.json();
+  if(data.code!=='Ok'||!data.routes?.[0])throw new Error('ไม่พบเส้นทางรถยนต์');
+  const rt=data.routes[0];return {coords:(rt.geometry?.coordinates||[]).map(c=>[Number(c[1]),Number(c[0])]),distanceKm:Number(rt.distance||0)/1000,durationSec:Number(rt.duration||0),steps:rt.legs?.flatMap(l=>l.steps||[])||[]};
+}
+async function buildPlannedRoute(){
+  const sInput=document.getElementById('routeStartInput'),dInput=document.getElementById('routeDestInput');
+  const s=parseRouteCoord(sInput?.value)||routePlan.start,d=parseRouteCoord(dInput?.value)||routePlan.destination;
+  if(!s||!d){routePlannerHint('กรุณากำหนดจุดเริ่มและจุดหมายก่อน');return;}
+  routePlan.start=s;routePlan.destination=d;routePlan.stops=routePlan.stops.map((p,i)=>{const el=document.querySelector(`input[data-stop-index="${i}"]`);return parseRouteCoord(el?.value)||p}).filter(Boolean);
+  const points=[routePlan.start,...routePlan.stops,routePlan.destination];
+  routePlannerHint('กำลังคำนวณเส้นทางรถยนต์...');
+  try{
+    const result=await fetchOsrmRoute(points);routePlan.route=result.coords;routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;
+    renderRoutePlanMarkers();
+    const summary=document.getElementById('routeSummary');if(summary){summary.style.display='block';summary.textContent=`เส้นทาง ${result.distanceKm.toFixed(1)} km · ประมาณ ${Math.round(result.durationSec/60)} นาที · ${routePlan.stops.length} จุดแวะ`;}
+    const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=false;
+    if(map&&map._loaded&&result.coords.length>1){maplibregl.Map.prototype.fitBounds.call(map,result.coords.map(p=>[p[1],p[0]]),{padding:{top:60,right:35,bottom:60,left:35},maxZoom:16,animate:true});}
+    routePlannerHint('คำนวณเส้นทางแล้ว — กด “นำทาง” เมื่อพร้อม หรือปล่อยไว้เพื่อดูเส้นทางเฉยๆ');
+  }catch(e){console.error('[Route Planner]',e);routePlannerHint('คำนวณเส้นทางไม่สำเร็จ ลองตรวจพิกัดหรืออินเทอร์เน็ต');}
+}
+function clearPlannedRoute(){
+  routePlan.start=null;routePlan.stops=[];routePlan.destination=null;routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;routePlannerHint('โหมดเลือก: กด “เลือก” แล้วแตะตำแหน่งบนแผนที่ · จุดแวะเพิ่มได้หลายจุด · การคำนวณใช้เส้นทางรถยนต์');
+}
+function distanceMetersBetween(a,b){return getDistanceFromLatLonInKm(a.lat,a.lon,b.lat,b.lon)*1000;}
+function nearestPlannedRouteDistanceMeters(pos){
+  if(!routePlan.route?.length)return Infinity;
+  let best=Infinity;
+  for(let i=0;i<routePlan.route.length;i++){
+    const p={lat:routePlan.route[i][0],lon:routePlan.route[i][1]};
+    const d=distanceMetersBetween(pos,p);if(d<best)best=d;
+  }
+  return best;
+}
+function updatePlannedNavigationProgress(lat,lon){
+  if(!routePlan.navigating||!routePlan.destination)return;
+  const pos={lat,lon};
+  const destM=distanceMetersBetween(pos,routePlan.destination);
+  if(destM<=60){
+    routePlan.navigating=false;
+    routePlannerHint('ถึงจุดหมายแล้ว — นำทางสิ้นสุด');
+    if(isTracking)setTrackingStatus('NAVIGATION — ARRIVED','good',`${Math.round(destM)} m`);
+    return;
+  }
+  // Advance through waypoints when the vehicle reaches them.
+  if(routePlan.stops.length){
+    const first=routePlan.stops[0];
+    if(first&&distanceMetersBetween(pos,first)<=60){
+      routePlan.stops.shift();refreshRoutePlannerRows();
+      routePlannerHint(routePlan.stops.length?`ถึงจุดแวะแล้ว · เหลือ ${routePlan.stops.length} จุด`:'ผ่านจุดแวะทั้งหมดแล้ว · มุ่งหน้าจุดหมาย');
+    }
+  }
+  const offRoute=nearestPlannedRouteDistanceMeters(pos);
+  if(offRoute>120){
+    routePlannerHint(`ออกนอกเส้นทางประมาณ ${Math.round(offRoute)} m — กำลังคำนวณใหม่`);
+    // Re-route from the actual vehicle position through remaining stops to destination.
+    const points=[pos,...routePlan.stops,routePlan.destination];
+    fetchOsrmRoute(points).then(result=>{
+      if(!routePlan.navigating)return;
+      routePlan.start=pos;routePlan.route=result.coords;routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;
+      renderRoutePlanMarkers();
+      const summary=document.getElementById('routeSummary');if(summary)summary.textContent=`เส้นทางใหม่ ${result.distanceKm.toFixed(1)} km · ประมาณ ${Math.round(result.durationSec/60)} นาที · ${routePlan.stops.length} จุดแวะ`;
+      routePlannerHint('คำนวณเส้นทางใหม่แล้ว — NAV ติดตามต่อ');
+    }).catch(()=>routePlannerHint('ออกนอกเส้นทาง — ไม่สามารถคำนวณใหม่ได้ในขณะนี้'));
+  } else if(isTracking){
+    setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`เหลือ ${destM>=1000?(destM/1000).toFixed(1)+' km':Math.round(destM)+' m'}`);
+  }
+}
+function startPlannedNavigation(){
+  if(!routePlan.route.length||!routePlan.destination)return;
+  routePlan.navigating=true;setMapModeNavigation(true,true);routePlannerHint('กำลังนำทางตามเส้นทางที่กำหนด — NAV จะติดตามรถจริง');
+  if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`${routePlan.distanceKm.toFixed(1)} km`);
+}
+function bindRoutePlanner(){
+  document.getElementById('routeStartPickBtn')?.addEventListener('click',()=>chooseRoutePoint('start'));
+  document.getElementById('routeDestPickBtn')?.addEventListener('click',()=>chooseRoutePoint('dest'));
+  document.getElementById('routeUseGpsBtn')?.addEventListener('click',routeCurrentPosition);
+  document.getElementById('routeAddStopBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push(null);refreshRoutePlannerRows();chooseRoutePoint(`stop${i}`);});
+  document.getElementById('routeBuildBtn')?.addEventListener('click',buildPlannedRoute);
+  document.getElementById('routeNavigateBtn')?.addEventListener('click',startPlannedNavigation);
+  document.getElementById('routeClearBtn')?.addEventListener('click',clearPlannedRoute);
+  document.getElementById('routeStartInput')?.addEventListener('change',e=>{const p=parseRouteCoord(e.target.value);if(p){routePlan.start=p;renderRoutePlanMarkers()}});
+  document.getElementById('routeDestInput')?.addEventListener('change',e=>{const p=parseRouteCoord(e.target.value);if(p){routePlan.destination=p;renderRoutePlanMarkers()}});
+  const plannerMap=document.getElementById('map');
+  if(plannerMap&&!plannerMap._routePlannerClickBound){plannerMap._routePlannerClickBound=true;plannerMap.addEventListener('click',()=>{},false);}
+  // MapLibre events are attached when a map instance exists; rebind after init via hook below.
+}
+function bindRouteMapEvents(targetMap){if(!targetMap||targetMap._routePlannerClickBound)return;targetMap._routePlannerClickBound=true;targetMap.on('click',onRoutePlannerMapClick);}
+const _initMapV53=initMap;
+initMap=function(lat,lon){const result=_initMapV53(lat,lon);if(map){try{bindRouteMapEvents(map);map.on('load',()=>bindRouteMapEvents(map));}catch(e){}}return result;};
+
 (function bindUIOnce() {
 	if (window._uiBoundOnce) return;
 	window._uiBoundOnce = true;
+    bindRoutePlanner();
 	startBtn.onclick = startTracking;
 	stopBtn.onclick = () => { try { stopTracking(); } catch(e) { console.error("Stop failed",e); } };
 	document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
