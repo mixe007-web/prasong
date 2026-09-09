@@ -1032,7 +1032,7 @@ span[id^="wltpSegment"] {
 .map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.38);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
 
-/* ===== V5.4 MODERN ROUTE PLANNER ===== */
+/* ===== V5.5 MODERN ROUTE PLANNER ===== */
 .route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}
 .route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}.route-planner summary::-webkit-details-marker{display:none}
 .route-planner .planner-row{display:grid;grid-template-columns:76px 1fr auto;gap:6px;align-items:start;margin-top:8px}.route-planner .planner-row>label{font-size:11px;color:rgba(255,255,255,.76);padding-top:9px}
@@ -1048,7 +1048,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-60-V5.4</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-61-V5.5</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1143,7 +1143,7 @@ span[id^="wltpSegment"] {
               </div>
               <div id="routePlannerHint" class="planner-hint">ค้นหาสถานที่ได้ หรือกด “เลือก” แล้วแตะ/เลื่อนแผนที่เพื่อกำหนดจุด · ลากหมุดเพื่อปรับตำแหน่งได้</div>
               <div id="routeSummary" class="route-summary"></div>
-              <div class="planner-note">ค้นหาสถานที่: Photon · คำนวณเส้นทางรถยนต์: OSRM · แผนที่: OpenStreetMap/MapTiler ตามโหมดแผนที่</div>
+              <div class="planner-note">ค้นหาสถานที่: OpenStreetMap/Nominatim + Photon สำรอง · คำนวณเส้นทางรถยนต์: OSRM · แผนที่: OpenStreetMap/MapTiler ตามโหมดแผนที่</div>
             </details>
 			<div style="padding:10px 14px 0;">
 				<div class="label">Speed</div>
@@ -3734,6 +3734,17 @@ function createVehicleMarker(lat, lon) {
     };
     return marker;
 }
+function applyThaiMapLabels(targetMap){
+  if(!targetMap?.getStyle)return;
+  try{
+    const layers=targetMap.getStyle()?.layers||[];
+    for(const layer of layers){
+      if(layer.type!=='symbol' || !layer.layout?.['text-field']) continue;
+      // Prefer Thai names when the source provides name:th; retain generic name as fallback.
+      targetMap.setLayoutProperty(layer.id,'text-field',['coalesce',['get','name:th'],['get','name'],['get','name:en']]);
+    }
+  }catch(e){console.warn('Thai map labels unavailable:',e);}
+}
 function add3DBuildings(targetMap) {
     if (!targetMap || !targetMap.isStyleLoaded?.()) return;
     try {
@@ -3741,6 +3752,7 @@ function add3DBuildings(targetMap) {
         if(style.layers.some(l=>l.type==='fill-extrusion')) return;
         const building=style.layers.find(l=>l.type==='fill' && /building/i.test(String(l['source-layer']||l.id||'')) && l.source);
         if(!building) return;
+        applyThaiMapLabels(targetMap);
         targetMap.addLayer({
             id:'trip-3d-buildings', type:'fill-extrusion',
             source:building.source, 'source-layer':building['source-layer'], minzoom:13,
@@ -3809,7 +3821,7 @@ function initMap(lat, lon) {
         });
     }
     vehicleMarker=createVehicleMarker(lat,lon);
-    map.on('styledata',()=>{ if(map._loaded){ addMapLibreTerrain(map); add3DBuildings(map); }});
+    map.on('styledata',()=>{ if(map._loaded){ applyThaiMapLabels(map); addMapLibreTerrain(map); add3DBuildings(map); }});
 }
 // PATCH: flyTo animation unlock (SAFE + removable)
 function bindFlyToUnlockEvents(targetMap) {
@@ -4652,7 +4664,7 @@ async function stopTracking() {
 	stopBtn.disabled = true;
 }
 /* ============================================================
-   V5.4 MODERN ROUTE PLANNER
+   V5.5 MODERN ROUTE PLANNER
    Planner is deliberately isolated from Trip Recorder/GPS/History.
    Search = Photon geocoder, routing = OSRM, map picking = MapLibre.
    EXPLORE can browse freely; NAV is only enabled after an explicit route build.
@@ -4673,7 +4685,8 @@ let routePlanMarkers = [];
 let routePlanLayer = null;
 let routeSearchTimer = null;
 let routeSearchAbort = null;
-const ROUTE_GEOCODER_URL = 'https://photon.komoot.io/api/';
+const ROUTE_GEOCODER_URL = 'https://nominatim.openstreetmap.org/search';
+const ROUTE_GEOCODER_FALLBACK_URL = 'https://photon.komoot.io/api/';
 const ROUTE_ROUTER_URL = 'https://router.project-osrm.org/route/v1/driving/';
 
 function routeCoordText(p){ return p ? `${p.lat.toFixed(6)},${p.lon.toFixed(6)}` : ''; }
@@ -4743,7 +4756,9 @@ function ensureRoutePlanLayer(){
   const source='planned-route-source-v54',layer='planned-route-layer-v54';
   if(!map.getSource(source)){
     map.addSource(source,{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-    map.addLayer({id:layer,type:'line',source,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffd34d','line-width':6,'line-opacity':.92}});
+    // Planned route is intentionally blue. The live trip route keeps its original speed-based colors.
+    map.addLayer({id:layer+'-casing',type:'line',source,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#0b3d91','line-width':9,'line-opacity':.58}});
+    map.addLayer({id:layer,type:'line',source,layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#2196f3','line-width':6,'line-opacity':.96}});
   }
   routePlanLayer={source,layer,set(coords){try{map.getSource(source)?.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords.map(p=>[p[1],p[0]])}})}catch(e){console.warn('planned route render failed',e)}},clear(){try{map.getSource(source)?.setData({type:'FeatureCollection',features:[]})}catch(e){}}};
   return routePlanLayer;
@@ -4798,9 +4813,53 @@ function routeCurrentPosition(){
   navigator.geolocation?.getCurrentPosition(pos=>{setRoutePoint('start',0,{lat:pos.coords.latitude,lon:pos.coords.longitude},'ตำแหน่งปัจจุบัน');syncRoutePlannerInputs();ensurePlannerMap().then(()=>renderRoutePlanMarkers());routePlannerHint('ใช้ตำแหน่งปัจจุบันเป็นจุดเริ่มต้นแล้ว')},()=>routePlannerHint('ยังรับตำแหน่งปัจจุบันไม่ได้'),{enableHighAccuracy:true,timeout:10000,maximumAge:5000});
 }
 function formatPlaceName(f){
-  const p=f?.properties||{};return [p.name,p.street,p.housenumber,p.city||p.locality,p.state,p.country].filter(Boolean).join(', ');
+  const p=f?.properties||f?.address||{};
+  if (f?.display_name) return String(f.display_name);
+  return [
+    p.name,
+    p.housenumber && p.street ? `${p.housenumber} ${p.street}` : p.street,
+    p.road,
+    p.suburb,
+    p.city||p.town||p.village||p.municipality||p.locality,
+    p.state,
+    p.country
+  ].filter(Boolean).join(', ');
 }
-function placeCoords(f){const c=f?.geometry?.coordinates;return Array.isArray(c)&&c.length>=2?{lat:Number(c[1]),lon:Number(c[0])}:null;}
+function placeCoords(f){
+  if(f?.lat!=null && f?.lon!=null) return {lat:Number(f.lat),lon:Number(f.lon)};
+  const c=f?.geometry?.coordinates;
+  return Array.isArray(c)&&c.length>=2?{lat:Number(c[1]),lon:Number(c[0])}:null;
+}
+function normalizeGeocoderResult(f, source='nominatim'){
+  const p=placeCoords(f); if(!p||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)) return null;
+  const name=formatPlaceName(f)||routeCoordText(p);
+  return {lat:p.lat,lon:p.lon,name,source};
+}
+function mergeGeocoderResults(nominatim, photon){
+  const out=[]; const seen=[];
+  for(const r of [...nominatim,...photon]){
+    if(!r)continue;
+    const key=`${r.lat.toFixed(4)},${r.lon.toFixed(4)}`;
+    if(seen.includes(key))continue;
+    seen.push(key); out.push(r);
+    if(out.length>=6)break;
+  }
+  return out;
+}
+async function fetchNominatimPlaces(query, signal){
+  const url=`${ROUTE_GEOCODER_URL}?format=jsonv2&addressdetails=1&namedetails=1&accept-language=th&countrycodes=th&limit=8&q=${encodeURIComponent(query)}`;
+  const r=await fetch(url,{signal,mode:'cors',headers:{Accept:'application/json'}});
+  if(!r.ok)throw new Error(`Nominatim ${r.status}`);
+  const data=await r.json();
+  return Array.isArray(data)?data.map(f=>normalizeGeocoderResult(f,'nominatim')).filter(Boolean):[];
+}
+async function fetchPhotonPlaces(query, signal){
+  const url=`${ROUTE_GEOCODER_FALLBACK_URL}?q=${encodeURIComponent(query)}&limit=8&lang=th`;
+  const r=await fetch(url,{signal,mode:'cors',headers:{Accept:'application/json'}});
+  if(!r.ok)throw new Error(`Photon ${r.status}`);
+  const data=await r.json();
+  return (data.features||[]).map(f=>normalizeGeocoderResult(f,'photon')).filter(Boolean);
+}
 function closeAllPlaceResults(except=null){document.querySelectorAll('.planner-results.open').forEach(el=>{if(el!==except)el.classList.remove('open');});}
 function targetElements(kind,index){
   if(kind==='start')return {input:document.getElementById('routeStartSearch'),results:document.getElementById('routeStartResults')};
@@ -4811,17 +4870,37 @@ function setPlaceUI(kind,index,name,p){
   const {input}=targetElements(kind,index);if(input){input.value=name;input.dataset.locked='selected';}
   setRoutePoint(kind,index,p,name);syncRoutePlannerInputs();renderRoutePlanMarkers();
 }
-function showPlaceSearchResults(query,kind,index,inputEl){
+async function showPlaceSearchResults(query,kind,index,inputEl){
   const {results}=targetElements(kind,index);if(!results)return;
-  results.innerHTML='';results.classList.add('open');
-  const wait=document.createElement('div');wait.className='planner-result planner-searching';wait.textContent='กำลังค้นหาสถานที่…';results.appendChild(wait);
-  closeAllPlaceResults(results);
+  closeAllPlaceResults(results); results.innerHTML=''; results.classList.add('open');
+  const wait=document.createElement('div');wait.className='planner-result planner-searching';wait.textContent='กำลังค้นหาสถานที่ภาษาไทย…';results.appendChild(wait);
   if(routeSearchAbort)try{routeSearchAbort.abort()}catch(e){}
-  routeSearchAbort=new AbortController();
-  fetch(`${ROUTE_GEOCODER_URL}?q=${encodeURIComponent(query)}&limit=6&lang=th`,{signal:routeSearchAbort.signal,headers:{Accept:'application/json'}}).then(r=>{if(!r.ok)throw new Error('geocoder '+r.status);return r.json()}).then(data=>{
-    results.innerHTML='';const fs=(data.features||[]).slice(0,6);if(!fs.length){const e=document.createElement('div');e.className='planner-result';e.textContent='ไม่พบสถานที่';results.appendChild(e);return;}
-    fs.forEach(f=>{const p=placeCoords(f);if(!p)return;const b=document.createElement('button');b.type='button';b.className='planner-result';const name=formatPlaceName(f)||routeCoordText(p);b.innerHTML=`<b>${escapeHtml(name.split(', ')[0])}</b><span>${escapeHtml(name)}</span>`;b.addEventListener('click',()=>{setPlaceUI(kind,index,name,p);results.classList.remove('open');routePlannerHint(`เลือก ${name} แล้ว`);if(map&&map._loaded)map.easeTo({center:[p.lon,p.lat],zoom:Math.max(map.getZoom(),15),duration:500});});results.appendChild(b);});
-  }).catch(err=>{if(err?.name==='AbortError')return;console.warn('[Geocoder]',err);results.innerHTML='';const e=document.createElement('div');e.className='planner-result';e.textContent='ค้นหาไม่สำเร็จ — ลองใหม่หรือตั้งจุดจากแผนที่';results.appendChild(e);}).finally(()=>{routeSearchAbort=null;});
+  routeSearchAbort=new AbortController(); const signal=routeSearchAbort.signal;
+  try{
+    let nom=[];
+    try{nom=await fetchNominatimPlaces(query,signal);}catch(e){if(e?.name==='AbortError')throw e;console.warn('[Nominatim]',e);}
+    let pho=[];
+    // Photon is a fallback, not the primary source, so a Thai result from Nominatim wins.
+    if(nom.length<6){try{pho=await fetchPhotonPlaces(query,signal);}catch(e){if(e?.name==='AbortError')throw e;console.warn('[Photon fallback]',e);}}
+    const fs=mergeGeocoderResults(nom,pho);
+    results.innerHTML='';
+    if(!fs.length){const e=document.createElement('div');e.className='planner-result';e.textContent='ไม่พบสถานที่ — ลองเพิ่มชื่ออำเภอ/จังหวัด หรือเลือกจากแผนที่';results.appendChild(e);return;}
+    fs.forEach(r=>{
+      const b=document.createElement('button');b.type='button';b.className='planner-result';
+      const parts=String(r.name).split(', ');
+      b.innerHTML=`<b>${escapeHtml(parts[0]||r.name)}</b><span>${escapeHtml(r.name)}</span>`;
+      b.addEventListener('click',()=>{
+        setPlaceUI(kind,index,r.name,{lat:r.lat,lon:r.lon});results.classList.remove('open');
+        routePlannerHint(`เลือก ${r.name} แล้ว`);
+        if(map&&map._loaded)map.easeTo({center:[r.lon,r.lat],zoom:Math.max(map.getZoom(),15),duration:500});
+      });
+      results.appendChild(b);
+    });
+  }catch(err){
+    if(err?.name==='AbortError')return;
+    console.warn('[Geocoder]',err); results.innerHTML='';
+    const e=document.createElement('div');e.className='planner-result';e.textContent='ค้นหาไม่สำเร็จ — ตรวจอินเทอร์เน็ต หรือเลือกจุดจากแผนที่';results.appendChild(e);
+  }finally{if(routeSearchAbort?.signal===signal)routeSearchAbort=null;}
 }
 function schedulePlaceSearch(query,kind,index,inputEl){
   clearTimeout(routeSearchTimer);inputEl.dataset.locked='typing';
@@ -4859,9 +4938,36 @@ async function buildPlannedRoute(){
     renderRoutePlanMarkers();
     const summary=document.getElementById('routeSummary');if(summary){summary.style.display='block';summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`}
     const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=false;
-    if(map&&map._loaded&&result.coords.length>1){map.fitBounds(result.coords.map(p=>[p[1],p[0]]),{padding:{top:70,right:35,bottom:70,left:35},maxZoom:16,animate:true});}
-    routePlannerHint('วางเส้นทางแล้ว · กด NAV เมื่อต้องการนำทาง หรือปล่อยไว้เพื่อดูเส้นทางเฉย ๆ');
+    if(map&&map._loaded&&result.coords.length>1){
+      map.fitBounds(result.coords.map(p=>[p[1],p[0]]),{padding:{top:70,right:35,bottom:70,left:35},maxZoom:16,animate:true});
+      // After fitting the complete route, orient the map along the planned road.
+      setTimeout(orientMapToPlannedRoutePreview,520);
+    }
+    routePlannerHint('วางเส้นทางแล้ว · แผนที่จัดตามแนวถนนช่วงเริ่มต้น · กด NAV เมื่อต้องการนำทาง');
   }catch(e){console.error('[Route Planner]',e);routePlannerHint('วางเส้นทางไม่สำเร็จ — ตรวจชื่อสถานที่/จุดบนแผนที่และอินเทอร์เน็ต');}
+}
+function plannedRouteBearing(route){
+  if(!Array.isArray(route)||route.length<2)return null;
+  // Find a meaningful first segment so a very dense/near-duplicate geometry
+  // does not produce an unstable preview bearing.
+  const first=route[0];
+  for(let i=1;i<route.length;i++){
+    const p=route[i];
+    if(Array.isArray(first)&&Array.isArray(p)){
+      const d=haversineMeters(first[0],first[1],p[0],p[1]);
+      if(d>=8)return bearingDeg(first[0],first[1],p[0],p[1]);
+    }
+  }
+  return null;
+}
+function orientMapToPlannedRoutePreview(){
+  if(!map||!map._loaded||routePlan.route.length<2)return;
+  const bearing=plannedRouteBearing(routePlan.route);
+  if(!Number.isFinite(bearing))return;
+  try{
+    // Preview mode: face the road direction without enabling GPS-follow NAV.
+    map.easeTo({bearing:normalizeAngle(bearing),duration:450});
+  }catch(e){console.warn('Planned route preview rotation failed:',e);}
 }
 function clearPlannedRoute(){
   routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
