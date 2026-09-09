@@ -1048,7 +1048,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-61-V5.5</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-61-V5.6</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -2792,6 +2792,7 @@ function showLeafletMapFromTrip(trip) {
       <strong>ความเร็วเฉลี่ย:</strong> ${Number(trip.avgSpeed || 0).toFixed(1)} km/h<br/>
       <strong>พลังงานใช้เฉลี่ย:</strong> ${Number(trip.energyPer100km || 0).toFixed(2)} kWh/100km<br/>
       <strong>Energy/Trip:</strong> ${Number(trip.energyConsumption || 0).toFixed(2)} kWh<br/>
+      <strong>พลังงานเฉลี่ยต่อกิโลเมตร:</strong> ${Number(trip.avgEnergyPerKm || 0).toFixed(2)} Wh/km<br/>
       <strong>SOC/Trip:</strong> ${Number(trip.batterySOCUsedPercent || 0).toFixed(2)} %<br/>
       <strong>พลังงานรีเจน:</strong> ${Number(trip.totalRegenEnergy || 0).toFixed(2)} kWh<br/>
       <strong>เริ่มต้น:</strong> ${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'} , ${escapeHtml(trip.startCoord || `${start.lat.toFixed(6)}, ${start.lon.toFixed(6)}`)}<br/>
@@ -4399,6 +4400,12 @@ async function safeSaveTrip(finalTrip, retry = 3) {
 			}
 			const saved = await saveTripToStorage({ ...finalTrip });
 			if (!saved) throw new Error("Trip storage returned no record");
+			if (typeof saved.id === 'number') {
+				const check = await getTripDataFromIndexedDB();
+				const persisted = check.find(t => Number(t.id) === Number(saved.id));
+				if (!persisted) throw new Error("Trip was not found after IndexedDB commit");
+				if (!Array.isArray(persisted.path) || persisted.path.length === 0) throw new Error("Trip path was not persisted");
+			}
 			return true;
 		} catch (err) {
 			console.warn("Retry final trip save", i + 1, err);
@@ -4765,7 +4772,7 @@ function ensureRoutePlanLayer(){
 }
 function addRoutePlanMarker(kind,index,p,label,emoji){
   if(!map||!map._loaded||!window.maplibregl||!p)return;
-  const el=document.createElement('div');el.className='route-plan-marker';el.textContent=emoji;el.title=`${label} · ลากเพื่อปรับตำแหน่ง`;
+  const el=document.createElement('div');el.className='route-plan-marker';el.textContent=emoji;el.title=`${label} · ลากหมุดเพื่อปรับตำแหน่งได้`;
   const marker=new maplibregl.Marker({element:el,anchor:'center',draggable:true}).setLngLat([p.lon,p.lat]).addTo(map);
   marker._routePointKind=kind; marker._routePointIndex=index;
   marker.on('dragend',()=>{
@@ -4799,13 +4806,19 @@ async function ensurePlannerMap(){
 }
 async function chooseRoutePoint(kind,index=0){
   if(!(await ensurePlannerMap()))return;
+  // Route-point editing is intentionally interactive: the map may be panned/zoomed
+  // while selecting a point. This does not change the normal Trip Recorder lock.
+  enableMapInteraction();
   setRouteSelectMode(kind,index);
+  routePlannerHint(kind==='start'?'เลื่อน/ซูมแผนที่ได้ แล้วแตะตำแหน่งจุดเริ่มต้น · ลากหมุดเพื่อปรับละเอียด':kind==='dest'?'เลื่อน/ซูมแผนที่ได้ แล้วแตะตำแหน่งจุดหมาย · ลากหมุดเพื่อปรับละเอียด':`เลื่อน/ซูมแผนที่ได้ แล้วแตะจุดแวะ ${index+1} · ลากหมุดเพื่อปรับละเอียด`);
 }
 function onRoutePlannerMapClick(e){
   const sel=routePlan.selecting;if(!sel)return;
   const p={lat:e.lngLat.lat,lon:e.lngLat.lng};
   setRoutePoint(sel.kind,sel.index,p,sel.kind==='start'?'เลือกจากแผนที่':sel.kind==='dest'?'เลือกจากแผนที่':`จุดแวะ ${sel.index+1}`);
   setRouteSelectMode(null);syncRoutePlannerInputs();renderRoutePlanMarkers();
+  if(isTracking && !routePlan.navigating) disableMapInteraction();
+  routePlannerHint('กำหนดตำแหน่งแล้ว · ลากหมุดเพื่อปรับละเอียดได้ · กด “วางเส้นทาง” เพื่อคำนวณใหม่');
 }
 function routeCurrentPosition(){
   const apply=()=>{if(lastGpsLat!=null&&lastGpsLng!=null){setRoutePoint('start',0,{lat:lastGpsLat,lon:lastGpsLng},'ตำแหน่งปัจจุบัน');syncRoutePlannerInputs();renderRoutePlanMarkers();routePlannerHint('ใช้ตำแหน่งรถปัจจุบันเป็นจุดเริ่มต้นแล้ว');return true;}return false;};
@@ -4972,7 +4985,7 @@ function orientMapToPlannedRoutePreview(){
 function clearPlannedRoute(){
   routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
   const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');if(ss)ss.value='';if(ds)ds.value='';
-  const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;routePlannerHint('ค้นหาสถานที่ หรือเลือกจากแผนที่ · ลากหมุดเพื่อปรับตำแหน่งได้');
+  const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;routePlannerHint('ค้นหาสถานที่ หรือเลือกจากแผนที่ · เลื่อน/ซูมได้ · ลากหมุดเพื่อปรับตำแหน่งได้');
 }
 function distanceMetersBetween(a,b){return getDistanceFromLatLonInKm(a.lat,a.lon,b.lat,b.lon)*1000;}
 function nearestPlannedRouteDistanceMeters(pos){
@@ -5082,6 +5095,7 @@ function saveTripToIndexedDB(tripData) {
   return openTripDB().then(db => {
     return new Promise((resolve, reject) => {
       let tx;
+      let settled = false;
       try {
         tx = db.transaction(TRIP_STORE, 'readwrite');
       } catch (e) {
@@ -5096,11 +5110,22 @@ function saveTripToIndexedDB(tripData) {
         : store.add(tripData);
       req.onsuccess = (e) => {
         if (!tripData.id) tripData.id = e.target.result;
+      };
+      req.onerror = () => {
+        if (!settled) { settled = true; try { db.close(); } catch (_) {} reject(req.error || 'Failed to save trip'); }
+      };
+      tx.oncomplete = () => {
+        if (settled) return;
+        settled = true;
+        try { db.close(); } catch (_) {}
         resolve(tripData);
       };
-      req.onerror = () => reject('Failed to save trip');
-	    tx.oncomplete = () => db.close();
-		tx.onerror = () => db.close();
+      tx.onerror = () => {
+        if (!settled) { settled = true; try { db.close(); } catch (_) {} reject(tx.error || 'Failed to save trip transaction'); }
+      };
+      tx.onabort = () => {
+        if (!settled) { settled = true; try { db.close(); } catch (_) {} reject(tx.error || 'Trip save transaction aborted'); }
+      };
     });
   });
 }
