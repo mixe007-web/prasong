@@ -640,7 +640,7 @@ button:disabled {
 }
 .close-map-modal:hover { color: var(--red); }
 #leafletMap.history-map-canvas{height:500px;border-radius:12px;overflow:hidden;background:#0b1220}
-@media (max-width:560px){#leafletMap.history-map-canvas{height:58vh;min-height:320px}.map-mode-control{right:56px}.gps-status-panel{font-size:9px;min-width:150px}}
+@media (max-width:560px){#leafletMap.history-map-canvas{height:58vh;min-height:320px}.map-mode-control{right:56px}}
 .history-map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 32px 10px 0;font:600 11px/1.3 Rubik,sans-serif;color:var(--text-mid)}
 .history-map-toolbar strong{color:var(--cyan)}
 
@@ -1028,18 +1028,15 @@ span[id^="wltpSegment"] {
 .maplibre-nav-badge.active { opacity:1; transform:translateY(0); }
 
 
-/* ================= V5.1 GPS / Trip Status ================= */
-.gps-status-panel{position:absolute;left:10px;top:10px;z-index:60;min-width:190px;max-width:calc(100% - 160px);padding:7px 9px;border:1px solid rgba(0,220,255,.28);border-radius:10px;background:rgba(4,10,18,.78);backdrop-filter:blur(7px);font:600 10px/1.35 Rubik,sans-serif;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,.25)}
-.gps-status-row{display:flex;justify-content:space-between;gap:10px}.gps-status-value{font-weight:800}.gps-state.good{color:var(--green)}.gps-state.fair{color:var(--amber)}.gps-state.weak,.gps-state.lost{color:var(--red)}.gps-state.acquiring,.gps-state.paused{color:var(--cyan)}
-.gps-status-bar{height:3px;margin-top:5px;border-radius:99px;background:currentColor;width:8%;transition:width .35s ease}.tracking-status{margin:7px 0 0;padding:7px 10px;border-radius:9px;border:1px solid rgba(0,220,255,.2);font:700 11px/1.25 Rubik,sans-serif}.tracking-status.info{color:var(--cyan)}.tracking-status.good{color:var(--green)}.tracking-status.warn{color:var(--amber)}.tracking-status.bad{color:var(--red)}
-.map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.82);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
+/* ================= NAV MODE ================= */
+.map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.38);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-67</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-199-V67</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1074,7 +1071,6 @@ span[id^="wltpSegment"] {
 		<button id="startBtn">▶ Trip Start</button>
 		<button id="stopBtn" disabled>■ Stop Trip</button>
 	</div>
-    <div id="trackingStatus" class="tracking-status info" aria-live="polite"><span id="trackingStatusText">READY</span><span id="trackingStatusMeta" style="float:right;opacity:.7;font-weight:500">GPS standby</span></div>
 <!-- ================= Trip Recorder Panel ================= -->
 	<div id="tripRecorderPanel">
 		<h2>📋 Trip Recorder</h2>
@@ -1099,14 +1095,6 @@ span[id^="wltpSegment"] {
                   <span class="map-mode-label">MODE</span>
                   <button id="navModeBtn" type="button" title="สลับ NAV / EXPLORE">🧭 NAV</button>
                 </div>
-                <div id="gpsStatusPanel" class="gps-status-panel" aria-live="polite">
-                  <div class="gps-status-row"><span>GPS</span><span id="gpsStateText" class="gps-status-value gps-state acquiring">ACQUIRING</span></div>
-                  <div class="gps-status-row"><span>Accuracy</span><span id="gpsAccuracyStatus">±-- m</span></div>
-                  <div class="gps-status-row"><span>Last fix</span><span id="gpsLastFix">--</span></div>
-                  <div class="gps-status-row"><span>Heading</span><span id="gpsHeadingConfidence">0%</span></div>
-                  <div id="gpsStatusBar" class="gps-status-bar"></div>
-                </div>
-				<div id="gpsAccuracy" class="gps-accuracy">±-- m</div>
 				<button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
 				<span aria-hidden="true" style="font-size:20px;line-height:1">◎</span>
 				</button>
@@ -1286,7 +1274,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 (() => {
-const APP_VERSION = "PRO-59-V5.1-HISTORY";
+const APP_VERSION = "PRO-60-V5.2-REALTEST-FIX";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -2984,7 +2972,7 @@ const MIN_MOVE_FOR_HISTORY_M = 0.5;
 const posHistory = [];
 const HISTORY_MAX = 4;
 const NAVI_CENTER_OFFSET_RATIO = 0.42; // vehicle remains in lower navigation zone
-const NAV_CAMERA_PITCH = Object.freeze({low:30,city:42,road:48,highway:52});
+const NAV_CAMERA_PITCH = Object.freeze({low:38,city:50,road:56,highway:60});
 const LOW_SPEED_KMH = 10;
 const MIN_MOTION_SPEED = 3.0;
 const STOP_LOCK_SPEED = 2.5;
@@ -2993,8 +2981,8 @@ const RESUME_UNLOCK_SPEED = 3.5;
 function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio = 0) {
     if (!map || !map._loaded) return;
     // Match the original V4 navigation direction.
-    // The caller supplies -heading; MapLibre bearing uses that value directly.
-    // Example: vehicle heading 90° (east) => map bearing -90° so east stays at screen top.
+    // MapLibre bearing follows the navigation heading directly.
+    // Example: vehicle heading 90° (east) => bearing 90° keeps east at screen top.
     const bearing = normalizeAngle(rotationDeg);
     const speed = Number(smoothTransformTarget?.speedKmh || lastGpsSpeedKmh || 0);
     const targetPitch = speed >= 55 ? NAV_CAMERA_PITCH.highway : speed >= 25 ? NAV_CAMERA_PITCH.road : speed >= 8 ? NAV_CAMERA_PITCH.city : NAV_CAMERA_PITCH.low;
@@ -3496,7 +3484,7 @@ function smoothTransformStep(now) {
 		}
 		applyMapTransform(
 			rotWrapper,
-			-rotationController.current,
+			rotationController.current,
 			0,
 			0,
 			autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
@@ -3884,7 +3872,7 @@ panVelocityLon = 0;
     if (rotWrapper) {
 		applyMapTransform(
 			rotWrapper,
-			-heading,
+			heading,
 			0,
 			0,
 			autoFollow ? NAVI_CENTER_OFFSET_RATIO : 0
@@ -4070,18 +4058,9 @@ kf.P[1][1] = Math.min(P11 + 12, 200);
 	kf.P[1][0] = p01;
     return kf.x[0];
 }
-function setTrackingStatus(text,tone="info",meta=""){
- const el=document.getElementById("trackingStatus"),t=document.getElementById("trackingStatusText"),m=document.getElementById("trackingStatusMeta");
- if(t)t.textContent=text;if(m)m.textContent=meta;if(el)el.className=`tracking-status ${tone}`;
-}
+function setTrackingStatus(){ /* status panel intentionally removed in V5.2 */ }
 function formatGpsAge(sec){return !Number.isFinite(sec)?"--":sec<1?"NOW":`${sec.toFixed(sec<10?1:0)}s`;}
-function updateGpsUi(state,accuracy=null){
- const s=document.getElementById("gpsStateText"),a=document.getElementById("gpsAccuracyStatus"),l=document.getElementById("gpsLastFix"),h=document.getElementById("gpsHeadingConfidence"),b=document.getElementById("gpsStatusBar");
- const labels={good:"GOOD",fair:"FAIR",weak:"WEAK",lost:"LOST",acquiring:"ACQUIRING",paused:"PAUSED"};
- if(s){s.textContent=labels[state]||String(state).toUpperCase();s.className=`gps-status-value gps-state ${state}`;} if(a)a.textContent=Number.isFinite(accuracy)?formatAccuracy(accuracy):"±-- m";
- const age=lastGpsFixWallClock>0?(Date.now()-lastGpsFixWallClock)/1000:Infinity;if(l)l.textContent=formatGpsAge(age);if(h)h.textContent=`${Math.round(headingConfidencePercent)}%`;
- if(b){const w={good:100,fair:70,weak:38,lost:5,acquiring:18,paused:8};b.style.width=`${w[state]??20}%`;b.parentElement.style.color=state==="good"?"var(--green)":state==="fair"?"var(--amber)":state==="lost"?"var(--red)":"var(--cyan)";}gpsConnectionState=state;
-}
+function updateGpsUi(state,accuracy=null){ gpsConnectionState=state || gpsConnectionState; }
 function calculateHeadingConfidence(speedKmh,accuracy,gpsHeadingValid){const sp=Number(speedKmh)||0,acc=Number.isFinite(accuracy)?Number(accuracy):99;let c=sp<2?20:sp<5?42:sp<10?68:sp<25?84:94;if(acc>50)c*=.45;else if(acc>30)c*=.68;else if(acc>15)c*=.86;if(!gpsHeadingValid)c*=.65;if(Number.isFinite(lastReliableHeading))c=Math.max(c,sp<5?38:55);return clamp(c,0,100);}
 function classifyGpsState(ageSec,accuracy){if(!isTracking)return "paused";if(!Number.isFinite(ageSec)||ageSec>GPS_LOST_AFTER_SEC)return "lost";if(ageSec>GPS_WEAK_AFTER_SEC||!Number.isFinite(accuracy)||accuracy>45)return "weak";if(accuracy>20)return "fair";return "good";}
 function updateGpsWatchdog(){if(!isTracking){updateGpsUi("paused",lastAccuracy);return;}const age=lastGpsFixWallClock>0?(Date.now()-lastGpsFixWallClock)/1000:Infinity,state=classifyGpsState(age,lastAccuracy);updateGpsUi(state,lastAccuracy);if(state!==gpsWatchdogLastState){gpsWatchdogLastState=state;if(state==="lost")setTrackingStatus("GPS LOST — รอสัญญาณ","bad",`last fix ${formatGpsAge(age)}`);else if(state==="weak")setTrackingStatus("GPS WEAK — ความแม่นยำต่ำ","warn",`±${Number.isFinite(lastAccuracy)?Math.round(lastAccuracy):"--"}m`);else if(state==="good")setTrackingStatus("TRACKING — GPS GOOD","good",autoFollow?"NAV FOLLOW":"EXPLORE");else if(state==="fair")setTrackingStatus("TRACKING — GPS FAIR","warn",autoFollow?"NAV FOLLOW":"EXPLORE");}}
@@ -4257,7 +4236,7 @@ function startTracking() {
                         if(!map){try{if(window.maplibregl&&typeof maplibregl.Map==='function'){const mm=initMap(c.latitude,c.longitude);if(mm!==null)requestAnimationFrame(()=>{try{forceRecenterToVehicle();}catch(e){}});}else setTrackingStatus("TRACKING — MAP UNAVAILABLE","warn","GPS/analysis ยังทำงาน");}catch(e){console.error("Map initialization failed",e);setTrackingStatus("TRACKING — MAP ERROR","warn","GPS/analysis ยังทำงาน");}}
                         const skeletonTrip={plateNumber:plateInput.value.trim(),startTime:tripStartTime,endTime:tripStartTime,startCoord:coordText,endCoord:coordText,distance:0,maxSpeed:0,avgSpeed:0,elapsedTime:0,energyUsedWh:0,energyUsed:0,avgEnergyPerKm:0,energyConsumption:0,batterySOCUsedPercent:0,idleEnergyUsedWh:0,energyPer100km:0,idleTimeFormatted:"00:00:00",idleTimeSeconds:0,totalRegenEnergy:0,avgEfficiencyPerPercent:0,path:[]};Promise.resolve().then(()=>enqueueSave(()=>saveTripToStorage(skeletonTrip))).catch(e=>console.warn("Initial skeleton save failed; tracking continues",e));saveActiveTripDraft();setTrackingStatus("TRACKING — GPS LOCKED","good",autoFollow?"NAV FOLLOW":"EXPLORE");
                     }
-                    const gps=normalizeGps(pos);if(!gps)return;const {latitude,longitude,speedKmh,heading,altitude,accuracy,timestamp}=gps;lastGpsFixWallClock=Date.now();lastGpsLat=latitude;lastGpsLng=longitude;if(heading!=null)lastGpsHeading=heading;if(lastGpsTimestamp!==null&&timestamp>lastGpsTimestamp)gpsIntervalSec=clamp((timestamp-lastGpsTimestamp)/1000,.1,2);lastGpsTimestamp=timestamp;const rawAcc=gps.accuracy??5;const smoothAcc=smoothAccuracy(rawAcc);lastAccuracy=smoothAcc;headingConfidencePercent=calculateHeadingConfidence(speedKmh,smoothAcc,heading!=null);lastHeadingConfidence=headingConfidencePercent;updateGpsUi(classifyGpsState(0,smoothAcc),smoothAcc);const accEl=document.getElementById("gpsAccuracy");if(accEl){accEl.textContent=formatAccuracy(smoothAcc);accEl.style.color=getAccuracyColor(smoothAcc);}
+                    const gps=normalizeGps(pos);if(!gps)return;const {latitude,longitude,speedKmh,heading,altitude,accuracy,timestamp}=gps;lastGpsFixWallClock=Date.now();lastGpsLat=latitude;lastGpsLng=longitude;if(heading!=null)lastGpsHeading=heading;if(lastGpsTimestamp!==null&&timestamp>lastGpsTimestamp)gpsIntervalSec=clamp((timestamp-lastGpsTimestamp)/1000,.1,2);lastGpsTimestamp=timestamp;const rawAcc=gps.accuracy??5;const smoothAcc=smoothAccuracy(rawAcc);lastAccuracy=smoothAcc;headingConfidencePercent=calculateHeadingConfidence(speedKmh,smoothAcc,heading!=null);lastHeadingConfidence=headingConfidencePercent;updateGpsUi(classifyGpsState(0,smoothAcc),smoothAcc);
                     const accClamped=Math.min(Math.max(smoothAcc,1),150),accFactor=Math.log10(accClamped+1),intervalFactor=Math.min(Math.max(gpsIntervalSec,.5),2),dynamicThreshold=accFactor*9+speedKmh*.035+intervalFactor*1.8;routeThreshold=Math.min(Math.max(dynamicThreshold,.8),smoothAcc>35?30:8);const physicallyStopped=speedKmh<STOP_LOCK_SPEED&&checkIfStopped(latitude,longitude);if(physicallyStopped)routeThreshold=Math.min(routeThreshold,2);updateSpeedSlope(speedKmh,timestamp);updatePosition(latitude,longitude,altitude,speedKmh);rawSpeedKmh=speedKmh;updateSpeed(speedKmh);
                     const forceUpdate=!physicallyStopped&&(speedKmh>1.2||(heading!=null&&Math.abs(speedSlope)>8)),forcePosition=gpsIntervalSec>1.5||smoothAcc>25;if(lastRouteLat===null||forceUpdate||forcePosition||haversineMeters(lastRouteLat,lastRouteLon,latitude,longitude)>routeThreshold){try{if(map&&map._loaded)updateRoute(latitude,longitude,speedKmh,heading);}catch(e){console.warn("Map route update failed",e);}}
                     const ctext=`${latitude.toFixed(6)},${longitude.toFixed(6)}`;endCoordSpan.textContent=ctext;const lastLog=tripLog[tripLog.length-1],roundedSpeed=Math.round(speedKmh*10)/10;if(!lastLog||lastLog.coord!==ctext||lastLog.speed!==roundedSpeed){tripLog.push({time:timestamp,coord:ctext,speed:roundedSpeed});if(tripLog.length>100000)tripLog.splice(1,1000);}
@@ -4355,24 +4334,21 @@ async function safeSaveTrip(finalTrip, retry = 3) {
 			if (!finalTrip || !Array.isArray(finalTrip.path) ||
 				!Number.isFinite(finalTrip.distance) ||
 				!Number.isFinite(finalTrip.startTime) ||
-				!Number.isFinite(finalTrip.endTime)
-			) {
+				!Number.isFinite(finalTrip.endTime)) {
 				console.error("Invalid trip data", finalTrip);
 				return false;
 			}
-			await saveTripToIndexedDB(finalTrip);
+			const saved = await saveTripToStorage({ ...finalTrip });
+			if (!saved) throw new Error("Trip storage returned no record");
 			return true;
 		} catch (err) {
-			console.warn(
-				"Retry save",
-				i + 1,
-				err
-			);
+			console.warn("Retry final trip save", i + 1, err);
 			await wait(400 * (i + 1));
 		}
 	}
-	throw new Error("saveTripToIndexedDB failed");
+	throw new Error("Final trip save failed");
 }
+
 let saveQueue = Promise.resolve();
 function enqueueSave(fn) {
     saveQueue = saveQueue
@@ -4381,6 +4357,34 @@ function enqueueSave(fn) {
             return await fn();
         });
     return saveQueue;
+}
+function renderCompletedTripOnMap(validCoords) {
+    if (!map || !map._loaded || !Array.isArray(validCoords) || !validCoords.length) return;
+    try {
+        if (!routeLayer) routeLayer = createMapLibreRouteManager(map);
+        routeLayer.clearLayers();
+        if (validCoords.length >= 2) routeLayer.setHistory(validCoords);
+
+        const start = validCoords[0];
+        const end = validCoords[validCoords.length - 1];
+        const startMarker = makeMapLibreMarker(start[0], start[1], '<div style="font-size:24px;line-height:1">🚗</div>', 'maplibre-history-marker', 'จุดเริ่มต้น');
+        routeLayer.addMarker(startMarker);
+        if (validCoords.length >= 2) {
+            const endMarker = makeMapLibreMarker(end[0], end[1], '<div style="font-size:24px;line-height:1">🏁</div>', 'maplibre-history-marker', 'จุดสิ้นสุด');
+            routeLayer.addMarker(endMarker);
+        }
+
+        const coords = validCoords.map(p => [p[1], p[0]]);
+        if (coords.length >= 2) {
+            maplibregl.Map.prototype.fitBounds.call(map, coords, { padding: { top: 45, right: 35, bottom: 45, left: 35 }, maxZoom: 17, animate: false });
+        } else {
+            map.jumpTo({ center: coords[0], zoom: 17, bearing: 0, pitch: 0, padding: {top:0,right:0,bottom:0,left:0} });
+        }
+        map.resize();
+        enableMapInteraction();
+    } catch (e) {
+        console.error('[Trip Stop] final map render failed', e);
+    }
 }
 async function stopTracking() {
 	if (!isTracking || isFinalizing) return;
@@ -4494,118 +4498,27 @@ async function stopTracking() {
 	const snapshot_elapsedTime = elapsedTime;
 	const snapshot_distance = cumulativeDistance;
 
-	// 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset
-	if (tripLog.length === 0) {
-		console.warn("tripLog ว่าง แต่ยัง save skeleton");
-	}
+	// 🌟 Final map state: show the complete route after Stop.
 	let validCoords = tripLog
 		.map(p => {
-			if (!p.coord) return null;
+			if (!p?.coord) return null;
 			const [lat, lon] = p.coord.split(',').map(Number);
 			if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-			return [lat, lon, p.speed || 0];
+			return [lat, lon, Number(p.speed) || 0];
 		})
 		.filter(Boolean);
 	const MAX_RENDER_POINTS = 8000;
 	if (validCoords.length > MAX_RENDER_POINTS) {
 		const step = Math.ceil(validCoords.length / MAX_RENDER_POINTS);
 		const reduced = [];
-		for (let i = 0; i < validCoords.length; i += step) {
-			reduced.push(validCoords[i]);
-		}
+		for (let i = 0; i < validCoords.length; i += step) reduced.push(validCoords[i]);
 		const last = validCoords[validCoords.length - 1];
 		if (reduced[reduced.length - 1] !== last) reduced.push(last);
 		validCoords = reduced;
 	}
-	if (map && map._loaded && validCoords.length === 1) {
-		try { map.setView([validCoords[0][0], validCoords[0][1]], 17); drawHistoryRoute(validCoords); enableMapInteraction(); } catch(e) { console.warn("Final map render failed",e); }
-	} else if (map && map._loaded && validCoords.length > 1) {
-		requestAnimationFrame(() => {
-			hardClearMapRotation(map);
-			setMapPaneTransformOriginToCenter(map);
-			const FIT_CONFIG = {
-				paddingRatio: 0.12, 
-				minPadding: 60,
-				maxPadding: 500,   
-				maxZoom: 17,
-				retryLimit: 4,
-				overflowFactor: 1.3
-			};
-			let bounds = L.latLngBounds(validCoords);
-			if (!bounds.isValid()) {
-				enableMapInteraction();
-				return;
-			}
-			const ne = bounds.getNorthEast();
-			const sw = bounds.getSouthWest();
-			const diagonalMeters = ne.distanceTo(sw);
-			const distanceMeters = diagonalMeters;
-			bounds = bounds.pad(
-				distanceMeters > 500000 ? 0.30 :
-				distanceMeters > 100000 ? 0.18 :
-				distanceMeters > 10000  ? 0.12 :
-				0.08 
-			);
-			const dynamicMaxZoom =
-			distanceMeters > 1000000 ? 8  :
-			distanceMeters > 500000  ? 10 :
-			distanceMeters > 200000  ? 12 :
-			FIT_CONFIG.maxZoom;
-			const mapSize = map.getSize();
-			let padding = Math.min(mapSize.x, mapSize.y) * FIT_CONFIG.paddingRatio;
-			if (distanceMeters < 2000) padding *= 1.4; 
-			else if (distanceMeters < 20000) padding *= 1.3; 
-			else if (distanceMeters < 200000) padding *= 1.2; 
-			else if (distanceMeters < 800000) padding *= 1.1; 
-			else padding *= 1.05; 
-			const latDiff = Math.abs(ne.lat - sw.lat);
-			const lngDiff = Math.abs(ne.lng - sw.lng);
-			const stretchFactor = Math.max(latDiff, lngDiff) / Math.max(0.00001, Math.min(latDiff, lngDiff));
-			const safeStretch = Math.min(stretchFactor, 10);
-			if (safeStretch > 5) padding *= 1.2;
-			padding = Math.max(FIT_CONFIG.minPadding, padding);
-			padding = Math.min(FIT_CONFIG.maxPadding, padding);
-			map.invalidateSize();
-			function fitWithRetry(retry = 0) {
-				const hPad = padding * 1.6;
-				const vPad = padding * 1.4;
-				map.fitBounds(bounds, {
-					paddingTopLeft:     [hPad, vPad],
-					paddingBottomRight: [hPad, vPad],
-					maxZoom: dynamicMaxZoom,
-					animate: false
-				});
-				requestAnimationFrame(() => {
-					const currentBounds = map.getBounds();
-					const safeB = currentBounds.pad(0.04);
-					let overflow = false;
-					const sampleStep = Math.max(1, Math.floor(validCoords.length / 300));
-					for (let i = 0; i < validCoords.length; i += sampleStep) {
-						const latlng = L.latLng(validCoords[i][0], validCoords[i][1]);
-						if (!safeB.contains(latlng)) {
-							overflow = true;
-							break;
-						}
-					}
-					if (overflow && retry < FIT_CONFIG.retryLimit) {
-						padding = Math.min(
-							padding * FIT_CONFIG.overflowFactor,
-							FIT_CONFIG.maxPadding
-						);
-						fitWithRetry(retry + 1);
-						return;
-					}
-					if (routeLayer) routeLayer.clearLayers();
-					drawHistoryRoute(validCoords);
-					requestAnimationFrame(() => {
-						enableMapInteraction();
-					});
-				});
-			}
-			fitWithRetry();
-		});
-	}
-
+	autoFollow = false;
+	autoRotate = false;
+	renderCompletedTripOnMap(validCoords);
 
 	if (frozenTripLog.length === 0 && lastGpsLat != null && lastGpsLng != null) {
 		frozenTripLog.push({time: Date.now(),
@@ -4619,11 +4532,7 @@ async function stopTracking() {
 	const finalCoord = frozenTripLog[frozenTripLog.length - 1]?.coord || fallbackCoord;
 	const lastPoint = frozenTripLog[frozenTripLog.length - 1];
 	const compactPath = compressPath(frozenTripLog);
-	const batterySOCUsed =
-parseFloat(
-document.getElementById("batterySOCUsed")
-.textContent.replace("%","")
-) || 0;
+	const batterySOCUsed = Math.max(0, (snapshot_totalEnergyWh / VEHICLE_CONFIG.batteryKWh / 1000) * 100);
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
 		startTime: tripStartTime,
@@ -4655,7 +4564,6 @@ document.getElementById("batterySOCUsed")
 	try {
 		await saveQueue.catch(() => {});
 		await enqueueSave(async () => {
-			await updateLastTripInStorage(finalTrip);
 			await safeSaveTrip(finalTrip);
 		});
 	} catch (err) {
@@ -4709,9 +4617,8 @@ document.getElementById("batterySOCUsed")
   if(historyClose&&!historyClose._historyBound){historyClose._historyBound=true;historyClose.addEventListener('click',closeHistoryMapModal);}
   if(historyModal&&!historyModal._historyBackdropBound){historyModal._historyBackdropBound=true;historyModal.addEventListener('click',e=>{if(e.target===historyModal)closeHistoryMapModal();});}
   if(!window._historyEscapeBound){window._historyEscapeBound=true;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&window.isHistoryModalOpen)closeHistoryMapModal();});}
-  setTrackingStatus("READY","info","GPS standby"); updateGpsUi("paused",null);
   setTimeout(recoverActiveTripDraft,500);
-  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reacquireWakeLockIfNeeded();if(isTracking)saveActiveTripDraft();updateGpsUi(isTracking?gpsConnectionState:"paused",lastAccuracy);},{passive:true});
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reacquireWakeLockIfNeeded();if(isTracking)saveActiveTripDraft();},{passive:true});
   window.addEventListener("beforeunload",()=>{if(isTracking)saveActiveTripDraft();});
 })();
 // PATCH: bind resize/orientation ONCE (global scope)
