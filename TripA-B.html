@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-64-V5.11-EV-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-64-V5.12-EV-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -4749,7 +4749,7 @@ function setRoutePoint(kind,index,p,name=''){
     if(!routePlan.stops[index])routePlan.stops[index]={point:null,name:''};
     routePlan.stops[index].point=p; if(name)routePlan.stops[index].name=name;
   }
-  routePlan.route=[]; routePlan.distanceKm=0; routePlan.durationSec=0; routePlan.plannedProgressIndex=0; routePlan._lastLat=null; routePlan._lastLon=null; routePlan.chargingStations=[]; routePlan.chargingRouteKey=''; routePlan.chargingLastProgressKm=-1;
+  routePlan.route=[]; routePlan.distanceKm=0; routePlan.durationSec=0; routePlan.plannedProgressIndex=0; routePlan._lastLat=null; routePlan._lastLon=null; routePlan.chargingStations=[]; routePlan.chargingRouteKey=''; routePlan.chargingLastProgressKm=-1; routePlan.chargingLastSearchPositionKm=-Infinity;
   const ev=document.getElementById('evChargePanel');if(ev){ev.style.display='none';ev.innerHTML='';}
   const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}
 }
@@ -4781,7 +4781,7 @@ function refreshRoutePlannerRows(){
     inp.addEventListener('focus',()=>{if(inp.value.trim().length>=2)showPlaceSearchResults(inp.value,'stop',Number(inp.dataset.stopSearch),inp);});
   });
   wrap.querySelectorAll('[data-stop-pick]').forEach(btn=>btn.addEventListener('click',()=>chooseRoutePoint('stop',Number(btn.dataset.stopPick))));
-  wrap.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.addEventListener('click',()=>{routePlan.stops.splice(Number(btn.dataset.removeStop),1);routePlan.route=[];routePlan.plannedProgressIndex=0;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';clearEvChargingMarkers();refreshRoutePlannerRows();renderRoutePlanMarkers();routePlannerHint('ลบจุดแวะแล้ว — กด “หาเส้นทาง” เพื่อคำนวณใหม่');}));
+  wrap.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.addEventListener('click',()=>{routePlan.stops.splice(Number(btn.dataset.removeStop),1);routePlan.route=[];routePlan.plannedProgressIndex=0;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;clearEvChargingMarkers();refreshRoutePlannerRows();renderRoutePlanMarkers();routePlannerHint('ลบจุดแวะแล้ว — กด “หาเส้นทาง” เพื่อคำนวณใหม่');}));
 }
 function ensureRoutePlanLayer(){
   if(!map||!map._loaded)return null;
@@ -5125,30 +5125,65 @@ function normalizeChargingStation(raw){
   const opening=tags.opening_hours||'';
   return {lat,lon,name,operator,power,capacity,sockets,opening,source:'OpenStreetMap'};
 }
+function getEvSearchWindow(route){
+  if(!Array.isArray(route)||route.length<2)return [];
+  const wltp=getWltpRealtimeKm();
+  if(!Number.isFinite(wltp))return [];
+  const safety=getEvSafetyDistanceKm();
+  const usable=Math.max(0,wltp-safety);
+  if(usable<=0)return [];
+  const ref=getEvReferencePosition()||routePlan.start;
+  const cum=routeCumulativeDistances(route);
+  const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,route,cum):{km:0};
+  const totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
+  if(Math.max(0,totalKm-rp.km)<=usable)return [];
+  const maxKm=Math.min(totalKm,rp.km+usable+15);
+  const startIndex=Math.max(0,Math.min(route.length-2,rp.index||0));
+  const out=[route[startIndex]];
+  for(let i=startIndex+1;i<route.length;i++){
+    if(cum[i]>maxKm)break;
+    out.push(route[i]);
+  }
+  const last=out[out.length-1];
+  if(last!==route[route.length-1]&&Number.isFinite(maxKm)){
+    for(let i=Math.max(startIndex+1,1);i<route.length;i++){
+      if(cum[i]>=maxKm){out.push(route[i]);break;}
+    }
+  }
+  return out.length>=2?out:route.slice(Math.max(0,route.length-2));
+}
+
 async function fetchEvChargingStations(route){
   if(!Array.isArray(route)||route.length<2)return [];
-  // Query the route corridor in bounded chunks. A single giant bbox can make
-  // Overpass appear to hang on long routes, while one request per vertex is
-  // unnecessarily slow. Each chunk overlaps the next one by one route point.
-  const chunks=[]; let start=0,acc=0,lastChunkKm=0;
-  for(let i=1;i<route.length;i++){
-    acc+=haversineMeters(route[i-1][0],route[i-1][1],route[i][0],route[i][1])/1000;
-    if(acc-lastChunkKm>=80){chunks.push(route.slice(start,i+1));start=i;lastChunkKm=acc;}
+  // Search only the current charging stage, not the whole trip. This keeps
+  // Overpass queries small and makes long routes responsive.
+  const searchRoute=getEvSearchWindow(route);
+  if(searchRoute.length<2)return [];
+  const cum=routeCumulativeDistances(route);
+  const startPos=nearestRoutePositionKm(searchRoute[0][0],searchRoute[0][1],route,cum).km;
+  const endPos=nearestRoutePositionKm(searchRoute[searchRoute.length-1][0],searchRoute[searchRoute.length-1][1],route,cum).km;
+
+  const chunks=[]; let start=0,chunkStartKm=startPos;
+  for(let i=1;i<searchRoute.length;i++){
+    const km=nearestRoutePositionKm(searchRoute[i][0],searchRoute[i][1],route,cum).km;
+    if(km-chunkStartKm>=55){chunks.push(searchRoute.slice(start,i+1));start=i;chunkStartKm=km;}
   }
-  if(start<route.length-1)chunks.push(route.slice(start));
-  if(!chunks.length)chunks.push(route);
+  if(start<searchRoute.length-1)chunks.push(searchRoute.slice(start));
+  if(!chunks.length)chunks.push(searchRoute);
 
   const unique=new Map();
   const queryChunk=async(chunk)=>{
     const lats=chunk.map(p=>p[0]),lons=chunk.map(p=>p[1]);
-    const south=Math.max(-90,Math.min(...lats)-0.08),north=Math.min(90,Math.max(...lats)+0.08);
-    const west=Math.max(-180,Math.min(...lons)-0.08),east=Math.min(180,Math.max(...lons)+0.08);
-    // Keep the query deliberately small and valid across Overpass servers.
-    const q=`[out:json][timeout:12];nwr["amenity"="charging_station"](${south.toFixed(5)},${west.toFixed(5)},${north.toFixed(5)},${east.toFixed(5)});out center tags;`;
+    // ~3 km corridor is enough for route-near charging stations and is much
+    // lighter than the previous 0.08° (~9 km) padding.
+    const pad=0.035;
+    const south=Math.max(-90,Math.min(...lats)-pad),north=Math.min(90,Math.max(...lats)+pad);
+    const west=Math.max(-180,Math.min(...lons)-pad),east=Math.min(180,Math.max(...lons)+pad);
+    const q=`[out:json][timeout:7];nwr["amenity"="charging_station"](${south.toFixed(5)},${west.toFixed(5)},${north.toFixed(5)},${east.toFixed(5)});out center;`;
     let lastErr=null;
     for(const endpoint of ROUTE_OVERPASS_URLS){
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),14000);
+      const timer=setTimeout(()=>controller.abort(),8000);
       try{
         const r=await fetch(endpoint+'?data='+encodeURIComponent(q),{method:'GET',signal:controller.signal,mode:'cors',headers:{Accept:'application/json'}});
         if(!r.ok)throw new Error(`Overpass ${r.status}`);
@@ -5162,20 +5197,20 @@ async function fetchEvChargingStations(route){
         return;
       }catch(e){
         clearTimeout(timer);
-        if(e?.name==='AbortError') lastErr=new Error('Overpass timeout');
-        else lastErr=e;
-        console.warn('[EV Charging]',endpoint,lastErr);
+        lastErr=e?.name==='AbortError'?new Error('Overpass timeout'):e;
       }
     }
     if(lastErr)console.warn('[EV Charging chunk skipped]',lastErr);
   };
 
-  // Limit concurrent requests so the public Overpass services are not flooded.
-  const concurrency=Math.min(3,chunks.length); let next=0;
+  // Two workers are enough for the public service while keeping the UI/network
+  // load lower than the previous three-worker whole-route scan.
+  const concurrency=Math.min(2,chunks.length); let next=0;
   const worker=async()=>{while(true){const i=next++;if(i>=chunks.length)break;await queryChunk(chunks[i]);}};
   await Promise.all(Array.from({length:concurrency},worker));
   return [...unique.values()];
 }
+
 function getEvReferencePosition(){
   if((isTracking||routePlan.navigating)&&Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng))return {lat:lastGpsLat,lon:lastGpsLng};
   return routePlan.start||null;
@@ -5229,19 +5264,49 @@ function scheduleEvChargingRecommendation(force=false){
   const w=Math.round((result.wltpRealtimeKm||0));
   const progress=Math.round((result.positionKm||0));
   const key=`${progress}|${w}|${Math.round(result.safetyKm||0)}|${result.needCharging?1:0}`;
-  if(!force&&routePlan.chargingLastProgressKey===key)return;
-  routePlan.chargingLastProgressKey=key;
-  renderEvChargingRecommendation();
+  if(force||routePlan.chargingLastProgressKey!==key){
+    routePlan.chargingLastProgressKey=key;
+    renderEvChargingRecommendation();
+  }
+
+  // Long trips are searched in stages. Once the vehicle has moved far enough
+  // into the next stage, refresh the small route window in the background.
+  if(result.needCharging&&!routePlan.chargingLoading){
+    const lastSearchKm=Number.isFinite(routePlan.chargingLastSearchPositionKm)?routePlan.chargingLastSearchPositionKm:0;
+    const movedKm=progress-lastSearchKm;
+    const noUsableStation=!result.candidates?.length;
+    if(force||noUsableStation||movedKm>=15){
+      refreshEvChargingStations(true).catch(()=>{});
+    }
+  }
 }
 async function refreshEvChargingStations(force=false){
   if(!routePlan.route?.length)return [];
   const key=routeChargingKey(routePlan.route);
   if(!force&&routePlan.chargingRouteKey===key&&routePlan.chargingStations.length){renderEvChargingRecommendation();return routePlan.chargingStations;}
-  const panel=document.getElementById('evChargePanel');if(panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ กำลังค้นหาสถานีชาร์จตามระยะที่คำนวณ…</div>';} 
+  const panel=document.getElementById('evChargePanel');
+  if(panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ กำลังค้นหาสถานีชาร์จในช่วงระยะที่ใช้ได้…</div>';}
+  const searchSeq=(routePlan.chargingSearchSeq||0)+1;
+  routePlan.chargingSearchSeq=searchSeq;
   routePlan.chargingLoading=true;
-  try{routePlan.chargingStations=await fetchEvChargingStations(routePlan.route);routePlan.chargingRouteKey=key;routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastAutoRefresh=Date.now();renderEvChargingRecommendation();startEvChargingAutoRefresh();return routePlan.chargingStations;}
-  catch(e){console.warn('[EV Charging Search]',e);if(panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ จุดชาร์จ</div><div class="ev-charge-meta">ค้นหาสถานีชาร์จไม่สำเร็จ · ลองหาเส้นทางใหม่เมื่ออินเทอร์เน็ตพร้อม</div>';}return []}
-  finally{routePlan.chargingLoading=false;}
+  try{
+    const stations=await fetchEvChargingStations(routePlan.route);
+    if(searchSeq!==routePlan.chargingSearchSeq||key!==routeChargingKey(routePlan.route))return [];
+    routePlan.chargingStations=stations;
+    routePlan.chargingRouteKey=key;
+    routePlan.chargingLastProgressKm=-1;
+    routePlan.chargingLastProgressKey='';
+    routePlan.chargingLastAutoRefresh=Date.now();
+    const ref=getEvReferencePosition();
+    if(ref){const cum=routeCumulativeDistances(routePlan.route);routePlan.chargingLastSearchPositionKm=nearestRoutePositionKm(ref.lat,ref.lon,routePlan.route,cum).km;}
+    renderEvChargingRecommendation();
+    startEvChargingAutoRefresh();
+    return stations;
+  }catch(e){
+    console.warn('[EV Charging Search]',e);
+    if(searchSeq===routePlan.chargingSearchSeq&&panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ จุดชาร์จ</div><div class="ev-charge-meta">ค้นหาสถานีชาร์จไม่สำเร็จ · ระบบจะลองใหม่เมื่อมีการคำนวณเส้นทาง/ระยะใหม่</div>';}
+    return [];
+  }finally{routePlan.chargingLoading=false;}
 }
 function stopEvChargingAutoRefresh(){
   if(evChargingAutoRefreshTimer){clearInterval(evChargingAutoRefreshTimer);evChargingAutoRefreshTimer=null;}
@@ -5271,7 +5336,6 @@ function addEvChargingStop(st){
 async function buildPlannedRoute(){
   const points=collectPlannerPoints();
   if(!routePlan.start||!routePlan.destination){routePlannerHint('กรุณากำหนดจุดเริ่มต้นและจุดหมายก่อน');return;}
-  // Route-search preview must not be pulled back to the live GPS position.
   try{setMapModeNavigation(false,false);}catch(e){}
   routePlannerHint('กำลังหาเส้นทางรถยนต์…');
   const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;
@@ -5279,33 +5343,29 @@ async function buildPlannedRoute(){
     const result=await fetchOsrmRoute(points);
     routePlan.route=result.coords;routePlan.plannedProgressIndex=0;routePlan._lastLat=null;routePlan._lastLon=null;
     routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan._rerouting=false;routePlan._lastRerouteAt=0;
+    routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;
     clearEvChargingMarkers();
     renderRoutePlanMarkers();
     const summary=document.getElementById('routeSummary');
     if(summary){summary.style.display='block';summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;}
 
-    // Do not let a slow station query leave a half-rendered route. The route is
-    // already drawn; station search now has bounded requests and completes before
-    // the final fit-to-route camera is applied.
-    routePlannerHint('หาเส้นทางสำเร็จ · กำลังค้นหาสถานีชาร์จ…');
-    const stations=await refreshEvChargingStations(true);
-    const evResult=calculateEvCandidates();
+    // IMPORTANT: fit the complete route immediately after OSRM. EV search is
+    // background work and must never delay route rendering/camera fitting.
     if(map&&map._loaded&&result.coords.length>1){
+      map.stop();map.resize();
       const viewCoords=result.coords.map(p=>[p[1],p[0]]);
-      (evResult.candidates||[]).slice(0,4).forEach(st=>viewCoords.push([st.lon,st.lat]));
-      // Explicitly fit the entire route after ALL station data is available.
-      map.resize();
-      map.fitBounds(viewCoords,{padding:{top:90,right:55,bottom:90,left:55},maxZoom:14,animate:false});
-      setTimeout(()=>{
-        try{
-          map.resize();
-          map.fitBounds(viewCoords,{padding:{top:90,right:55,bottom:90,left:55},maxZoom:14,animate:false});
-          orientMapToPlannedRoutePreview();
-        }catch(e){console.warn('Route preview fit failed:',e);}
-      },80);
+      map.fitBounds(viewCoords,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
+      setTimeout(()=>{try{map.resize();map.fitBounds(viewCoords,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});orientMapToPlannedRoutePreview();}catch(e){}},80);
     }
     if(nav)nav.disabled=false;
-    routePlannerHint(stations.length ? 'หาเส้นทางแล้ว · โหลดสถานีชาร์จเสร็จแล้ว · แสดงเส้นทางทั้งหมด' : 'หาเส้นทางแล้ว · ไม่พบสถานีชาร์จในข้อมูล OpenStreetMap สำหรับแนวเส้นทางนี้');
+    routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว · กำลังค้นหาสถานีชาร์จเบื้องหลัง');
+
+    // Start EV search without blocking the route UI.
+    refreshEvChargingStations(true).then(stations=>{
+      if(routePlan.route.length&&routeChargingKey(routePlan.route)===routePlan.chargingRouteKey){
+        routePlannerHint(stations.length?'หาเส้นทางแล้ว · พบสถานีชาร์จตามระยะที่ใช้ได้':'หาเส้นทางแล้ว · ยังไม่พบสถานีชาร์จในช่วงระยะที่ใช้ได้');
+      }
+    }).catch(()=>{});
   }catch(e){
     console.error('[Route Planner]',e);
     if(nav)nav.disabled=true;
@@ -5337,7 +5397,7 @@ function orientMapToPlannedRoutePreview(){
 }
 function clearPlannedRoute(){
   stopEvChargingAutoRefresh();clearEvChargingMarkers();
-  routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
+  routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;routePlan.chargingSearchSeq++;routePlan.chargingLastSearchPositionKm=-Infinity;routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
   const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');if(ss)ss.value='';if(ds)ds.value='';
   const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const ev=document.getElementById('evChargePanel');if(ev){ev.style.display='none';ev.innerHTML='';}const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;routePlannerHint('ค้นหาสถานที่ทั่วประเทศไทย หรือเลือกจากแผนที่ · เลื่อน/ซูมได้ · ลากหมุดเพื่อปรับตำแหน่งได้');
 }
@@ -5360,7 +5420,7 @@ function updatePlannedNavigationProgress(lat,lon){
     const points=[pos,...routePlan.stops.map(x=>x.point),routePlan.destination];
     fetchOsrmRoute(points).then(result=>{
       if(!routePlan.navigating)return;
-      routePlan.start=pos;routePlan.route=result.coords;routePlan.plannedProgressIndex=0;routePlan._lastLat=pos.lat;routePlan._lastLon=pos.lon;routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';renderRoutePlanMarkers();const summary=document.getElementById('routeSummary');if(summary)summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;routePlannerHint('คำนวณเส้นทางใหม่แล้ว · กำลังคำนวณจุดชาร์จ');refreshEvChargingStations(true);
+      routePlan.start=pos;routePlan.route=result.coords;routePlan.plannedProgressIndex=0;routePlan._lastLat=pos.lat;routePlan._lastLon=pos.lon;routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;renderRoutePlanMarkers();const summary=document.getElementById('routeSummary');if(summary)summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;routePlannerHint('คำนวณเส้นทางใหม่แล้ว · กำลังคำนวณจุดชาร์จ');refreshEvChargingStations(true);
     }).catch(()=>routePlannerHint('ออกนอกเส้นทาง — ยังไม่สามารถคำนวณใหม่ได้')).finally(()=>{routePlan._rerouting=false;});
   }else {scheduleEvChargingRecommendation();if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`เหลือ ${destM>=1000?(destM/1000).toFixed(1)+' km':Math.round(destM)+' m'}`);}
 }
