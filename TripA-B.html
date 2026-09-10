@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.16-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.16-EV-3D Navigation</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -4716,7 +4716,8 @@ const ROUTE_GEOCODER_URL = 'https://nominatim.openstreetmap.org/search';
 const ROUTE_GEOCODER_FALLBACK_URL = 'https://photon.komoot.io/api/';
 const ROUTE_OVERPASS_URLS = Object.freeze([
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter'
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
 ]);
 const ROUTE_ROUTER_URL = 'https://router.project-osrm.org/route/v1/driving/';
 const ROUTE_SEARCH_RESULT_LIMIT = 10;
@@ -5127,7 +5128,7 @@ function normalizeChargingStation(raw){
   return {lat,lon,name,operator,power,capacity,sockets,opening,source:'OpenStreetMap'};
 }
 const EV_DISPLAY_COUNT = 4;
-const EV_ROUTE_NEAR_KM = 5;
+const EV_ROUTE_NEAR_KM = 8;
 const EV_SEARCH_CHUNK_KM = 60;
 const EV_SEARCH_TIMEOUT_MS = 7000;
 const EV_SEARCH_CONCURRENCY = 2;
@@ -5170,9 +5171,8 @@ async function fetchEvChargingStations(route){
   const usable=getEvUsableRangeKm(wltp,safety);
   if(!Number.isFinite(usable)||usable<=0)return [];
 
-  // Search only the route portion that is reachable before the effective
-  // charging point. There is NO minimum station distance: a station at 2 km,
-  // 30 km or 90 km is valid. The UI then selects the first 1-4 stations.
+  // Search the road ahead up to the effective WLTP/Safety limit. There is no
+  // minimum distance from the vehicle: 1 km, 20 km or 90 km are all valid.
   const cum=routeCumulativeDistances(route);
   const ref=getEvReferencePosition()||routePlan.start;
   const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,route,cum):{km:0,index:0};
@@ -5181,65 +5181,63 @@ async function fetchEvChargingStations(route){
   const targetKm=Math.min(remainingKm,usable);
   if(targetKm<=0.1)return [];
 
-  // Sample the route every ~15 km. A single Overpass request is much faster
-  // than one HTTP request per point/chunk, while the small around-circles keep
-  // the query focused on the actual road corridor.
-  const sampleEveryKm=15;
-  const samplePoints=[];
-  const startKm=rp.km;
-  for(let km=startKm;km<=startKm+targetKm+0.01;km+=sampleEveryKm){
-    let lo=0,hi=cum.length-1,best=0;
-    while(lo<=hi){const mid=(lo+hi)>>1;if(cum[mid]<=km){best=mid;lo=mid+1;}else hi=mid-1;}
-    samplePoints.push(route[Math.min(best,route.length-1)]);
+  // Build small road-aligned bounding boxes. This is considerably more robust
+  // than a long union of `around` clauses and works on the public Overpass
+  // instances used by browsers. Only the first WLTP/Safety distance is queried.
+  const chunkKm=70;
+  const boxes=[];
+  for(let from=rp.km;from<rp.km+targetKm-0.01;from+=chunkKm){
+    const to=Math.min(rp.km+targetKm,from+chunkKm);
+    const pts=[];
+    const addAtKm=(km)=>{
+      let lo=0,hi=cum.length-1,best=0;
+      while(lo<=hi){const mid=(lo+hi)>>1;if(cum[mid]<=km){best=mid;lo=mid+1;}else hi=mid-1;}
+      if(route[best])pts.push(route[best]);
+    };
+    addAtKm(from);addAtKm((from+to)/2);addAtKm(to);
+    if(!pts.length)continue;
+    const lats=pts.map(p=>Number(p[0])),lons=pts.map(p=>Number(p[1]));
+    const pad=0.10;
+    boxes.push({
+      south:Math.max(-90,Math.min(...lats)-pad),
+      north:Math.min(90,Math.max(...lats)+pad),
+      west:Math.max(-180,Math.min(...lons)-pad),
+      east:Math.min(180,Math.max(...lons)+pad)
+    });
   }
-  // Always include the exact effective WLTP/Safety point.
-  let lo=0,hi=cum.length-1,best=0;
-  const endKm=startKm+targetKm;
-  while(lo<=hi){const mid=(lo+hi)>>1;if(cum[mid]<=endKm){best=mid;lo=mid+1;}else hi=mid-1;}
-  samplePoints.push(route[Math.min(best,route.length-1)]);
+  if(!boxes.length)return [];
 
-  const compact=[];const seenPts=new Set();
-  for(const p of samplePoints){
-    if(!p)continue;
-    const k=`${Number(p[0]).toFixed(4)},${Number(p[1]).toFixed(4)}`;
-    if(!seenPts.has(k)){seenPts.add(k);compact.push(p);}
-  }
-  if(!compact.length)return [];
-
-  // 5 km radius around each sampled route point. This is deliberately larger
-  // than the candidate proximity filter, so stations near the road are not
-  // lost simply because the route geometry is sparse.
-  const aroundMeters=5000;
-  const clauses=compact.slice(0,40).map(p=>
-    `nwr(around:${aroundMeters},${Number(p[0]).toFixed(5)},${Number(p[1]).toFixed(5)})[amenity="charging_station"];`
-  ).join('');
-  const q=`[out:json][timeout:8];(${clauses});out center tags;`;
   const unique=new Map();
-
-  for(const endpoint of ROUTE_OVERPASS_URLS){
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS);
-    try{
-      const r=await fetch(endpoint,{
-        method:'POST',signal:controller.signal,mode:'cors',
-        headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},
-        body:`data=${encodeURIComponent(q)}`
-      });
-      if(!r.ok)throw new Error(`Overpass ${r.status}`);
-      const data=await r.json();
-      for(const el of (data?.elements||[])){
-        const st=normalizeChargingStation(el);
-        if(!st)continue;
-        const key=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
-        if(!unique.has(key))unique.set(key,st);
+  const queryBox=async(box)=>{
+    const q=`[out:json][timeout:9];nwr["amenity"="charging_station"](${box.south.toFixed(5)},${box.west.toFixed(5)},${box.north.toFixed(5)},${box.east.toFixed(5)});out center tags;`;
+    let lastErr=null;
+    for(const endpoint of ROUTE_OVERPASS_URLS){
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS);
+      try{
+        // GET is the most compatible browser path for public Overpass servers.
+        const url=endpoint+'?data='+encodeURIComponent(q);
+        const r=await fetch(url,{method:'GET',signal:controller.signal,mode:'cors',headers:{Accept:'application/json'}});
+        if(!r.ok)throw new Error(`Overpass ${r.status}`);
+        const data=await r.json();
+        for(const el of (data?.elements||[])){
+          const st=normalizeChargingStation(el);if(!st)continue;
+          const key=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
+          if(!unique.has(key))unique.set(key,st);
+        }
+        clearTimeout(timer);return;
+      }catch(e){
+        clearTimeout(timer);lastErr=e;
+        console.warn('[EV Charging]',endpoint,e);
       }
-      clearTimeout(timer);
-      if(unique.size)break;
-    }catch(e){
-      clearTimeout(timer);
-      console.warn('[EV Charging]',endpoint,e);
     }
-  }
+    if(lastErr)console.warn('[EV Charging box skipped]',lastErr);
+  };
+
+  const concurrency=Math.min(EV_SEARCH_CONCURRENCY,boxes.length);
+  let next=0;
+  const worker=async()=>{while(true){const i=next++;if(i>=boxes.length)break;await queryBox(boxes[i]);}};
+  await Promise.all(Array.from({length:concurrency},worker));
   return [...unique.values()];
 }
 
@@ -5310,7 +5308,7 @@ function setEvChargingPoiData(candidates){
   try{map.getSource(source)?.setData({type:'FeatureCollection',features});}catch(e){console.warn('[EV POI data]',e);}
 }
 function clearEvChargingMarkers(){
-  // V5.16 uses a MapLibre GeoJSON POI layer instead of many DOM markers.
+  // V5.17 uses a MapLibre GeoJSON POI layer instead of many DOM markers.
   // This is substantially cheaper to render and keeps charging POIs attached to the map.
   if(map&&map._loaded){
     try{map.getSource('ev-charging-poi-source-v515')?.setData({type:'FeatureCollection',features:[]});}catch(e){}
@@ -5442,16 +5440,20 @@ async function buildPlannedRoute(){
       const fitRoute=()=>{
         try{
           map.resize();
-          // MapLibre's native fitBounds accepts [SW, NE]. Do not pass a
-          // Leaflet LatLngBounds object through the native API.
+          // Overview mode must remain north-up while fitting. Rotating the map
+          // immediately after fitBounds can push route endpoints outside the
+          // viewport, especially on long diagonal routes. NAV performs heading
+          // rotation later, after the user explicitly starts navigation.
           const nativeFit=map._nativeFitBounds;
-          if(nativeFit)nativeFit(routeBoundsLike,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
-          else map.fitBounds(routeBoundsLike,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
-          orientMapToPlannedRoutePreview();
+          const opts={padding:{top:70,right:45,bottom:80,left:45},maxZoom:11,animate:false};
+          if(nativeFit)nativeFit(routeBoundsLike,opts);
+          else map.fitBounds(routeBoundsLike,opts);
         }catch(e){console.warn('Route fit failed:',e);}
       };
+      map.jumpTo({bearing:0,pitch:0});
       fitRoute();
       requestAnimationFrame(fitRoute);
+      setTimeout(fitRoute,120);
     }
     if(nav)nav.disabled=false;
     routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว · กำลังค้นหาสถานีชาร์จเบื้องหลัง');
@@ -5460,18 +5462,10 @@ async function buildPlannedRoute(){
     refreshEvChargingStations(true).then(stations=>{
       if(routePlan.route.length&&routeChargingKey(routePlan.route)===routePlan.chargingRouteKey){
         const ev=calculateEvCandidates();
-        // Keep the complete route in view while adding the POIs.
+        // POIs are overlays. Never refit the camera after EV search: doing so
+        // can change the complete-route overview just because a station arrived.
         if(map&&map._loaded&&ev.candidates.length){
-          try{
-            // Keep the route fully visible. Do not expand the camera bounds to
-            // EV POIs; stations are overlays, not a reason to zoom the whole trip out.
-            const viewCoords=result.coords.map(p=>[p[1],p[0]]);
-            const b=[[Math.min(...viewCoords.map(c=>c[0])),Math.min(...viewCoords.map(c=>c[1]))],[Math.max(...viewCoords.map(c=>c[0])),Math.max(...viewCoords.map(c=>c[1]))]];
-            const nativeFit=map._nativeFitBounds;
-            if(nativeFit)nativeFit(b,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
-            else map.fitBounds(b,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
-            orientMapToPlannedRoutePreview();
-          }catch(e){console.warn('Route+EV fit failed:',e);}
+          try{setEvChargingPoiData(ev.candidates);}catch(e){console.warn('EV POI render failed:',e);}
         }
         routePlannerHint(stations.length&&ev.candidates.length?'หาเส้นทางแล้ว · แสดงเส้นทางทั้งหมด + สถานีชาร์จ 1–4 จุด':'หาเส้นทางแล้ว · ไม่พบสถานีชาร์จก่อนถึงจุด WLTP/Safety ในข้อมูล OpenStreetMap');
       }
