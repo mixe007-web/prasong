@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-62-V5.9-EV-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-63-V5.10-EV-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -5203,13 +5203,13 @@ function scheduleEvChargingRecommendation(force=false){
   renderEvChargingRecommendation();
 }
 async function refreshEvChargingStations(force=false){
-  if(!routePlan.route?.length)return;
+  if(!routePlan.route?.length)return [];
   const key=routeChargingKey(routePlan.route);
-  if(!force&&routePlan.chargingRouteKey===key&&routePlan.chargingStations.length){renderEvChargingRecommendation();return;}
+  if(!force&&routePlan.chargingRouteKey===key&&routePlan.chargingStations.length){renderEvChargingRecommendation();return routePlan.chargingStations;}
   const panel=document.getElementById('evChargePanel');if(panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ กำลังค้นหาสถานีชาร์จตามระยะที่คำนวณ…</div>';} 
   routePlan.chargingLoading=true;
-  try{routePlan.chargingStations=await fetchEvChargingStations(routePlan.route);routePlan.chargingRouteKey=key;routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastAutoRefresh=Date.now();renderEvChargingRecommendation();startEvChargingAutoRefresh();}
-  catch(e){console.warn('[EV Charging Search]',e);if(panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ จุดชาร์จ</div><div class="ev-charge-meta">ค้นหาสถานีชาร์จไม่สำเร็จ · ลองวางเส้นทางใหม่เมื่ออินเทอร์เน็ตพร้อม</div>';}}
+  try{routePlan.chargingStations=await fetchEvChargingStations(routePlan.route);routePlan.chargingRouteKey=key;routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastAutoRefresh=Date.now();renderEvChargingRecommendation();startEvChargingAutoRefresh();return routePlan.chargingStations;}
+  catch(e){console.warn('[EV Charging Search]',e);if(panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ จุดชาร์จ</div><div class="ev-charge-meta">ค้นหาสถานีชาร์จไม่สำเร็จ · ลองวางเส้นทางใหม่เมื่ออินเทอร์เน็ตพร้อม</div>';}return []}
   finally{routePlan.chargingLoading=false;}
 }
 function stopEvChargingAutoRefresh(){
@@ -5246,13 +5246,18 @@ async function buildPlannedRoute(){
     renderRoutePlanMarkers();
     const summary=document.getElementById('routeSummary');if(summary){summary.style.display='block';summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`}
     const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=false;
+    // Search EV stations first. Once the result is complete, render the station
+    // markers and fit the camera to the entire route + visible charging candidates.
+    const stations=await refreshEvChargingStations(true);
     if(map&&map._loaded&&result.coords.length>1){
-      map.fitBounds(result.coords.map(p=>[p[1],p[0]]),{padding:{top:70,right:35,bottom:70,left:35},maxZoom:16,animate:true});
-      // After fitting the complete route, orient the map along the planned road.
-      setTimeout(orientMapToPlannedRoutePreview,520);
+      const evResult=calculateEvCandidates();
+      const viewCoords=result.coords.map(p=>[p[1],p[0]]);
+      (evResult.candidates||[]).forEach(st=>viewCoords.push([st.lon,st.lat]));
+      map.fitBounds(viewCoords,{padding:{top:90,right:55,bottom:90,left:55},maxZoom:14,animate:true});
+      // Keep the complete-route view after the asynchronous EV search has finished.
+      setTimeout(()=>{try{map.resize();map.fitBounds(viewCoords,{padding:{top:90,right:55,bottom:90,left:55},maxZoom:14,animate:false});orientMapToPlannedRoutePreview();}catch(e){}},520);
     }
-    routePlannerHint('วางเส้นทางแล้ว · แผนที่จัดตามแนวถนนช่วงเริ่มต้น · จุดชาร์จจะคำนวณอัตโนมัติตาม WLTP Real-time และ Safety');
-    refreshEvChargingStations(true);
+    routePlannerHint(stations.length ? 'วางเส้นทางแล้ว · โหลดสถานีชาร์จครบแล้ว · แผนที่ซูมออกให้เห็นเส้นทางและสถานี' : 'วางเส้นทางแล้ว · ไม่พบสถานีชาร์จที่เข้าเงื่อนไขบนเส้นทางนี้');
   }catch(e){console.error('[Route Planner]',e);routePlannerHint('วางเส้นทางไม่สำเร็จ — ตรวจชื่อสถานที่/จุดบนแผนที่และอินเทอร์เน็ต');}
 }
 function plannedRouteBearing(route){
@@ -5310,7 +5315,21 @@ function updatePlannedNavigationProgress(lat,lon){
 
 function startPlannedNavigation(){
   if(!routePlan.route.length||!routePlan.destination){routePlannerHint('ต้องวางเส้นทางให้สำเร็จก่อนจึงเปิด NAV ได้');return;}
-  routePlan.navigating=true;setMapModeNavigation(true,true);scheduleEvChargingRecommendation(true);routePlannerHint('NAV เปิดแล้ว · ติดตามรถจริงตามเส้นทางที่กำหนด · จุดชาร์จคำนวณจาก WLTP Real-time และ Safety');if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`${routePlan.distanceKm.toFixed(1)} km`);
+  routePlan.navigating=true;
+  setMapModeNavigation(true,false);
+  // NAV entry: zoom into the planned start point first. If a live GPS fix exists,
+  // hand control back to the normal vehicle-follow logic immediately afterward.
+  try{
+    const start=routePlan.start;
+    if(map&&map._loaded&&start){
+      const bearing=plannedRouteBearing(routePlan.route);
+      map.easeTo({center:[start.lon,start.lat],zoom:17,bearing:Number.isFinite(bearing)?normalizeAngle(bearing):map.getBearing(),pitch:56,duration:650});
+    }
+  }catch(e){console.warn('NAV start camera failed:',e);}
+  if(isTracking&&lastGpsLat!=null&&lastGpsLng!=null){
+    setTimeout(()=>{if(routePlan.navigating)forceRecenterToVehicle();},700);
+  }
+  scheduleEvChargingRecommendation(true);routePlannerHint('NAV เปิดแล้ว · ซูมเข้าจุดเริ่มต้น · ติดตามรถจริงตามเส้นทางที่กำหนด · จุดชาร์จคำนวณจาก WLTP Real-time และ Safety');if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`${routePlan.distanceKm.toFixed(1)} km`);
 }
 document.addEventListener('DOMContentLoaded',()=>{
   loadEvSafetyDistanceKm();
