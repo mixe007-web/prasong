@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-64-V5.12-EV-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.15-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3803,6 +3803,7 @@ function initMap(lat, lon) {
     });
     map._loaded=false;
     const nativeSetCenter=map.setCenter.bind(map), nativeFitBounds=map.fitBounds.bind(map), nativeResize=map.resize.bind(map);
+    map._nativeFitBounds=nativeFitBounds;
     map.setView=function(center,zoom){ const c=[center[1],center[0]]; this.jumpTo({center:c,zoom:zoom??this.getZoom(),bearing:this.getBearing(),pitch:this.getPitch(),padding:this.getPadding?.()||{top:0,bottom:0,left:0,right:0}}); return this; };
     map.invalidateSize=function(){ try{nativeResize();}catch(e){} return this; };
     map.getSize=function(){ return {x:container.clientWidth,y:container.clientHeight}; };
@@ -5125,89 +5126,94 @@ function normalizeChargingStation(raw){
   const opening=tags.opening_hours||'';
   return {lat,lon,name,operator,power,capacity,sockets,opening,source:'OpenStreetMap'};
 }
-function getEvSearchWindow(route){
+const EV_DISPLAY_COUNT = 4;
+const EV_ROUTE_NEAR_KM = 5;
+const EV_SEARCH_CHUNK_KM = 60;
+const EV_SEARCH_TIMEOUT_MS = 7000;
+const EV_SEARCH_CONCURRENCY = 2;
+
+function getEvUsableRangeKm(wltpRealtimeKm, safetyKm){
+  if(!Number.isFinite(wltpRealtimeKm))return null;
+  const diff=wltpRealtimeKm-(Number.isFinite(safetyKm)?Math.max(0,safetyKm):100);
+  // If WLTP - Safety is negative, use WLTP directly as requested.
+  return diff<0?wltpRealtimeKm:diff;
+}
+
+function getEvSearchWindow(route, maxDistanceKm){
   if(!Array.isArray(route)||route.length<2)return [];
-  const wltp=getWltpRealtimeKm();
-  if(!Number.isFinite(wltp))return [];
-  const safety=getEvSafetyDistanceKm();
-  const usable=Math.max(0,wltp-safety);
-  if(usable<=0)return [];
   const ref=getEvReferencePosition()||routePlan.start;
   const cum=routeCumulativeDistances(route);
-  const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,route,cum):{km:0};
+  const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,route,cum):{km:0,index:0};
   const totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
-  if(Math.max(0,totalKm-rp.km)<=usable)return [];
-  const maxKm=Math.min(totalKm,rp.km+usable+15);
+  const targetKm=Math.min(totalKm,rp.km+Math.max(0,maxDistanceKm));
+  if(targetKm<=rp.km+0.1)return [];
   const startIndex=Math.max(0,Math.min(route.length-2,rp.index||0));
   const out=[route[startIndex]];
   for(let i=startIndex+1;i<route.length;i++){
-    if(cum[i]>maxKm)break;
+    if(cum[i]>targetKm)break;
     out.push(route[i]);
   }
-  const last=out[out.length-1];
-  if(last!==route[route.length-1]&&Number.isFinite(maxKm)){
-    for(let i=Math.max(startIndex+1,1);i<route.length;i++){
-      if(cum[i]>=maxKm){out.push(route[i]);break;}
-    }
+  for(let i=Math.max(startIndex+1,1);i<route.length;i++){
+    if(cum[i]>=targetKm){out.push(route[i]);break;}
   }
   return out.length>=2?out:route.slice(Math.max(0,route.length-2));
 }
 
 async function fetchEvChargingStations(route){
   if(!Array.isArray(route)||route.length<2)return [];
-  // Search only the current charging stage, not the whole trip. This keeps
-  // Overpass queries small and makes long routes responsive.
-  const searchRoute=getEvSearchWindow(route);
-  if(searchRoute.length<2)return [];
+  const wltp=getWltpRealtimeKm();
+  if(!Number.isFinite(wltp))return [];
+  const safety=getEvSafetyDistanceKm();
+  const usable=getEvUsableRangeKm(wltp,safety);
+  if(!Number.isFinite(usable)||usable<=0)return [];
+
+  // V5.15: query the charging POIs along the route in one compact Overpass
+  // request. We sample the route instead of sending one request per chunk.
+  // Candidate selection below is still strictly limited to the effective
+  // WLTP/Safety point, so POIs after that point are not offered.
   const cum=routeCumulativeDistances(route);
-  const startPos=nearestRoutePositionKm(searchRoute[0][0],searchRoute[0][1],route,cum).km;
-  const endPos=nearestRoutePositionKm(searchRoute[searchRoute.length-1][0],searchRoute[searchRoute.length-1][1],route,cum).km;
+  const ref=getEvReferencePosition()||routePlan.start;
+  const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,route,cum):{km:0};
+  const totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
+  const remainingKm=Math.max(0,totalKm-rp.km);
+  const targetKm=Math.min(remainingKm,usable);
+  if(targetKm<=0.1)return [];
 
-  const chunks=[]; let start=0,chunkStartKm=startPos;
-  for(let i=1;i<searchRoute.length;i++){
-    const km=nearestRoutePositionKm(searchRoute[i][0],searchRoute[i][1],route,cum).km;
-    if(km-chunkStartKm>=55){chunks.push(searchRoute.slice(start,i+1));start=i;chunkStartKm=km;}
+  const samplePoints=[];
+  const sampleEvery=20;
+  let nextKm=rp.km;
+  for(let km=rp.km;km<=rp.km+targetKm+0.5;km+=sampleEvery){
+    let best=0;let lo=0,hi=cum.length-1;
+    while(lo<=hi){const mid=(lo+hi)>>1;if(cum[mid]<=km){best=mid;lo=mid+1;}else hi=mid-1;}
+    samplePoints.push(route[Math.min(best,route.length-1)]);
   }
-  if(start<searchRoute.length-1)chunks.push(searchRoute.slice(start));
-  if(!chunks.length)chunks.push(searchRoute);
-
+  samplePoints.push(route[route.length-1]);
+  const compact=[];const seenPts=new Set();
+  for(const p of samplePoints){const k=`${p[0].toFixed(4)},${p[1].toFixed(4)}`;if(!seenPts.has(k)){seenPts.add(k);compact.push(p);}}
+  const aroundMeters=6500;
+  const clauses=compact.slice(0,40).map(p=>`nwr(around:${aroundMeters},${p[0].toFixed(5)},${p[1].toFixed(5)})[amenity="charging_station"];`).join('');
+  if(!clauses)return [];
+  const q=`[out:json][timeout:9];(${clauses});out center tags;`;
   const unique=new Map();
-  const queryChunk=async(chunk)=>{
-    const lats=chunk.map(p=>p[0]),lons=chunk.map(p=>p[1]);
-    // ~3 km corridor is enough for route-near charging stations and is much
-    // lighter than the previous 0.08° (~9 km) padding.
-    const pad=0.035;
-    const south=Math.max(-90,Math.min(...lats)-pad),north=Math.min(90,Math.max(...lats)+pad);
-    const west=Math.max(-180,Math.min(...lons)-pad),east=Math.min(180,Math.max(...lons)+pad);
-    const q=`[out:json][timeout:7];nwr["amenity"="charging_station"](${south.toFixed(5)},${west.toFixed(5)},${north.toFixed(5)},${east.toFixed(5)});out center;`;
-    let lastErr=null;
-    for(const endpoint of ROUTE_OVERPASS_URLS){
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),8000);
-      try{
-        const r=await fetch(endpoint+'?data='+encodeURIComponent(q),{method:'GET',signal:controller.signal,mode:'cors',headers:{Accept:'application/json'}});
-        if(!r.ok)throw new Error(`Overpass ${r.status}`);
-        const data=await r.json();
-        for(const el of (data?.elements||[])){
-          const st=normalizeChargingStation(el); if(!st)continue;
-          const key=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
-          if(!unique.has(key))unique.set(key,st);
-        }
-        clearTimeout(timer);
-        return;
-      }catch(e){
-        clearTimeout(timer);
-        lastErr=e?.name==='AbortError'?new Error('Overpass timeout'):e;
+  for(const endpoint of ROUTE_OVERPASS_URLS){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS);
+    try{
+      const r=await fetch(endpoint,{method:'POST',signal:controller.signal,mode:'cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},body:`data=${encodeURIComponent(q)}`});
+      if(!r.ok)throw new Error(`Overpass ${r.status}`);
+      const data=await r.json();
+      for(const el of (data?.elements||[])){
+        const st=normalizeChargingStation(el);if(!st)continue;
+        const key=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
+        if(!unique.has(key))unique.set(key,st);
       }
+      clearTimeout(timer);
+      return [...unique.values()];
+    }catch(e){
+      clearTimeout(timer);
+      console.warn('[EV Charging]',endpoint,e);
     }
-    if(lastErr)console.warn('[EV Charging chunk skipped]',lastErr);
-  };
-
-  // Two workers are enough for the public service while keeping the UI/network
-  // load lower than the previous three-worker whole-route scan.
-  const concurrency=Math.min(2,chunks.length); let next=0;
-  const worker=async()=>{while(true){const i=next++;if(i>=chunks.length)break;await queryChunk(chunks[i]);}};
-  await Promise.all(Array.from({length:concurrency},worker));
+  }
   return [...unique.values()];
 }
 
@@ -5216,44 +5222,100 @@ function getEvReferencePosition(){
   return routePlan.start||null;
 }
 function calculateEvCandidates(){
-  if(!routePlan.route?.length||!routePlan.chargingStations?.length)return {wltpRealtimeKm:null,safetyKm:getEvSafetyDistanceKm(),usableWltpKm:null,positionKm:0,remainingKm:0,needCharging:false,candidates:[]};
+  if(!routePlan.route?.length)return {wltpRealtimeKm:null,safetyKm:getEvSafetyDistanceKm(),usableWltpKm:null,positionKm:0,remainingKm:0,needCharging:false,candidates:[]};
   const wltpRealtimeKm=getWltpRealtimeKm();
   const safetyKm=getEvSafetyDistanceKm();
   if(wltpRealtimeKm==null)return {wltpRealtimeKm:null,safetyKm,usableWltpKm:null,positionKm:0,remainingKm:0,needCharging:false,candidates:[]};
+  const usableWltpKm=getEvUsableRangeKm(wltpRealtimeKm,safetyKm);
   const ref=getEvReferencePosition();
-  if(!ref)return {wltpRealtimeKm,safetyKm,usableWltpKm:Math.max(0,wltpRealtimeKm-safetyKm),positionKm:0,remainingKm:routePlan.distanceKm||0,needCharging:false,candidates:[]};
-  const cum=routeCumulativeDistances(routePlan.route),rp=nearestRoutePositionKm(ref.lat,ref.lon,routePlan.route,cum),totalKm=cum[cum.length-1]||0,remainingKm=Math.max(0,totalKm-rp.km),usableWltpKm=Math.max(0,wltpRealtimeKm-safetyKm),needCharging=remainingKm>usableWltpKm;
-  if(!needCharging)return {wltpRealtimeKm,safetyKm,usableWltpKm,positionKm:rp.km,remainingKm,needCharging,candidates:[]};
-  const candidates=routePlan.chargingStations.map(st=>{
+  const cum=routeCumulativeDistances(routePlan.route),totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
+  const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,routePlan.route,cum):{km:0,offsetKm:0};
+  const remainingKm=Math.max(0,totalKm-rp.km);
+  const needCharging=remainingKm>usableWltpKm;
+  const all=routePlan.chargingStations.map(st=>{
     const p=nearestRoutePositionKm(st.lat,st.lon,routePlan.route,cum);
     return {...st,routeKm:p.km,routeOffsetKm:p.offsetKm,aheadKm:p.km-rp.km};
-  }).filter(st=>st.aheadKm>0.2&&st.routeOffsetKm<=12&&st.aheadKm<=usableWltpKm&&st.aheadKm<remainingKm)
+  }).filter(st=>st.aheadKm>0.2&&st.routeOffsetKm<=EV_ROUTE_NEAR_KM&&st.aheadKm<remainingKm&&st.aheadKm<=usableWltpKm)
     .sort((a,b)=>a.aheadKm-b.aheadKm);
+
+  // Only stations BEFORE the effective WLTP/Safety point are offered.
+  // No arbitrary look-ahead fallback is used. If fewer than four exist, show
+  // whatever is actually available (1–4).
+  const candidates=all.slice(0,EV_DISPLAY_COUNT);
   return {wltpRealtimeKm,safetyKm,usableWltpKm,positionKm:rp.km,remainingKm,needCharging,candidates};
 }
-function renderEvChargingMarkers(candidates){
-  clearEvChargingMarkers();
-  if(!map||!map._loaded)return;
-  candidates.slice(0,4).forEach((st,i)=>{
-    const brand=st.operator||st.name||'EV';
-    const el=document.createElement('div');el.className='ev-map-marker';el.innerHTML=`<span class="ev-map-icon">⚡</span><span class="ev-map-brand">${escapeHtml(brand)}</span><span class="ev-map-distance">${st.aheadKm.toFixed(0)}km</span>`;
-    el.title=`${st.name} · อีก ${st.aheadKm.toFixed(1)} km`;
-    const marker=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([st.lon,st.lat]).addTo(map);
-    marker.getElement().style.zIndex=String(10000-i);marker.setPopup(new maplibregl.Popup({offset:12,closeButton:false}).setHTML(`<b>⚡ ${escapeHtml(st.name)}</b><br>ผู้ให้บริการ: ${escapeHtml(st.operator||'-')}<br>อีกประมาณ ${st.aheadKm.toFixed(1)} km<br>ห่างแนวเส้นทาง ${st.routeOffsetKm.toFixed(1)} km`));
-    evChargingMarkers.push(marker);
-  });
+function ensureEvChargingPoiLayer(){
+  if(!map||!map._loaded)return null;
+  const source='ev-charging-poi-source-v515';
+  const circle='ev-charging-poi-circle-v515';
+  const label='ev-charging-poi-label-v515';
+  try{
+    if(!map.getSource(source)){
+      map.addSource(source,{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+    }
+    if(!map.getLayer(circle)){
+      map.addLayer({id:circle,type:'circle',source,paint:{
+        'circle-radius':['interpolate',['linear'],['zoom'],8,6,12,8,16,10],
+        'circle-color':'#00b8ff','circle-stroke-color':'#ffffff','circle-stroke-width':2,
+        'circle-opacity':0.95
+      }});
+    }
+    if(!map.getLayer(label)){
+      map.addLayer({id:label,type:'symbol',source,layout:{
+        'text-field':['concat','⚡ ',['get','label']],
+        'text-size':['interpolate',['linear'],['zoom'],8,8,12,10,16,12],
+        'text-anchor':'top','text-offset':[0,0.9],'text-allow-overlap':true,'text-ignore-placement':true
+      },paint:{'text-color':'#ffffff','text-halo-color':'#06121d','text-halo-width':1.5}});
+    }
+    return source;
+  }catch(e){console.warn('[EV POI layer]',e);return null;}
 }
+function setEvChargingPoiData(candidates){
+  if(!map||!map._loaded)return;
+  const source=ensureEvChargingPoiLayer();if(!source)return;
+  const features=(candidates||[]).slice(0,EV_DISPLAY_COUNT).map((st,i)=>({
+    type:'Feature',
+    properties:{
+      index:i+1,
+      label:`${i+1}. ${st.operator||st.name||'สถานีชาร์จ EV'} · ${st.aheadKm.toFixed(0)} km`,
+      name:st.name||'สถานีชาร์จ EV'
+    },
+    geometry:{type:'Point',coordinates:[st.lon,st.lat]}
+  }));
+  try{map.getSource(source)?.setData({type:'FeatureCollection',features});}catch(e){console.warn('[EV POI data]',e);}
+}
+function clearEvChargingMarkers(){
+  // V5.15 uses a MapLibre GeoJSON POI layer instead of many DOM markers.
+  // This is substantially cheaper to render and keeps charging POIs attached to the map.
+  if(map&&map._loaded){
+    try{map.getSource('ev-charging-poi-source-v515')?.setData({type:'FeatureCollection',features:[]});}catch(e){}
+  }
+  evChargingMarkers.forEach(m=>{try{m.remove();}catch(e){}});evChargingMarkers=[];
+}
+function renderEvChargingMarkers(candidates){ setEvChargingPoiData(candidates); }
+
 function renderEvChargingRecommendation(){
   const el=document.getElementById('evChargePanel');if(!el)return;
   const result=calculateEvCandidates();
   if(result.wltpRealtimeKm==null){el.style.display='none';el.innerHTML='';clearEvChargingMarkers();return;}
-  if(!result.needCharging){el.style.display='none';el.innerHTML='';clearEvChargingMarkers();return;}
+  // Show charging choices even when the route does not yet require charging.
+  // They are optional stops, while the WLTP/Safety point remains the primary
+  // energy-planning threshold.
   el.style.display='block';
-  let html=`<div class="ev-charge-title">⚡ ต้องวางแผนชาร์จตาม WLTP Real-time</div><div class="ev-charge-meta">WLTP Real-time ${result.wltpRealtimeKm.toFixed(1)} km · หักระยะปลอดภัย ${result.safetyKm.toFixed(0)} km · ระยะที่ใช้ค้นหา ${result.usableWltpKm.toFixed(1)} km · Route เหลือ ${result.remainingKm.toFixed(1)} km</div>`;
-  const candidates=result.candidates.slice(0,4);renderEvChargingMarkers(candidates);
-  if(!candidates.length){html+=`<div class="ev-charge-meta">ยังไม่พบสถานี EV ที่อยู่ข้างหน้าและอยู่ในระยะที่ WLTP Real-time หลังหัก Safety กำหนด · ระบบจะค้นหาใหม่เมื่อรถเคลื่อนที่หรือเส้นทางเปลี่ยน</div>`;el.innerHTML=html;return;}
-  html+='<div class="ev-charge-list">';
-  candidates.forEach((st,i)=>{html+=`<div class="ev-charge-card"><div><span class="ev-charge-rank">${i+1}</span><b>${escapeHtml(st.name)}</b></div>${st.operator?`<div class="ev-line">ยี่ห้อ/ผู้ให้บริการ: ${escapeHtml(st.operator)}</div>`:''}<div class="ev-line">จากรถอีกประมาณ <b>${st.aheadKm.toFixed(1)} km</b> · ห่างแนวเส้นทาง ${st.routeOffsetKm.toFixed(1)} km</div>${st.power?`<div class="ev-line">กำลังชาร์จ: ${escapeHtml(st.power)}</div>`:''}${st.sockets?`<div class="ev-line">หัวชาร์จ: ${escapeHtml(st.sockets)}</div>`:''}${st.opening?`<div class="ev-line">เวลาเปิด: ${escapeHtml(st.opening)}</div>`:''}<div class="ev-charge-actions"><button type="button" data-ev-stop="${i}">⚡ แวะชาร์จ</button><button type="button" data-ev-center="${i}">ดูตำแหน่ง</button></div></div>`;});
+  const rangeLabel=(result.safetyKm>result.wltpRealtimeKm)
+    ? `ใช้ WLTP โดยตรง ${result.usableWltpKm.toFixed(1)} km (WLTP − Safety ติดลบ)`
+    : `WLTP − Safety = ${result.usableWltpKm.toFixed(1)} km`;
+  let html=`<div class="ev-charge-title">⚡ สถานีชาร์จตามแนวเส้นทาง</div><div class="ev-charge-meta">WLTP Real-time ${result.wltpRealtimeKm.toFixed(1)} km · Safety ${result.safetyKm.toFixed(0)} km · ${rangeLabel} · Route เหลือ ${result.remainingKm.toFixed(1)} km</div>`;
+  const candidates=result.candidates.slice(0,EV_DISPLAY_COUNT);renderEvChargingMarkers(candidates);
+  if(!candidates.length){
+    html+=`<div class="ev-charge-meta">ยังไม่พบสถานีชาร์จในข้อมูล OpenStreetMap ตามแนวเส้นทางที่ค้นหา · ระบบจะค้นหาใหม่เมื่อรถเคลื่อนที่หรือเส้นทางเปลี่ยน</div>`;
+    el.innerHTML=html;return;
+  }
+  html+=`<div class="ev-charge-meta">แสดงสถานีล่วงหน้าสูงสุด ${EV_DISPLAY_COUNT} แห่ง โดยให้ความสำคัญกับสถานีที่อยู่ก่อนถึงจุด ${result.usableWltpKm.toFixed(1)} km และใช้สถานีถัดไปเป็นตัวเลือกสำรอง</div><div class="ev-charge-list">`;
+  candidates.forEach((st,i)=>{
+    const before=st.aheadKm<=result.usableWltpKm;
+    html+=`<div class="ev-charge-card"><div><span class="ev-charge-rank">${i+1}</span><b>${escapeHtml(st.name)}</b></div>${st.operator?`<div class="ev-line">ยี่ห้อ/ผู้ให้บริการ: ${escapeHtml(st.operator)}</div>`:''}<div class="ev-line">จากรถอีกประมาณ <b>${st.aheadKm.toFixed(1)} km</b> · ${before?'ก่อนถึงจุด WLTP/Safety':'ถัดจากจุด WLTP/Safety'} · ห่างแนวเส้นทาง ${st.routeOffsetKm.toFixed(1)} km</div>${st.power?`<div class="ev-line">กำลังชาร์จ: ${escapeHtml(st.power)}</div>`:''}${st.sockets?`<div class="ev-line">หัวชาร์จ: ${escapeHtml(st.sockets)}</div>`:''}${st.opening?`<div class="ev-line">เวลาเปิด: ${escapeHtml(st.opening)}</div>`:''}<div class="ev-charge-actions"><button type="button" data-ev-stop="${i}">⚡ แวะชาร์จ</button><button type="button" data-ev-center="${i}">ดูตำแหน่ง</button></div></div>`;
+  });
   html+='</div>';el.innerHTML=html;
   el.querySelectorAll('[data-ev-stop]').forEach(btn=>btn.addEventListener('click',()=>addEvChargingStop(candidates[Number(btn.dataset.evStop)])));
   el.querySelectorAll('[data-ev-center]').forEach(btn=>btn.addEventListener('click',()=>{const st=candidates[Number(btn.dataset.evCenter)];if(map&&map._loaded)map.easeTo({center:[st.lon,st.lat],zoom:Math.max(map.getZoom(),14),duration:500});}));
@@ -5264,20 +5326,12 @@ function scheduleEvChargingRecommendation(force=false){
   const w=Math.round((result.wltpRealtimeKm||0));
   const progress=Math.round((result.positionKm||0));
   const key=`${progress}|${w}|${Math.round(result.safetyKm||0)}|${result.needCharging?1:0}`;
-  if(force||routePlan.chargingLastProgressKey!==key){
-    routePlan.chargingLastProgressKey=key;
-    renderEvChargingRecommendation();
-  }
-
-  // Long trips are searched in stages. Once the vehicle has moved far enough
-  // into the next stage, refresh the small route window in the background.
-  if(result.needCharging&&!routePlan.chargingLoading){
+  if(force||routePlan.chargingLastProgressKey!==key){routePlan.chargingLastProgressKey=key;renderEvChargingRecommendation();}
+  if(!routePlan.chargingLoading){
     const lastSearchKm=Number.isFinite(routePlan.chargingLastSearchPositionKm)?routePlan.chargingLastSearchPositionKm:0;
     const movedKm=progress-lastSearchKm;
-    const noUsableStation=!result.candidates?.length;
-    if(force||noUsableStation||movedKm>=15){
-      refreshEvChargingStations(true).catch(()=>{});
-    }
+    const noStations=!routePlan.chargingStations?.length;
+    if(force||noStations||movedKm>=15)refreshEvChargingStations(true).catch(()=>{});
   }
 }
 async function refreshEvChargingStations(force=false){
@@ -5353,9 +5407,20 @@ async function buildPlannedRoute(){
     // background work and must never delay route rendering/camera fitting.
     if(map&&map._loaded&&result.coords.length>1){
       map.stop();map.resize();
+      try{ensureRoutePlanLayer()?.set(result.coords);}catch(e){}
       const viewCoords=result.coords.map(p=>[p[1],p[0]]);
-      map.fitBounds(viewCoords,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
-      setTimeout(()=>{try{map.resize();map.fitBounds(viewCoords,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});orientMapToPlannedRoutePreview();}catch(e){}},80);
+      const routeBounds=L.latLngBounds(viewCoords.map(c=>[c[1],c[0]]));
+      const fitRoute=()=>{
+        try{
+          map.resize();
+          const nativeFit=map._nativeFitBounds;
+          if(nativeFit){nativeFit(routeBounds,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});}
+          else map.fitBounds(routeBounds,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
+          orientMapToPlannedRoutePreview();
+        }catch(e){console.warn('Route fit failed:',e);}
+      };
+      fitRoute();
+      requestAnimationFrame(fitRoute);
     }
     if(nav)nav.disabled=false;
     routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว · กำลังค้นหาสถานีชาร์จเบื้องหลัง');
@@ -5363,7 +5428,20 @@ async function buildPlannedRoute(){
     // Start EV search without blocking the route UI.
     refreshEvChargingStations(true).then(stations=>{
       if(routePlan.route.length&&routeChargingKey(routePlan.route)===routePlan.chargingRouteKey){
-        routePlannerHint(stations.length?'หาเส้นทางแล้ว · พบสถานีชาร์จตามระยะที่ใช้ได้':'หาเส้นทางแล้ว · ยังไม่พบสถานีชาร์จในช่วงระยะที่ใช้ได้');
+        const ev=calculateEvCandidates();
+        // Keep the complete route in view while adding the POIs.
+        if(map&&map._loaded&&ev.candidates.length){
+          try{
+            const allView=result.coords.map(p=>[p[1],p[0]]);
+            ev.candidates.forEach(st=>allView.push([st.lon,st.lat]));
+            const b=L.latLngBounds(allView.map(c=>[c[1],c[0]]));
+            const nativeFit=map._nativeFitBounds;
+            if(nativeFit)nativeFit(b,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
+            else map.fitBounds(b,{padding:{top:70,right:45,bottom:80,left:45},maxZoom:13,animate:false});
+            orientMapToPlannedRoutePreview();
+          }catch(e){console.warn('Route+EV fit failed:',e);}
+        }
+        routePlannerHint(stations.length&&ev.candidates.length?'หาเส้นทางแล้ว · แสดงเส้นทางทั้งหมด + สถานีชาร์จ 1–4 จุด':'หาเส้นทางแล้ว · ไม่พบสถานีชาร์จก่อนถึงระยะ WLTP/Safety ในข้อมูล OpenStreetMap');
       }
     }).catch(()=>{});
   }catch(e){
