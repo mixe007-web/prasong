@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5 3D Navigation</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.30 EV Tracker</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.28-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.30-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1079,46 +1079,13 @@ span[id^="wltpSegment"] {
 			</label>
 		</div>
 	</div>
-            <!-- V5.9 EV Charging Route Planner -->
-            <details id="routePlanner" class="route-planner">
-              <summary>🧭 วางแผนเส้นทาง</summary>
-              <div class="planner-row">
-                <label>เริ่มต้น</label>
-                <div class="planner-place">
-                  <input id="routeStartSearch" class="planner-place-input" autocomplete="off" placeholder="ค้นหาสถานที่ / ร้าน / หมู่บ้าน / ที่อยู่ / ชื่อสถานที่">
-                  <div id="routeStartResults" class="planner-results"></div>
-                  <div class="planner-place-meta"><span id="routeStartMeta">ยังไม่ได้กำหนด</span><span id="routeStartCoord" class="coord"></span></div>
-                  <input id="routeStartInput" type="hidden">
-                </div>
-                <button type="button" id="routeStartPickBtn" title="เลือกจากแผนที่">📍 เลือก</button>
+            <!-- V5.30: Route Planner removed. EV station discovery will be handled as a standalone feature. -->
+            <div id="evStationPanel" class="ev-charge-panel" style="margin-top:12px;">
+              <div style="font-weight:700;font-size:13px;margin-bottom:4px;">⚡ สถานีชาร์จ EV</div>
+              <div style="font-size:11px;opacity:.72;line-height:1.45;">
+                ระบบวางแผนเส้นทางถูกนำออกแล้ว เนื่องจากไม่ตอบโจทย์การค้นหาสถานีชาร์จทั่วประเทศไทย
               </div>
-              <div id="routeStopsRows"></div>
-              <div class="planner-row">
-                <label>จุดหมาย</label>
-                <div class="planner-place">
-                  <input id="routeDestSearch" class="planner-place-input" autocomplete="off" placeholder="ค้นหาสถานที่ / ร้าน / หมู่บ้าน / ที่อยู่ / ชื่อสถานที่">
-                  <div id="routeDestResults" class="planner-results"></div>
-                  <div class="planner-place-meta"><span id="routeDestMeta">ยังไม่ได้กำหนด</span><span id="routeDestCoord" class="coord"></span></div>
-                  <input id="routeDestInput" type="hidden">
-                </div>
-                <button type="button" id="routeDestPickBtn" title="เลือกจากแผนที่">📍 เลือก</button>
-              </div>
-              <div class="planner-ev-safety">
-                <label for="evSafetyDistanceKm">🛡 ระยะปลอดภัยก่อนหมดระยะ WLTP</label>
-                <div class="planner-ev-safety-control"><input id="evSafetyDistanceKm" type="number" min="0" max="1000" step="1" value="100"><span>km</span></div>
-              </div>
-              <div class="planner-actions">
-                <button type="button" id="routeUseGpsBtn">📍 เริ่มจากตำแหน่งรถ</button>
-                <button type="button" id="routeAddStopBtn">＋ จุดแวะ</button>
-                <button type="button" id="routeBuildBtn">🗺 หาเส้นทาง</button>
-                <button type="button" id="routeNavigateBtn" disabled>▶ NAV</button>
-                <button type="button" id="routeClearBtn">ล้าง</button>
-              </div>
-              <div id="routePlannerHint" class="planner-hint">ค้นหาสถานที่ได้ หรือกด “เลือก” แล้วแตะ/เลื่อนแผนที่เพื่อกำหนดจุด · ลากหมุดเพื่อปรับตำแหน่งได้</div>
-              <div id="routeSummary" class="route-summary"></div>
-              <div id="evChargePanel" class="ev-charge-panel"></div>
-              <div class="planner-note">ค้นหาสถานที่ทั่วประเทศไทย: OpenStreetMap/Nominatim + POI/Overpass + Photon สำรอง · EV Charging: ใช้ WLTP Real-time เพียงค่าเดียว แล้วหักระยะปลอดภัยตามค่าที่ตั้ง · อัปเดตข้อมูลสถานีอัตโนมัติทุก 6 ชม. ตามแนวเส้นทางทั่วประเทศไทย · OSRM สำหรับเส้นทาง</div>
-            </details>
+            </div>
 
 	<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px;">
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
@@ -5201,6 +5168,20 @@ const EV_SEARCH_CONCURRENCY = 2;
 const EV_MAPTILER_SAMPLE_KM = 40;
 const EV_OSM_API_URL = 'https://api.openstreetmap.org/api/0.6/map';
 
+function getEvReferencePosition(){
+  // V5.30: always provide a stable reference for EV planning.
+  // Before the first GPS fix, use the planner start point; after GPS fix,
+  // use the current vehicle position.
+  if(Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng)){
+    return {lat:Number(lastGpsLat),lon:Number(lastGpsLng)};
+  }
+  const start=routePlan?.start;
+  if(start&&Number.isFinite(Number(start.lat))&&Number.isFinite(Number(start.lon))){
+    return {lat:Number(start.lat),lon:Number(start.lon)};
+  }
+  return null;
+}
+
 function getEvUsableRangeKm(wltpRealtimeKm, safetyKm){
   if(!Number.isFinite(wltpRealtimeKm))return null;
   const safety=Number.isFinite(safetyKm)?Math.max(0,safetyKm):100;
@@ -5416,8 +5397,8 @@ async function fetchOsmApiEvStations(route, signal){
 const OCM_API_URL = 'https://api.openchargemap.io/v3/poi/';
 // Open Charge Map is a dedicated EV charging database. A key is optional for
 // basic use; if one is available, put it here. Never use the MapTiler key here.
-const OCM_API_KEY = '20916ec7-8492-43c5-8f72-76f5bd97c4bd';
-const OCM_SAMPLE_KM = 55;
+const OCM_API_KEY = '20916ec7-8492-43c5-8f72-76f5bd97c4bd'; // ใส่ Open Charge Map API Key ของคุณที่นี่
+const OCM_SAMPLE_KM = 35;
 const OCM_RADIUS_KM = 25;
 const OCM_MAX_RESULTS = 100;
 const OCM_TIMEOUT_MS = 4500;
@@ -5443,7 +5424,7 @@ function normalizeOcmStation(raw){
   };
 }
 
-function ocmCacheKey(lat,lon){return `tripab-ocm-v528-${Number(lat).toFixed(2)}-${Number(lon).toFixed(2)}`;}
+function ocmCacheKey(lat,lon){return `tripab-ocm-v530-${Number(lat).toFixed(2)}-${Number(lon).toFixed(2)}`;}
 function readOcmCache(lat,lon){
   try{
     const raw=localStorage.getItem(ocmCacheKey(lat,lon));
@@ -5504,7 +5485,7 @@ async function fetchOpenChargeMapStations(route, signal){
       if(signal?.aborted)return;
       const i=next++;if(i>=samples.length)return;
       try{await queryOne(samples[i]);}
-      catch(e){if(e?.name!=='AbortError')console.warn('[EV V5.28] Open Charge Map',e?.message||e);}
+      catch(e){if(e?.name!=='AbortError')console.warn('[EV V5.30] Open Charge Map',e?.message||e);}
     }
   };
   await Promise.all(Array.from({length:Math.min(OCM_CONCURRENCY,samples.length)},worker));
@@ -5527,18 +5508,18 @@ async function fetchEvChargingStations(route){
   try{
     const ocm=await fetchOpenChargeMapStations(route,searchController.signal);
     add(ocm);
-    console.log(`[EV V5.28] Open Charge Map stations=${unique.size}`);
+    console.log(`[EV V5.30] Open Charge Map stations=${unique.size}`);
     if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-  }catch(e){console.warn('[EV V5.28] Open Charge Map',e?.message||e);}
+  }catch(e){console.warn('[EV V5.30] Open Charge Map',e?.message||e);}
 
   // FALLBACK: direct OSM database API. This is only used when the dedicated
   // EV source returns no usable station data.
   try{
     const osm=await fetchOsmApiEvStations(route,searchController.signal);
     add(osm);
-    console.log(`[EV V5.28] OSM fallback stations=${unique.size}`);
+    console.log(`[EV V5.30] OSM fallback stations=${unique.size}`);
     if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-  }catch(e){console.warn('[EV V5.28] OSM fallback',e?.message||e);}
+  }catch(e){console.warn('[EV V5.30] OSM fallback',e?.message||e);}
 
   return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
 }
@@ -5555,16 +5536,20 @@ function calculateEvCandidates(){
   const remainingKm=Math.max(0,totalKm-rp.km);
   const needCharging=remainingKm>usableWltpKm;
 
+  // V5.30: keep every station found on the route for the map. Do not remove
+  // stations merely because they are behind the vehicle or beyond the current
+  // remaining distance; only the recommendation list is directional.
   const all=routePlan.chargingStations.map(st=>{
     const p=Number.isFinite(st.routeKm)?{km:st.routeKm,offsetKm:st.routeOffsetKm}:nearestRoutePositionKm(st.lat,st.lon,routePlan.route,cum);
     return {...st,routeKm:p.km,routeOffsetKm:p.offsetKm,aheadKm:p.km-rp.km};
-  }).filter(st=>st.routeOffsetKm<=EV_SEARCH_ROUTE_NEAR_KM && st.aheadKm>0.2 && st.aheadKm<remainingKm)
-    .sort((a,b)=>a.aheadKm-b.aheadKm);
+  }).filter(st=>st.routeOffsetKm<=EV_SEARCH_ROUTE_NEAR_KM)
+    .sort((a,b)=>a.routeKm-b.routeKm);
 
-  // Recommendations: first choose chargers before the effective range point,
-  // then fill to 4 with the next chargers. The map still displays ALL `all`.
-  const before=all.filter(st=>st.aheadKm<=usableWltpKm);
-  const after=all.filter(st=>st.aheadKm>usableWltpKm);
+  // Recommendations: only stations ahead of the vehicle are selectable.
+  // Prefer stations before the effective WLTP/Safety range, then fill to 4.
+  const ahead=all.filter(st=>st.aheadKm>0.2);
+  const before=ahead.filter(st=>st.aheadKm<=usableWltpKm);
+  const after=ahead.filter(st=>st.aheadKm>usableWltpKm);
   const candidates=[...before,...after].slice(0,EV_DISPLAY_COUNT);
   return {wltpRealtimeKm,safetyKm,usableWltpKm,positionKm:rp.km,remainingKm,needCharging,allStations:all,candidates};
 }
@@ -5898,12 +5883,11 @@ function bindRoutePlanner(){
 }
 function bindRouteMapEvents(targetMap){if(!targetMap||targetMap._routePlannerClickBound)return;targetMap._routePlannerClickBound=true;targetMap.on('click',onRoutePlannerMapClick);}
 const _initMapV54=initMap;
-initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{bindRouteMapEvents(map);map.on('load',()=>{bindRouteMapEvents(map);try{if(routePlan.route.length>1)ensureRoutePlanLayer()?.set(routePlan.route);renderRoutePlanMarkers();}catch(e){}});}catch(e){}}return result;};
+initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{ }catch(e){}}return result;};
 
 (function bindUIOnce() {
 	if (window._uiBoundOnce) return;
 	window._uiBoundOnce = true;
-    bindRoutePlanner();
 	startBtn.onclick = startTracking;
 	stopBtn.onclick = () => { try { stopTracking(); } catch(e) { console.error("Stop failed",e); } };
 	document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
