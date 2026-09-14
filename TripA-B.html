@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.16-EV-3D Navigation</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.18-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3828,7 +3828,7 @@ function initMap(lat, lon) {
             disableMapInteraction();
             syncMapModeUi();
             map.resize();
-            if(routePlan?.route?.length>1){ try { ensureRoutePlanLayer()?.set(routePlan.route); renderRoutePlanMarkers(); renderEvChargingRecommendation(); } catch(e){} }
+            if(routePlan?.route?.length>1){ try { ensureRoutePlanLayer()?.set(routePlan.route); renderRoutePlanMarkers(); fitCompletePlannedRoute(routePlan.route); renderEvChargingRecommendation(); } catch(e){} }
         });
     }
     vehicleMarker=createVehicleMarker(lat,lon);
@@ -4721,6 +4721,10 @@ const ROUTE_OVERPASS_URLS = Object.freeze([
 ]);
 const ROUTE_ROUTER_URL = 'https://router.project-osrm.org/route/v1/driving/';
 const ROUTE_SEARCH_RESULT_LIMIT = 10;
+const MAPTILER_GEOCODER_URL = 'https://api.maptiler.com/geocoding/';
+const PLACE_SEARCH_TIMEOUT_MS = 5500;
+const EV_POI_QUERY_LIMIT = 8;
+const EV_POI_QUERY_CONCURRENCY = 3;
 
 function routeCoordText(p){ return p ? `${p.lat.toFixed(6)},${p.lon.toFixed(6)}` : ''; }
 function parseRouteCoord(text){
@@ -4907,14 +4911,13 @@ function normalizeGeocoderResult(f, source='nominatim'){
   const name=formatPlaceName(f)||routeCoordText(p);
   return {lat:p.lat,lon:p.lon,name,source};
 }
-function mergeGeocoderResults(nominatim, photon, overpass=[]){
-  const out=[]; const seen=[];
-  for(const r of [...nominatim,...overpass,...photon]){
-    if(!r)continue;
-    const key=`${r.lat.toFixed(4)},${r.lon.toFixed(4)}`;
-    if(seen.includes(key))continue;
-    seen.push(key); out.push(r);
-    if(out.length>=ROUTE_SEARCH_RESULT_LIMIT)break;
+function mergeGeocoderResults(...groups){
+  const out=[]; const seen=new Set();
+  for(const r of groups.flat()){
+    if(!r||!Number.isFinite(Number(r.lat))||!Number.isFinite(Number(r.lon)))continue;
+    const key=`${Number(r.lat).toFixed(4)},${Number(r.lon).toFixed(4)}`;
+    if(seen.has(key))continue;
+    seen.add(key);out.push(r);if(out.length>=ROUTE_SEARCH_RESULT_LIMIT)break;
   }
   return out;
 }
@@ -4931,6 +4934,17 @@ async function fetchPhotonPlaces(query, signal){
   if(!r.ok)throw new Error(`Photon ${r.status}`);
   const data=await r.json();
   return (data.features||[]).map(f=>normalizeGeocoderResult(f,'photon')).filter(Boolean);
+}
+async function fetchMapTilerPlaces(query, signal, proximity=null){
+  const key=String(MAP_CONFIG.apiKey||'').trim();
+  if(!key)return [];
+  const qs=new URLSearchParams({key,language:'th',country:'th',limit:'10',types:'POI'});
+  if(proximity&&Number.isFinite(proximity.lon)&&Number.isFinite(proximity.lat)) qs.set('proximity',`${proximity.lon},${proximity.lat}`);
+  const url=`${MAPTILER_GEOCODER_URL}${encodeURIComponent(query)}.json?${qs.toString()}`;
+  const r=await fetch(url,{signal,mode:'cors',headers:{Accept:'application/json'}});
+  if(!r.ok)throw new Error(`MapTiler Geocoding ${r.status}`);
+  const data=await r.json();
+  return (data.features||[]).map(f=>normalizeGeocoderResult(f,'maptiler')).filter(Boolean);
 }
 const ROUTE_POI_PATTERNS = [
   {re:/ร้านอาหาร|ร้านกิน|ของกิน|อาหาร/i, label:'ร้านอาหาร', tags:['amenity~"^(restaurant|fast_food|food_court)$"']},
@@ -5011,15 +5025,18 @@ async function showPlaceSearchResults(query,kind,index,inputEl){
   const wait=document.createElement('div');wait.className='planner-result planner-searching';wait.textContent='กำลังค้นหาสถานที่ทั่วประเทศไทย…';results.appendChild(wait);
   if(routeSearchAbort)try{routeSearchAbort.abort()}catch(e){}
   routeSearchAbort=new AbortController(); const signal=routeSearchAbort.signal;
+  const timer=setTimeout(()=>{try{routeSearchAbort?.abort()}catch(e){}},PLACE_SEARCH_TIMEOUT_MS);
   try{
     const poi=detectRoutePoiSearch(query);
-    let nom=[];
-    try{nom=await fetchNominatimPlaces(query,signal);}catch(e){if(e?.name==='AbortError')throw e;console.warn('[Nominatim]',e);}
+    // MapTiler Geocoding uses the same API key as the map and is the primary
+    // browser-safe geocoder. Nominatim/Photon remain fallbacks.
+    const jobs=[fetchMapTilerPlaces(query,signal).catch(e=>{console.warn('[MapTiler Geocoder]',e);return [];}),
+      fetchNominatimPlaces(query,signal).catch(e=>{if(e?.name==='AbortError')throw e;console.warn('[Nominatim]',e);return [];}),
+      fetchPhotonPlaces(query,signal).catch(e=>{if(e?.name==='AbortError')throw e;console.warn('[Photon]',e);return []})];
+    let [mt,nom,pho]=await Promise.all(jobs);
     let over=[];
-    if(poi){try{over=await fetchOverpassPlaces(query,signal);}catch(e){if(e?.name==='AbortError')throw e;console.warn('[Overpass fallback]',e);}}
-    let pho=[];
-    if(nom.length<ROUTE_SEARCH_RESULT_LIMIT){try{pho=await fetchPhotonPlaces(query,signal);}catch(e){if(e?.name==='AbortError')throw e;console.warn('[Photon fallback]',e);}}
-    const fs=mergeGeocoderResults(nom,over,pho);
+    if(poi&&mt.length+nom.length+pho.length<3){try{over=await fetchOverpassPlaces(query,signal);}catch(e){if(e?.name==='AbortError')throw e;console.warn('[Overpass fallback]',e);}}
+    const fs=mergeGeocoderResults(mt,nom,over,pho);
     results.innerHTML='';
     if(!fs.length){
       const e=document.createElement('div');e.className='planner-result';
@@ -5164,83 +5181,74 @@ function getEvSearchWindow(route, maxDistanceKm){
 
 async function fetchEvChargingStations(route){
   if(!Array.isArray(route)||route.length<2)return [];
-
-  const wltp=getWltpRealtimeKm();
-  if(!Number.isFinite(wltp)||wltp<=0)return [];
-  const safety=getEvSafetyDistanceKm();
-  const usable=getEvUsableRangeKm(wltp,safety);
+  const wltp=getWltpRealtimeKm(); if(!Number.isFinite(wltp)||wltp<=0)return [];
+  const safety=getEvSafetyDistanceKm(),usable=getEvUsableRangeKm(wltp,safety);
   if(!Number.isFinite(usable)||usable<=0)return [];
 
-  // Search the road ahead up to the effective WLTP/Safety limit. There is no
-  // minimum distance from the vehicle: 1 km, 20 km or 90 km are all valid.
   const cum=routeCumulativeDistances(route);
   const ref=getEvReferencePosition()||routePlan.start;
   const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,route,cum):{km:0,index:0};
   const totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
   const remainingKm=Math.max(0,totalKm-rp.km);
-  const targetKm=Math.min(remainingKm,usable);
-  if(targetKm<=0.1)return [];
+  // Search beyond the threshold as a fallback, but never more than 240 km
+  // ahead on one refresh. This keeps the query fast while guaranteeing that
+  // useful charging choices can be shown even when the threshold is short.
+  const searchKm=Math.min(remainingKm,Math.max(usable,160),Math.min(remainingKm,360));
+  if(searchKm<=0.1)return [];
 
-  // Build small road-aligned bounding boxes. This is considerably more robust
-  // than a long union of `around` clauses and works on the public Overpass
-  // instances used by browsers. Only the first WLTP/Safety distance is queried.
-  const chunkKm=70;
-  const boxes=[];
-  for(let from=rp.km;from<rp.km+targetKm-0.01;from+=chunkKm){
-    const to=Math.min(rp.km+targetKm,from+chunkKm);
-    const pts=[];
-    const addAtKm=(km)=>{
-      let lo=0,hi=cum.length-1,best=0;
-      while(lo<=hi){const mid=(lo+hi)>>1;if(cum[mid]<=km){best=mid;lo=mid+1;}else hi=mid-1;}
-      if(route[best])pts.push(route[best]);
-    };
-    addAtKm(from);addAtKm((from+to)/2);addAtKm(to);
-    if(!pts.length)continue;
-    const lats=pts.map(p=>Number(p[0])),lons=pts.map(p=>Number(p[1]));
-    const pad=0.10;
-    boxes.push({
-      south:Math.max(-90,Math.min(...lats)-pad),
-      north:Math.min(90,Math.max(...lats)+pad),
-      west:Math.max(-180,Math.min(...lons)-pad),
-      east:Math.min(180,Math.max(...lons)+pad)
-    });
-  }
-  if(!boxes.length)return [];
+  const points=[];
+  const addAtKm=km=>{
+    let lo=0,hi=cum.length-1,best=0;
+    while(lo<=hi){const mid=(lo+hi)>>1;if(cum[mid]<=km){best=mid;lo=mid+1;}else hi=mid-1;}
+    if(route[best])points.push(route[best]);
+  };
+  for(let km=0;km<=searchKm;km+=22)addAtKm(Math.min(searchKm,rp.km+km));
+  addAtKm(rp.km+searchKm);
+  const uniqPts=[];const ptSeen=new Set();
+  for(const p of points){const k=`${p[0].toFixed(3)},${p[1].toFixed(3)}`;if(!ptSeen.has(k)){ptSeen.add(k);uniqPts.push(p);}}
 
   const unique=new Map();
-  const queryBox=async(box)=>{
-    const q=`[out:json][timeout:9];nwr["amenity"="charging_station"](${box.south.toFixed(5)},${box.west.toFixed(5)},${box.north.toFixed(5)},${box.east.toFixed(5)});out center tags;`;
-    let lastErr=null;
-    for(const endpoint of ROUTE_OVERPASS_URLS){
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS);
-      try{
-        // GET is the most compatible browser path for public Overpass servers.
-        const url=endpoint+'?data='+encodeURIComponent(q);
-        const r=await fetch(url,{method:'GET',signal:controller.signal,mode:'cors',headers:{Accept:'application/json'}});
-        if(!r.ok)throw new Error(`Overpass ${r.status}`);
-        const data=await r.json();
-        for(const el of (data?.elements||[])){
-          const st=normalizeChargingStation(el);if(!st)continue;
-          const key=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
-          if(!unique.has(key))unique.set(key,st);
-        }
-        clearTimeout(timer);return;
-      }catch(e){
-        clearTimeout(timer);lastErr=e;
-        console.warn('[EV Charging]',endpoint,e);
-      }
-    }
-    if(lastErr)console.warn('[EV Charging box skipped]',lastErr);
-  };
+  const addStations=arr=>{for(const st of arr||[]){if(!st)continue;const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;if(!unique.has(k))unique.set(k,st);}};
 
-  const concurrency=Math.min(EV_SEARCH_CONCURRENCY,boxes.length);
-  let next=0;
-  const worker=async()=>{while(true){const i=next++;if(i>=boxes.length)break;await queryBox(boxes[i]);}};
-  await Promise.all(Array.from({length:concurrency},worker));
+  // Primary: MapTiler POI/geocoding, using the same map API key. This avoids
+  // depending entirely on public Overpass servers and makes EV POIs come from
+  // the same geographic data ecosystem as the map.
+  const key=String(MAP_CONFIG.apiKey||'').trim();
+  if(key){
+    let next=0;
+    const worker=async()=>{while(true){const i=next++;if(i>=uniqPts.length)break;const p=uniqPts[i];
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
+      try{
+        const queries=['สถานีชาร์จ EV','EV charging station','charging station'];
+        for(const q of queries){
+          try{const rs=await fetchMapTilerPlaces(q,controller,{lat:p[0],lon:p[1]});addStations(rs.map(r=>({...r,source:'MapTiler POI'})));}catch(e){if(e?.name==='AbortError')break;}
+          if([...unique.values()].length>=12)break;
+        }
+      }finally{clearTimeout(timer);}
+    }};
+    await Promise.all(Array.from({length:Math.min(EV_POI_QUERY_CONCURRENCY,uniqPts.length)},worker));
+  }
+
+  // Secondary: Overpass corridor query. Run only after the MapTiler POI pass;
+  // public Overpass remains a fallback rather than the critical path.
+  const boxes=[];
+  for(let i=0;i<uniqPts.length-1;i+=2){
+    const pts=uniqPts.slice(i,Math.min(i+3,uniqPts.length));
+    const lats=pts.map(p=>p[0]),lons=pts.map(p=>p[1]),pad=0.045;
+    boxes.push({south:Math.min(...lats)-pad,north:Math.max(...lats)+pad,west:Math.min(...lons)-pad,east:Math.max(...lons)+pad});
+  }
+  let nextBox=0;
+  const queryBox=async()=>{while(true){const i=nextBox++;if(i>=boxes.length)break;const box=boxes[i];
+    const q=`[out:json][timeout:8];nwr["amenity"="charging_station"](${box.south.toFixed(5)},${box.west.toFixed(5)},${box.north.toFixed(5)},${box.east.toFixed(5)});out center tags;`;
+    for(const endpoint of ROUTE_OVERPASS_URLS){
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
+      try{const r=await fetch(endpoint+'?data='+encodeURIComponent(q),{signal:controller.signal,mode:'cors',headers:{Accept:'application/json'}});if(!r.ok)throw new Error(String(r.status));const data=await r.json();addStations((data.elements||[]).map(normalizeChargingStation).filter(Boolean));break;}catch(e){}finally{clearTimeout(timer);}
+    }
+  }};
+  await Promise.all(Array.from({length:Math.min(2,boxes.length)},queryBox));
+
   return [...unique.values()];
 }
-
 function getEvReferencePosition(){
   if((isTracking||routePlan.navigating)&&Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng))return {lat:lastGpsLat,lon:lastGpsLng};
   return routePlan.start||null;
@@ -5259,12 +5267,15 @@ function calculateEvCandidates(){
   const all=routePlan.chargingStations.map(st=>{
     const p=nearestRoutePositionKm(st.lat,st.lon,routePlan.route,cum);
     return {...st,routeKm:p.km,routeOffsetKm:p.offsetKm,aheadKm:p.km-rp.km};
-  }).filter(st=>st.aheadKm>0.2&&st.routeOffsetKm<=EV_ROUTE_NEAR_KM&&st.aheadKm<remainingKm&&st.aheadKm<=usableWltpKm)
+  }).filter(st=>st.aheadKm>0.2&&st.routeOffsetKm<=EV_ROUTE_NEAR_KM&&st.aheadKm<remainingKm)
     .sort((a,b)=>a.aheadKm-b.aheadKm);
 
-  // First 1-4 stations before the effective WLTP/Safety point. There is no
-  // minimum distance requirement: any valid station ahead is useful.
-  const candidates=all.slice(0,EV_DISPLAY_COUNT);
+  // Prefer stations before the effective WLTP/Safety point. If fewer than
+  // four exist, fill the remaining choices with the next stations on the
+  // route so the driver can see that charging is available ahead.
+  const before=all.filter(st=>st.aheadKm<=usableWltpKm);
+  const after=all.filter(st=>st.aheadKm>usableWltpKm);
+  const candidates=[...before,...after].slice(0,EV_DISPLAY_COUNT);
   return {wltpRealtimeKm,safetyKm,usableWltpKm,positionKm:rp.km,remainingKm,needCharging,candidates};
 }
 function ensureEvChargingPoiLayer(){
@@ -5410,6 +5421,23 @@ function addEvChargingStop(st){
   routePlannerHint('เพิ่มสถานีชาร์จเป็นจุดแวะแล้ว · กำลังคำนวณเส้นทางใหม่…');
   buildPlannedRoute();
 }
+function fitCompletePlannedRoute(coords){
+  if(!map||!Array.isArray(coords)||coords.length<2)return;
+  const doFit=()=>{
+    if(!map||!coords.length)return;
+    try{
+      map.stop();map.resize();
+      const lngs=coords.map(p=>Number(p[1])),lats=coords.map(p=>Number(p[0]));
+      const bounds=[[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]];
+      const opts={padding:{top:55,right:35,bottom:65,left:35},maxZoom:10,animate:false};
+      const nativeFit=map._nativeFitBounds;
+      if(nativeFit)nativeFit(bounds,opts);else map.fitBounds(bounds,opts);
+      setTimeout(()=>{try{map.resize();if(nativeFit)nativeFit(bounds,opts);else map.fitBounds(bounds,opts);}catch(e){}},180);
+    }catch(e){console.warn('[Complete Route Fit]',e);}
+  };
+  if(map.loaded?.()||map._loaded||map.isStyleLoaded?.())requestAnimationFrame(doFit);
+  else map.once('load',()=>setTimeout(doFit,60));
+}
 async function buildPlannedRoute(){
   const points=collectPlannerPoints();
   if(!routePlan.start||!routePlan.destination){routePlannerHint('กรุณากำหนดจุดเริ่มต้นและจุดหมายก่อน');return;}
@@ -5426,35 +5454,9 @@ async function buildPlannedRoute(){
     const summary=document.getElementById('routeSummary');
     if(summary){summary.style.display='block';summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;}
 
-    // IMPORTANT: fit the complete route immediately after OSRM. EV search is
-    // background work and must never delay route rendering/camera fitting.
-    if(map&&map._loaded&&result.coords.length>1){
-      map.stop();map.resize();
-      try{ensureRoutePlanLayer()?.set(result.coords);}catch(e){}
-      const viewCoords=result.coords.map(p=>[p[1],p[0]]);
-      const routeBoundsLike=[[
-        Math.min(...viewCoords.map(c=>c[0])),Math.min(...viewCoords.map(c=>c[1]))
-      ],[
-        Math.max(...viewCoords.map(c=>c[0])),Math.max(...viewCoords.map(c=>c[1]))
-      ]];
-      const fitRoute=()=>{
-        try{
-          map.resize();
-          // Overview mode must remain north-up while fitting. Rotating the map
-          // immediately after fitBounds can push route endpoints outside the
-          // viewport, especially on long diagonal routes. NAV performs heading
-          // rotation later, after the user explicitly starts navigation.
-          const nativeFit=map._nativeFitBounds;
-          const opts={padding:{top:70,right:45,bottom:80,left:45},maxZoom:11,animate:false};
-          if(nativeFit)nativeFit(routeBoundsLike,opts);
-          else map.fitBounds(routeBoundsLike,opts);
-        }catch(e){console.warn('Route fit failed:',e);}
-      };
-      map.jumpTo({bearing:0,pitch:0});
-      fitRoute();
-      requestAnimationFrame(fitRoute);
-      setTimeout(fitRoute,120);
-    }
+    // Fit the complete route even if the map style finishes loading after the
+    // user presses the button.
+    fitCompletePlannedRoute(result.coords);
     if(nav)nav.disabled=false;
     routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว · กำลังค้นหาสถานีชาร์จเบื้องหลัง');
 
@@ -5467,7 +5469,7 @@ async function buildPlannedRoute(){
         if(map&&map._loaded&&ev.candidates.length){
           try{setEvChargingPoiData(ev.candidates);}catch(e){console.warn('EV POI render failed:',e);}
         }
-        routePlannerHint(stations.length&&ev.candidates.length?'หาเส้นทางแล้ว · แสดงเส้นทางทั้งหมด + สถานีชาร์จ 1–4 จุด':'หาเส้นทางแล้ว · ไม่พบสถานีชาร์จก่อนถึงจุด WLTP/Safety ในข้อมูล OpenStreetMap');
+        routePlannerHint(stations.length&&ev.candidates.length?'หาเส้นทางแล้ว · แสดงเส้นทางทั้งหมด + สถานีชาร์จ 1–4 จุด':'หาเส้นทางแล้ว · ไม่พบสถานีชาร์จตามแนวเส้นทางจากข้อมูล MapTiler/OSM · ระบบจะลองค้นหาใหม่');
       }
     }).catch(()=>{});
   }catch(e){
