@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.27-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.28-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -5413,6 +5413,104 @@ async function fetchOsmApiEvStations(route, signal){
   return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
 }
 
+const OCM_API_URL = 'https://api.openchargemap.io/v3/poi/';
+// Open Charge Map is a dedicated EV charging database. A key is optional for
+// basic use; if one is available, put it here. Never use the MapTiler key here.
+const OCM_API_KEY = '';
+const OCM_SAMPLE_KM = 55;
+const OCM_RADIUS_KM = 25;
+const OCM_MAX_RESULTS = 100;
+const OCM_TIMEOUT_MS = 4500;
+const OCM_CONCURRENCY = 2;
+const OCM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+function normalizeOcmStation(raw){
+  const a=raw?.AddressInfo||{};
+  const lat=Number(a.Latitude), lon=Number(a.Longitude);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
+  const operator=String(raw?.OperatorInfo?.Title||'').trim();
+  const title=String(a.Title||operator||'สถานีชาร์จ EV').trim();
+  const connections=Array.isArray(raw?.Connections)?raw.Connections:[];
+  const powers=connections.map(c=>Number(c?.PowerKW)).filter(Number.isFinite);
+  const types=connections.map(c=>String(c?.ConnectionType?.Title||'').trim()).filter(Boolean);
+  const power=powers.length?`${Math.max(...powers).toFixed(0)} kW`:'';
+  const sockets=types.slice(0,4).join(', ');
+  const address=[a.AddressLine1,a.Town,a.StateOrProvince].filter(Boolean).join(', ');
+  return {
+    lat,lon,name:title,operator,power,capacity:String(raw?.NumberOfPoints||''),
+    sockets,opening:String(a.AccessComments||a.AccessInfo||''),address,
+    source:'Open Charge Map',ocmId:String(raw?.ID||'')
+  };
+}
+
+function ocmCacheKey(lat,lon){return `tripab-ocm-v528-${Number(lat).toFixed(2)}-${Number(lon).toFixed(2)}`;}
+function readOcmCache(lat,lon){
+  try{
+    const raw=localStorage.getItem(ocmCacheKey(lat,lon));
+    if(!raw)return null;
+    const obj=JSON.parse(raw);
+    if(!obj||Date.now()-Number(obj.t)>OCM_CACHE_TTL_MS)return null;
+    return Array.isArray(obj.data)?obj.data:null;
+  }catch(e){return null;}
+}
+function writeOcmCache(lat,lon,data){
+  try{localStorage.setItem(ocmCacheKey(lat,lon),JSON.stringify({t:Date.now(),data:data||[]}));}catch(e){}
+}
+
+async function fetchOpenChargeMapStations(route, signal){
+  if(!Array.isArray(route)||route.length<2)return [];
+  const samples=evRouteSamplePoints(route,OCM_SAMPLE_KM);
+  const cum=routeCumulativeDistances(route);
+  const unique=new Map();
+  let next=0;
+  const queryOne=async(sample)=>{
+    if(signal?.aborted)throw new DOMException('Aborted','AbortError');
+    const cached=readOcmCache(sample.point[0],sample.point[1]);
+    let stations=cached;
+    if(!stations){
+      const controller=new AbortController();
+      const onAbort=()=>controller.abort();
+      signal?.addEventListener('abort',onAbort,{once:true});
+      const timer=setTimeout(()=>controller.abort(),OCM_TIMEOUT_MS);
+      try{
+        const qs=new URLSearchParams({
+          output:'json',countrycode:'TH',latitude:String(sample.point[0]),longitude:String(sample.point[1]),
+          distance:String(OCM_RADIUS_KM),distanceunit:'KM',maxresults:String(OCM_MAX_RESULTS),compact:'false',verbose:'false'
+        });
+        if(OCM_API_KEY)qs.set('key',OCM_API_KEY);
+        const r=await fetch(`${OCM_API_URL}?${qs.toString()}`,{
+          method:'GET',mode:'cors',credentials:'omit',signal:controller.signal,cache:'no-store',
+          headers:{Accept:'application/json'}
+        });
+        if(!r.ok)throw new Error(`Open Charge Map HTTP ${r.status}`);
+        const data=await r.json();
+        stations=Array.isArray(data)?data:[];
+        writeOcmCache(sample.point[0],sample.point[1],stations);
+      }finally{
+        clearTimeout(timer);signal?.removeEventListener('abort',onAbort);
+      }
+    }
+    for(const raw of stations){
+      const st=raw?.lat&&raw?.lon?raw:normalizeOcmStation(raw);
+      if(!st)continue;
+      const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
+      if(pos.offsetKm>EV_SEARCH_ROUTE_NEAR_KM)continue;
+      const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
+      if(!unique.has(k))unique.set(k,{...st,routeKm:pos.km,routeOffsetKm:pos.offsetKm});
+    }
+  };
+  const worker=async()=>{
+    while(true){
+      if(signal?.aborted)return;
+      const i=next++;if(i>=samples.length)return;
+      try{await queryOne(samples[i]);}
+      catch(e){if(e?.name!=='AbortError')console.warn('[EV V5.28] Open Charge Map',e?.message||e);}
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(OCM_CONCURRENCY,samples.length)},worker));
+  return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
+}
+
 async function fetchEvChargingStations(route){
   if(!Array.isArray(route)||route.length<2)return [];
   const searchController=new AbortController();
@@ -5425,84 +5523,26 @@ async function fetchEvChargingStations(route){
     }
   };
 
-  // Primary source: OpenStreetMap database API. This is a direct OSM data
-  // query and does not depend on Photon, MapTiler POI coverage, or Overpass.
+  // PRIMARY: dedicated EV database. MapTiler is intentionally not involved.
+  try{
+    const ocm=await fetchOpenChargeMapStations(route,searchController.signal);
+    add(ocm);
+    console.log(`[EV V5.28] Open Charge Map stations=${unique.size}`);
+    if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
+  }catch(e){console.warn('[EV V5.28] Open Charge Map',e?.message||e);}
+
+  // FALLBACK: direct OSM database API. This is only used when the dedicated
+  // EV source returns no usable station data.
   try{
     const osm=await fetchOsmApiEvStations(route,searchController.signal);
     add(osm);
-    console.log(`[EV V5.27] OSM API stations=${unique.size}`);
+    console.log(`[EV V5.28] OSM fallback stations=${unique.size}`);
     if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-  }catch(e){console.warn('[EV V5.27] OSM API',e?.message||e);}
+  }catch(e){console.warn('[EV V5.28] OSM fallback',e?.message||e);}
 
-  // Secondary source: Photon, sampled along the route.
-  try{
-    const photon=await fetchPhotonEvStations(route,searchController.signal);
-    add(photon);
-    console.log(`[EV V5.27] Photon stations=${unique.size}`);
-    if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-  }catch(e){console.warn('[EV V5.27] Photon',e?.message||e);}
-
-  // MapTiler is useful only when a valid key is configured and its POI index
-  // actually contains charging stations for the requested area.
-  try{
-    const mt=await fetchMapTilerEvStations(route,searchController.signal);
-    add(mt);
-    console.log(`[EV V5.27] MapTiler stations=${unique.size}`);
-    if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-  }catch(e){console.warn('[EV V5.27] MapTiler',e?.message||e);}
-
-  // Nominatim fallback.
-  const cum=routeCumulativeDistances(route);
-  const samples=evRouteSamplePoints(route,EV_MAPTILER_SAMPLE_KM);
-  for(const sample of samples){
-    if(searchController.signal.aborted)break;
-    try{
-      const qs=new URLSearchParams({format:'jsonv2',addressdetails:'1',namedetails:'1',extratags:'1','accept-language':'th',countrycodes:'th',limit:'20',q:'สถานีชาร์จรถยนต์ไฟฟ้า',lat:String(sample.point[0]),lon:String(sample.point[1])});
-      const r=await fetch(`${ROUTE_GEOCODER_URL}?${qs.toString()}`,{signal:searchController.signal,mode:'cors',cache:'no-store',headers:{Accept:'application/json'}});
-      if(!r.ok)continue;
-      const data=await r.json();
-      for(const f of (data||[])){
-        const st=normalizeGeocoderResult(f,'Nominatim');if(!st)continue;
-        const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-        if(pos.offsetKm<=EV_SEARCH_ROUTE_NEAR_KM){
-          const station={...st,name:String(st.name||'สถานีชาร์จ EV'),source:'Nominatim',routeKm:pos.km,routeOffsetKm:pos.offsetKm};
-          const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
-          if(!unique.has(k))unique.set(k,station);
-        }
-      }
-    }catch(e){if(e?.name!=='AbortError')console.warn('[EV V5.27] Nominatim',e?.message||e);}
-    if(unique.size>=EV_DISPLAY_COUNT)break;
-  }
-  if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-
-  // Final fallback: Overpass. It is deliberately last to avoid HTTP 429
-  // becoming the normal path for station discovery.
-  const bboxPts=route.filter((_,i)=>i===0||i===route.length-1||i%Math.max(1,Math.floor(route.length/80))===0);
-  const lats=bboxPts.map(p=>p[0]),lons=bboxPts.map(p=>p[1]);
-  const midLat=(Math.min(...lats)+Math.max(...lats))/2;
-  const latPad=0.16,lonPad=0.16/Math.max(0.2,Math.cos(midLat*Math.PI/180));
-  const bbox=`${Math.max(-90,Math.min(...lats)-latPad).toFixed(5)},${Math.max(-180,Math.min(...lons)-lonPad).toFixed(5)},${Math.min(90,Math.max(...lats)+latPad).toFixed(5)},${Math.min(180,Math.max(...lons)+lonPad).toFixed(5)}`;
-  const q=`[out:json][timeout:15];nwr["amenity"="charging_station"](${bbox});out center tags;`;
-  const endpoints=['https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter'];
-  for(const endpoint of endpoints){
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS+4000);
-    try{
-      const r=await fetch(endpoint,{method:'POST',mode:'cors',credentials:'omit',signal:controller.signal,cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},body:`data=${encodeURIComponent(q)}`});
-      if(r.status===429){console.warn(`[EV V5.27] Overpass 429: ${endpoint}`);continue;}
-      if(!r.ok)throw new Error(`Overpass ${r.status}`);
-      const data=await r.json();
-      for(const st of (data.elements||[]).map(normalizeChargingStation).filter(Boolean)){
-        const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-        if(pos.offsetKm<=EV_SEARCH_ROUTE_NEAR_KM){const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;if(!unique.has(k))unique.set(k,{...st,routeKm:pos.km,routeOffsetKm:pos.offsetKm});}
-      }
-      if(unique.size)break;
-    }catch(e){console.warn('[EV V5.27] Overpass fallback',e?.message||e);}
-    finally{clearTimeout(timer);}
-  }
-  const out=[...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-  console.log(`[EV V5.27] total stations=${out.length}`);
-  return out;
+  return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
 }
+
 function calculateEvCandidates(){
   if(!routePlan.route?.length)return {wltpRealtimeKm:null,safetyKm:getEvSafetyDistanceKm(),usableWltpKm:null,positionKm:0,remainingKm:0,needCharging:false,allStations:[],candidates:[]};
   const wltpRealtimeKm=getWltpRealtimeKm();
