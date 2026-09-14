@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.25-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.26-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1358,7 +1358,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 (() => {
-const APP_VERSION = "PRO-65-V5.25-EV-MAPTILER-FIRST";
+const APP_VERSION = "PRO-66-V5.26-EV-PHOTON-FIRST";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -5246,6 +5246,64 @@ function evRouteSamplePoints(route, stepKm=EV_MAPTILER_SAMPLE_KM){
   return pts;
 }
 
+async function fetchPhotonEvStations(route, signal){
+  if(!Array.isArray(route)||route.length<2)return [];
+  const samples=evRouteSamplePoints(route,EV_MAPTILER_SAMPLE_KM);
+  if(!samples.length)return [];
+  const cum=routeCumulativeDistances(route);
+  const unique=new Map();
+  const queryOne=async(sample,query)=>{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS);
+    const onAbort=()=>controller.abort();
+    signal?.addEventListener('abort',onAbort,{once:true});
+    try{
+      const qs=new URLSearchParams({
+        q:query,lat:String(sample.point[0]),lon:String(sample.point[1]),limit:'20',lang:'th'
+      });
+      const url=`${ROUTE_GEOCODER_FALLBACK_URL}?${qs.toString()}`;
+      const r=await fetch(url,{signal:controller.signal,mode:'cors',cache:'no-store',headers:{Accept:'application/json'}});
+      if(!r.ok)throw new Error(`Photon EV ${r.status}`);
+      const data=await r.json();
+      for(const f of (data.features||[])){
+        const st=normalizeGeocoderResult(f,'Photon');
+        if(!st)continue;
+        const props=f?.properties||{};
+        const text=[props.name,props.street,props.city,props.district,props.osm_value,props.osm_key].filter(Boolean).join(' ');
+        // Photon can return nearby generic POIs for a broad query. Keep only
+        // records that are recognizably charging-related.
+        if(!/charg|ev|สถานีชาร์จ|จุดชาร์จ|รถไฟฟ้า|ไฟฟ้า/i.test(text))continue;
+        const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
+        if(pos.offsetKm>EV_SEARCH_ROUTE_NEAR_KM)continue;
+        const name=String(props.name||st.name||'สถานีชาร์จ EV').trim();
+        const operator=String(props.operator||props.brand||'').trim();
+        const station={...st,name,operator,source:'Photon'};
+        const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
+        if(!unique.has(k))unique.set(k,{...station,routeKm:pos.km,routeOffsetKm:pos.offsetKm});
+      }
+    }finally{
+      clearTimeout(timer);
+      signal?.removeEventListener('abort',onAbort);
+    }
+  };
+  let next=0;
+  const queries=['สถานีชาร์จรถยนต์ไฟฟ้า','charging station'];
+  const worker=async()=>{
+    while(true){
+      if(signal?.aborted)return;
+      const i=next++;
+      if(i>=samples.length)return;
+      for(const q of queries){
+        if(signal?.aborted)return;
+        try{await queryOne(samples[i],q);}
+        catch(e){if(e?.name!=='AbortError')console.warn('[EV Photon]',e?.message||e);}
+      }
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(EV_SEARCH_CONCURRENCY,samples.length)},worker));
+  return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
+}
+
 async function fetchMapTilerEvStations(route, signal){
   const key=String(MAP_CONFIG.apiKey||'').trim();
   if(!key||!Array.isArray(route)||route.length<2)return [];
@@ -5259,27 +5317,22 @@ async function fetchMapTilerEvStations(route, signal){
     const onAbort=()=>controller.abort();
     signal?.addEventListener('abort',onAbort,{once:true});
     try{
-      // MapTiler is used as the primary EV-POI source. proximity makes each
-      // request local to one section of the route, so the requests stay small.
-      const qs=new URLSearchParams({
-        key,language:'th',country:'th',limit:'10',types:'POI',
-        proximity:`${sample.point[1]},${sample.point[0]}`
-      });
+      const qs=new URLSearchParams({key,language:'th',country:'th',limit:'20',types:'POI',proximity:`${sample.point[1]},${sample.point[0]}`});
       const url=`${MAPTILER_GEOCODER_URL}charging%20station.json?${qs.toString()}`;
       const r=await fetch(url,{signal:controller.signal,mode:'cors',cache:'no-store',headers:{Accept:'application/json'}});
       if(!r.ok)throw new Error(`MapTiler EV ${r.status}`);
       const data=await r.json();
       for(const f of (data.features||[])){
-        const st=normalizeGeocoderResult(f,'maptiler');
+        const st=normalizeGeocoderResult(f,'MapTiler');
         if(!st)continue;
-        const p=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-        if(p.offsetKm>EV_SEARCH_ROUTE_NEAR_KM)continue;
         const props=f?.properties||{};
-        const rawName=String(props.name||st.name||'สถานีชาร์จ EV');
-        const operator=String(props.operator||props.brand||'');
-        const station={...st,name:rawName,operator,source:'MapTiler'};
+        const text=[props.name,props.category,props.type,props.osm_value].filter(Boolean).join(' ');
+        if(!/charg|ev|สถานีชาร์จ|จุดชาร์จ|รถไฟฟ้า|ไฟฟ้า/i.test(text))continue;
+        const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
+        if(pos.offsetKm>EV_SEARCH_ROUTE_NEAR_KM)continue;
+        const station={...st,name:String(props.name||st.name||'สถานีชาร์จ EV'),operator:String(props.operator||props.brand||''),source:'MapTiler'};
         const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
-        if(!unique.has(k))unique.set(k,{...station,routeKm:p.km,routeOffsetKm:p.offsetKm});
+        if(!unique.has(k))unique.set(k,{...station,routeKm:pos.km,routeOffsetKm:pos.offsetKm});
       }
     }finally{
       clearTimeout(timer);
@@ -5299,13 +5352,11 @@ async function fetchMapTilerEvStations(route, signal){
   await Promise.all(Array.from({length:Math.min(EV_SEARCH_CONCURRENCY,samples.length)},worker));
   return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
 }
-
 async function fetchEvChargingStations(route){
   if(!Array.isArray(route)||route.length<2)return [];
   const cum=routeCumulativeDistances(route);
   const totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
   if(totalKm<=0)return [];
-
   const searchController=new AbortController();
   const unique=new Map();
   const add=arr=>{
@@ -5316,17 +5367,52 @@ async function fetchEvChargingStations(route){
     }
   };
 
-  // Primary source: MapTiler POI index. This is much faster and avoids the
-  // public Overpass rate limit for normal route searches.
-  const mt=await fetchMapTilerEvStations(route,searchController.signal);
-  add(mt);
+  // 1) Photon: no API key, CORS-friendly POI search, sampled along the route.
+  const photon=await fetchPhotonEvStations(route,searchController.signal);
+  add(photon);
   if(unique.size){
-    console.log(`[EV V5.25] MapTiler stations=${unique.size}`);
+    console.log(`[EV V5.26] Photon stations=${unique.size}`);
     return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
   }
 
-  // Fallback only when MapTiler returns nothing. Keep Overpass to ONE request
-  // per endpoint instead of making many route chunks that trigger HTTP 429.
+  // 2) MapTiler: use only when the user's key is configured.
+  const mt=await fetchMapTilerEvStations(route,searchController.signal);
+  add(mt);
+  if(unique.size){
+    console.log(`[EV V5.26] MapTiler stations=${unique.size}`);
+    return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
+  }
+
+  // 3) Nominatim fallback: slower, so query only route samples and only when
+  // the two CORS-friendly POI sources above returned nothing.
+  const samples=evRouteSamplePoints(route,EV_MAPTILER_SAMPLE_KM);
+  for(const sample of samples){
+    if(searchController.signal.aborted)break;
+    try{
+      const qs=new URLSearchParams({format:'jsonv2',addressdetails:'1',namedetails:'1',extratags:'1','accept-language':'th',countrycodes:'th',limit:'20',q:'สถานีชาร์จรถยนต์ไฟฟ้า',lat:String(sample.point[0]),lon:String(sample.point[1])});
+      const r=await fetch(`${ROUTE_GEOCODER_URL}?${qs.toString()}`,{signal:searchController.signal,mode:'cors',cache:'no-store',headers:{Accept:'application/json'}});
+      if(!r.ok)continue;
+      const data=await r.json();
+      for(const f of (data||[])){
+        const st=normalizeGeocoderResult(f,'Nominatim');
+        if(!st)continue;
+        const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
+        if(pos.offsetKm<=EV_SEARCH_ROUTE_NEAR_KM){
+          const station={...st,name:String(st.name||'สถานีชาร์จ EV'),source:'Nominatim',routeKm:pos.km,routeOffsetKm:pos.offsetKm};
+          const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
+          if(!unique.has(k))unique.set(k,station);
+        }
+      }
+      if(unique.size>=EV_DISPLAY_COUNT)break;
+    }catch(e){if(e?.name!=='AbortError')console.warn('[EV Nominatim]',e?.message||e);}
+  }
+  if(unique.size){
+    console.log(`[EV V5.26] Nominatim stations=${unique.size}`);
+    return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
+  }
+
+  // 4) Last resort: one Overpass request. This remains a fallback because the
+  // public service can return HTTP 429 when the route is searched repeatedly.
   const bboxPts=route.filter((_,i)=>i===0||i===route.length-1||i%Math.max(1,Math.floor(route.length/80))===0);
   const lats=bboxPts.map(p=>p[0]),lons=bboxPts.map(p=>p[1]);
   const midLat=(Math.min(...lats)+Math.max(...lats))/2;
@@ -5340,27 +5426,23 @@ async function fetchEvChargingStations(route){
     const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS+4000);
     try{
       const r=await fetch(endpoint,{method:'POST',mode:'cors',credentials:'omit',signal:controller.signal,cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},body:`data=${encodeURIComponent(q)}`});
-      if(r.status===429){console.warn(`[EV V5.25] Overpass 429: ${endpoint}`);continue;}
+      if(r.status===429){console.warn(`[EV V5.26] Overpass 429: ${endpoint}`);continue;}
       if(!r.ok)throw new Error(`Overpass ${r.status}`);
       const data=await r.json();
-      add((data.elements||[]).map(normalizeChargingStation).filter(Boolean));
+      for(const st of (data.elements||[]).map(normalizeChargingStation).filter(Boolean)){
+        const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
+        if(pos.offsetKm<=EV_SEARCH_ROUTE_NEAR_KM){
+          const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
+          if(!unique.has(k))unique.set(k,{...st,routeKm:pos.km,routeOffsetKm:pos.offsetKm});
+        }
+      }
       if(unique.size)break;
-    }catch(e){console.warn('[EV V5.25] Overpass fallback',e?.message||e);}
+    }catch(e){console.warn('[EV V5.26] Overpass fallback',e?.message||e);}
     finally{clearTimeout(timer);}
   }
-
-  const filtered=[];
-  for(const st of unique.values()){
-    const p=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-    if(p.offsetKm<=EV_SEARCH_ROUTE_NEAR_KM)filtered.push({...st,routeKm:p.km,routeOffsetKm:p.offsetKm});
-  }
-  filtered.sort((a,b)=>a.routeKm-b.routeKm);
-  console.log(`[EV V5.25] fallback stations=${filtered.length}`);
-  return filtered;
-}
-function getEvReferencePosition(){
-  if((isTracking||routePlan.navigating)&&Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng))return {lat:lastGpsLat,lon:lastGpsLng};
-  return routePlan.start||null;
+  const out=[...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
+  console.log(`[EV V5.26] total stations=${out.length}`);
+  return out;
 }
 function calculateEvCandidates(){
   if(!routePlan.route?.length)return {wltpRealtimeKm:null,safetyKm:getEvSafetyDistanceKm(),usableWltpKm:null,positionKm:0,remainingKm:0,needCharging:false,allStations:[],candidates:[]};
