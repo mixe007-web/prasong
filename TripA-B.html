@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.19-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.20-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -3823,7 +3823,7 @@ function initMap(lat, lon) {
             map.addLayer({id:'trip-route-layer',type:'line',source:'trip-route-source',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['coalesce',['get','color'],'#00e5ff'],'line-width':4,'line-opacity':0.95}});
             addMapLibreTerrain(map);
             add3DBuildings(map);
-            map.jumpTo({center:[lon,lat],zoom:BASE_ZOOM,bearing:0,pitch:0});
+            if(!(routePlan?.route?.length>1)) map.jumpTo({center:[lon,lat],zoom:BASE_ZOOM,bearing:0,pitch:0});
             map3DSetActive(false);
             disableMapInteraction();
             syncMapModeUi();
@@ -4712,6 +4712,7 @@ let evChargingAutoRefreshTimer = null;
 let routePlanLayer = null;
 let routeSearchTimer = null;
 let routeSearchAbort = null;
+let pendingCompleteRouteFit = null;
 const ROUTE_GEOCODER_URL = 'https://nominatim.openstreetmap.org/search';
 const ROUTE_GEOCODER_FALLBACK_URL = 'https://photon.komoot.io/api/';
 const ROUTE_OVERPASS_URLS = Object.freeze([
@@ -5025,20 +5026,27 @@ function setPlaceUI(kind,index,name,p){
 async function showPlaceSearchResults(query,kind,index,inputEl){
   const {results}=targetElements(kind,index);if(!results)return;
   closeAllPlaceResults(results); results.innerHTML=''; results.classList.add('open');
-  const wait=document.createElement('div');wait.className='planner-result planner-searching';wait.textContent='กำลังค้นหาสถานที่ทั่วประเทศไทย…';results.appendChild(wait);
+  const wait=document.createElement('div');wait.className='planner-result planner-searching';wait.textContent='กำลังค้นหาสถานที่…';results.appendChild(wait);
   if(routeSearchAbort)try{routeSearchAbort.abort()}catch(e){}
   routeSearchAbort=new AbortController(); const signal=routeSearchAbort.signal;
-  const timer=setTimeout(()=>{try{routeSearchAbort?.abort()}catch(e){}},PLACE_SEARCH_TIMEOUT_MS);
+  const run=(fn,ms)=>{
+    const c=new AbortController(),timer=setTimeout(()=>c.abort(),ms);
+    signal.addEventListener('abort',()=>c.abort(),{once:true});
+    return fn(c.signal).catch(e=>{if(e?.name!=='AbortError')console.warn('[Place provider]',e);return [];}).finally(()=>clearTimeout(timer));
+  };
   try{
     const poi=detectRoutePoiSearch(query);
-    // MapTiler Geocoding uses the same API key as the map and is the primary
-    // browser-safe geocoder. Nominatim/Photon remain fallbacks.
-    const jobs=[fetchMapTilerPlaces(query,signal).catch(e=>{console.warn('[MapTiler Geocoder]',e);return [];}),
-      fetchNominatimPlaces(query,signal).catch(e=>{if(e?.name==='AbortError')throw e;console.warn('[Nominatim]',e);return [];}),
-      fetchPhotonPlaces(query,signal).catch(e=>{if(e?.name==='AbortError')throw e;console.warn('[Photon]',e);return []})];
-    let [mt,nom,pho]=await Promise.all(jobs);
+    const jobs=[
+      run(sig=>fetchNominatimPlaces(query,sig),5000),
+      run(sig=>fetchPhotonPlaces(query,sig),5000),
+      run(sig=>fetchMapTilerPlaces(query,sig),5000)
+    ];
+    const vals=await Promise.all(jobs);
+    let [nom,pho,mt]=vals;
     let over=[];
-    if(poi&&mt.length+nom.length+pho.length<3){try{over=await fetchOverpassPlaces(query,signal);}catch(e){if(e?.name==='AbortError')throw e;console.warn('[Overpass fallback]',e);}}
+    if(poi && nom.length+pho.length+mt.length<5 && !signal.aborted){
+      try{over=await run(sig=>fetchOverpassPlaces(query,sig),7000);}catch(e){}
+    }
     const fs=mergeGeocoderResults(mt,nom,over,pho);
     results.innerHTML='';
     if(!fs.length){
@@ -5048,7 +5056,7 @@ async function showPlaceSearchResults(query,kind,index,inputEl){
     }
     fs.forEach(r=>{
       const b=document.createElement('button');b.type='button';b.className='planner-result';
-      const parts=String(r.name).split(', '); const sourceLabel=r.poiLabel||({nominatim:'ที่อยู่/สถานที่',photon:'สถานที่',overpass:'POI'}[r.source]||'สถานที่');
+      const parts=String(r.name).split(', '); const sourceLabel=r.poiLabel||({nominatim:'ที่อยู่/สถานที่',photon:'สถานที่',overpass:'POI',maptiler:'MapTiler'}[r.source]||'สถานที่');
       b.innerHTML=`<b>${escapeHtml(parts[0]||r.name)}</b><span>${escapeHtml(r.name)}</span><small>${escapeHtml(sourceLabel)}</small>`;
       b.addEventListener('click',()=>{
         setPlaceUI(kind,index,r.name,{lat:r.lat,lon:r.lon});results.classList.remove('open');
@@ -5185,11 +5193,6 @@ function getEvSearchWindow(route, maxDistanceKm){
 
 async function fetchEvChargingStations(route){
   if(!Array.isArray(route)||route.length<2)return [];
-
-  // V5.19: EV discovery is route-wide. WLTP/Safety is used to rank the
-  // recommendations, NOT to limit the POI database search. This prevents a
-  // long trip from appearing to have no chargers simply because the first
-  // search window was too short.
   const cum=routeCumulativeDistances(route);
   const totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
   if(totalKm<=0)return [];
@@ -5203,108 +5206,96 @@ async function fetchEvChargingStations(route){
     }
   };
 
-  // Sample the actual routed geometry. One Overpass request contains a set of
-  // small around-circles, which is much cheaper and more reliable than one
-  // giant Thailand bounding box or dozens of HTTP requests.
-  const SEARCH_SPACING_KM=32;
-  const SEARCH_RADIUS_M=9000;
-  const sampleKms=[];
-  for(let km=0;km<=totalKm;km+=SEARCH_SPACING_KM)sampleKms.push(km);
-  if(sampleKms[sampleKms.length-1]!==totalKm)sampleKms.push(totalKm);
+  // V5.20: query the actual route corridor with small bounding boxes. This is
+  // more reliable than a large request containing many `around` clauses,
+  // especially for 500–1,000+ km routes in Thailand.
+  const SPACING_KM=70;
+  const BUFFER_DEG_LAT=0.11; // ~12 km
+  const BUFFER_DEG_LON=0.13; // ~13 km at central Thailand latitudes
+  const segments=[];
+  for(let from=0;from<totalKm;from+=SPACING_KM){
+    const to=Math.min(totalKm,from+SPACING_KM);
+    const pts=[];
+    for(let i=0;i<route.length;i++) if(cum[i]>=from&&cum[i]<=to)pts.push(route[i]);
+    // Always include interpolated-ish endpoints by nearest route vertices.
+    const idxA=Math.max(0,cum.findIndex(x=>x>=from));
+    const idxB=Math.max(idxA,cum.findIndex(x=>x>=to));
+    if(route[idxA])pts.push(route[idxA]);
+    if(route[idxB])pts.push(route[idxB]);
+    if(pts.length<2)continue;
+    const lats=pts.map(p=>Number(p[0])).filter(Number.isFinite),lons=pts.map(p=>Number(p[1])).filter(Number.isFinite);
+    if(!lats.length||!lons.length)continue;
+    segments.push({south:Math.max(-90,Math.min(...lats)-BUFFER_DEG_LAT),north:Math.min(90,Math.max(...lats)+BUFFER_DEG_LAT),west:Math.max(-180,Math.min(...lons)-BUFFER_DEG_LON),east:Math.min(180,Math.max(...lons)+BUFFER_DEG_LON)});
+  }
 
-  const pointAtKm=km=>{
-    let lo=0,hi=cum.length-1;
-    while(lo<hi){const mid=(lo+hi)>>1;if(cum[mid]<km)lo=mid+1;else hi=mid;}
-    const i=Math.max(0,Math.min(cum.length-1,lo));
-    if(i===0)return route[0];
-    const a=route[i-1],b=route[i],aKm=cum[i-1],bKm=cum[i];
-    const t=bKm>aKm?Math.max(0,Math.min(1,(km-aKm)/(bKm-aKm))):0;
-    return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
-  };
-  const samples=sampleKms.map(pointAtKm);
-
-  const makeOverpassQuery=pts=>{
-    const clauses=pts.map(p=>`nwr["amenity"="charging_station"](around:${SEARCH_RADIUS_M},${Number(p[0]).toFixed(6)},${Number(p[1]).toFixed(6)});`).join('');
-    return `[out:json][timeout:35];(${clauses});out center tags;`;
-  };
-
-  let overpassFound=0;
-  const tryOverpass=async endpoint=>{
-    // Keep each request comfortably below common proxy/URL limits. POST is
-    // deliberate here: the route may be 800+ km and the query contains many
-    // around clauses. Batches run concurrently so a long trip does not wait
-    // for every corridor segment serially.
-    const BATCH_SIZE=12;
-    const batches=[];
-    for(let offset=0;offset<samples.length;offset+=BATCH_SIZE)batches.push(samples.slice(offset,offset+BATCH_SIZE));
-    const runBatch=async batch=>{
-      const clauses=batch.map(p=>`nwr["amenity"="charging_station"](around:${SEARCH_RADIUS_M},${Number(p[0]).toFixed(6)},${Number(p[1]).toFixed(6)});`).join('');
-      const q=`[out:json][timeout:30];(${clauses});out center tags;`;
+  const endpoints=ROUTE_OVERPASS_URLS;
+  const queryForBox=b=>`[out:json][timeout:20];(nwr["amenity"="charging_station"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});nwr["amenity"="fuel"]["fuel:electricity"="yes"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)}););out center tags;`;
+  const fetchBox=async box=>{
+    let lastErr=null;
+    for(const endpoint of endpoints){
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),14000);
+      const timer=setTimeout(()=>controller.abort(),11000);
       try{
-        const r=await fetch(endpoint,{method:'POST',signal:controller.signal,mode:'cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},body:`data=${encodeURIComponent(q)}`});
+        const r=await fetch(endpoint,{method:'POST',mode:'cors',signal:controller.signal,headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},body:`data=${encodeURIComponent(queryForBox(box))}`});
         if(!r.ok)throw new Error(`Overpass ${r.status}`);
         const data=await r.json();
         const arr=(data.elements||[]).map(normalizeChargingStation).filter(Boolean);
-        addStations(arr);overpassFound+=arr.length;
+        addStations(arr);
+        clearTimeout(timer);
         return arr.length;
-      }finally{clearTimeout(timer);}
-    };
-    const results=await Promise.allSettled(batches.map(runBatch));
-    const ok=results.filter(x=>x.status==='fulfilled').length;
-    if(!ok)throw new Error('All Overpass corridor batches failed');
-    return overpassFound;
+      }catch(e){
+        clearTimeout(timer);lastErr=e;
+        if(e?.name==='AbortError')break;
+      }
+    }
+    if(lastErr)console.warn('[EV corridor]',lastErr);
+    return 0;
   };
 
-  // Try the primary server first. If every batch fails, move to the next
-  // public endpoint. A successful zero-result response is valid and is not
-  // retried against every server unless no data was returned at all.
-  for(const endpoint of ROUTE_OVERPASS_URLS){
-    try{
-      const beforeCount=unique.size;
-      const found=await tryOverpass(endpoint);
-      if(found>0||unique.size>beforeCount)break;
-    }catch(e){console.warn('[EV Overpass]',endpoint,e?.name||e?.message||e);}
-  }
+  let cursor=0,success=0;
+  const worker=async()=>{
+    while(true){
+      const i=cursor++;
+      if(i>=segments.length)break;
+      const n=await fetchBox(segments[i]);
+      if(n>0)success+=n;
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(3,segments.length)},worker));
 
-  // MapTiler is a supplementary source only. It is never required for EV
-  // discovery, so an empty/missing MapTiler key cannot make Thailand appear
-  // to have zero charging stations.
-  if(!overpassFound){
+  // If Overpass is temporarily unavailable, try MapTiler only as a small
+  // supplementary lookup. It must never be required for the route to render.
+  if(!unique.size){
     const key=String(MAP_CONFIG.apiKey||'').trim();
     if(key){
-      const queryPoints=samples.filter((_,i)=>i%2===0).slice(0,20);
+      const samples=[];
+      for(let km=0;km<=totalKm;km+=80){
+        const rp=nearestRoutePositionKm(route[0][0],route[0][1],route,cum);
+        const idx=cum.findIndex(x=>x>=km);
+        if(idx>=0)samples.push(route[idx]);
+      }
       let next=0;
-      const worker=async()=>{
+      const workerMt=async()=>{
         while(true){
-          const i=next++;if(i>=queryPoints.length)break;
-          const p=queryPoints[i];
-          const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
+          const i=next++;if(i>=samples.length)break;
+          const p=samples[i],controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
           try{
-            for(const q of ['สถานีชาร์จ EV','EV charging station']){
-              try{
-                const rs=await fetchMapTilerPlaces(q,controller,{lat:p[0],lon:p[1]});
-                addStations(rs.filter(r=>/ชาร์จ|charging|charger|EV/i.test(String(r.name||''))).map(r=>({...r,source:'MapTiler POI'})));
-              }catch(e){if(e?.name==='AbortError')break;}
-            }
-          }finally{clearTimeout(timer);}
+            const rs=await fetchMapTilerPlaces('สถานีชาร์จ EV',controller,{lat:p[0],lon:p[1]});
+            addStations(rs.map(r=>({...r,source:'MapTiler POI'})));
+          }catch(e){}finally{clearTimeout(timer);}
         }
       };
-      await Promise.all(Array.from({length:Math.min(3,queryPoints.length)},worker));
+      await Promise.all(Array.from({length:Math.min(3,samples.length)},workerMt));
     }
   }
 
-  // Final route-corridor filtering happens after the sources are merged. Keep
-  // every real charger near the route; recommendation logic later chooses 1–4.
   const filtered=[];
   for(const st of unique.values()){
     const p=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-    if(p.offsetKm<=SEARCH_RADIUS_M/1000){
-      filtered.push({...st,routeKm:p.km,routeOffsetKm:p.offsetKm});
-    }
+    if(p.offsetKm<=13)filtered.push({...st,routeKm:p.km,routeOffsetKm:p.offsetKm});
   }
   filtered.sort((a,b)=>a.routeKm-b.routeKm);
+  console.log(`[EV] corridor segments=${segments.length}, raw=${unique.size}, nearRoute=${filtered.length}`);
   return filtered;
 }
 function getEvReferencePosition(){
@@ -5400,10 +5391,10 @@ function renderEvChargingRecommendation(){
   let html=`<div class="ev-charge-title">⚡ สถานีชาร์จตามแนวเส้นทาง</div><div class="ev-charge-meta">WLTP Real-time ${result.wltpRealtimeKm.toFixed(1)} km · Safety ${result.safetyKm.toFixed(0)} km · ${rangeLabel} · Route เหลือ ${result.remainingKm.toFixed(1)} km</div>`;
   const candidates=result.candidates.slice(0,EV_DISPLAY_COUNT);renderEvChargingMarkers(result.allStations||candidates);
   if(!candidates.length){
-    html+=`<div class="ev-charge-meta">ยังไม่พบสถานีชาร์จในข้อมูล OSM/MapTiler ตามแนวเส้นทาง · ระบบจะลองแหล่งข้อมูลสำรองอีกครั้ง</div>`;
+    html+=`<div class="ev-charge-meta">ยังไม่พบสถานีจากฐานข้อมูลที่ตอบกลับ · ระบบค้นหาตามแนวเส้นทางจาก OSM/Overpass และ MapTiler แล้ว</div>`;
     el.innerHTML=html;return;
   }
-  html+=`<div class="ev-charge-meta">แสดงสถานีล่วงหน้าสูงสุด ${EV_DISPLAY_COUNT} แห่ง โดยให้ความสำคัญกับสถานีที่อยู่ก่อนถึงจุด ${result.usableWltpKm.toFixed(1)} km และใช้สถานีถัดไปเป็นตัวเลือกสำรอง</div><div class="ev-charge-list">`;
+  html+=`<div class="ev-charge-meta">บนแผนที่แสดงสถานีที่ค้นพบตามแนวเส้นทางทั้งหมด ${result.allStations.length} แห่ง · รายการแนะนำ ${EV_DISPLAY_COUNT} แห่ง โดยให้ความสำคัญกับสถานีก่อนถึงจุด ${result.usableWltpKm.toFixed(1)} km และใช้สถานีถัดไปเป็นตัวเลือกสำรอง</div><div class="ev-charge-list">`;
   candidates.forEach((st,i)=>{
     const before=st.aheadKm<=result.usableWltpKm;
     html+=`<div class="ev-charge-card"><div><span class="ev-charge-rank">${i+1}</span><b>${escapeHtml(st.name)}</b></div>${st.operator?`<div class="ev-line">ยี่ห้อ/ผู้ให้บริการ: ${escapeHtml(st.operator)}</div>`:''}<div class="ev-line">จากรถอีกประมาณ <b>${st.aheadKm.toFixed(1)} km</b> · ${before?'ก่อนถึงจุด WLTP/Safety':'ถัดจากจุด WLTP/Safety'} · ห่างแนวเส้นทาง ${st.routeOffsetKm.toFixed(1)} km</div>${st.power?`<div class="ev-line">กำลังชาร์จ: ${escapeHtml(st.power)}</div>`:''}${st.sockets?`<div class="ev-line">หัวชาร์จ: ${escapeHtml(st.sockets)}</div>`:''}${st.opening?`<div class="ev-line">เวลาเปิด: ${escapeHtml(st.opening)}</div>`:''}<div class="ev-charge-actions"><button type="button" data-ev-stop="${i}">⚡ แวะชาร์จ</button><button type="button" data-ev-center="${i}">ดูตำแหน่ง</button></div></div>`;
@@ -5480,21 +5471,46 @@ function addEvChargingStop(st){
   buildPlannedRoute();
 }
 function fitCompletePlannedRoute(coords){
-  if(!map||!Array.isArray(coords)||coords.length<2)return;
+  if(!Array.isArray(coords)||coords.length<2)return;
+  // Keep the latest route so a MapLibre style/load event cannot overwrite the
+  // overview with the initial BASE_ZOOM camera.
+  pendingCompleteRouteFit=coords.slice();
+  if(!map)return;
   const doFit=()=>{
-    if(!map||!coords.length)return;
+    if(!map||!Array.isArray(pendingCompleteRouteFit)||pendingCompleteRouteFit.length<2)return;
+    const c=pendingCompleteRouteFit;
     try{
-      map.stop();map.resize();
-      const lngs=coords.map(p=>Number(p[1])),lats=coords.map(p=>Number(p[0]));
+      map.stop();
+      map.resize();
+      const lngs=c.map(p=>Number(p[1])).filter(Number.isFinite);
+      const lats=c.map(p=>Number(p[0])).filter(Number.isFinite);
+      if(lngs.length<2||lats.length<2)return;
       const bounds=[[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]];
-      const opts={padding:{top:55,right:35,bottom:65,left:35},maxZoom:10,animate:false};
+      // Do not use a hard maxZoom that can prevent the complete route from
+      // fitting on a narrow/tall map. MapLibre calculates the zoom from bounds.
+      const opts={padding:{top:70,right:45,bottom:85,left:45},animate:false};
       const nativeFit=map._nativeFitBounds;
       if(nativeFit)nativeFit(bounds,opts);else map.fitBounds(bounds,opts);
-      setTimeout(()=>{try{map.resize();if(nativeFit)nativeFit(bounds,opts);else map.fitBounds(bounds,opts);}catch(e){}},180);
+      // A second fit after layout/resize catches mobile/browser viewport changes.
+      setTimeout(()=>{
+        try{
+          if(!map||!pendingCompleteRouteFit)return;
+          map.resize();
+          const cc=pendingCompleteRouteFit;
+          const ll=cc.map(p=>Number(p[1])).filter(Number.isFinite),la=cc.map(p=>Number(p[0])).filter(Number.isFinite);
+          const bb=[[Math.min(...ll),Math.min(...la)],[Math.max(...ll),Math.max(...la)]];
+          const nf=map._nativeFitBounds;
+          if(nf)nf(bb,opts);else map.fitBounds(bb,opts);
+        }catch(e){console.warn('[Complete Route Fit retry]',e);}
+      },350);
     }catch(e){console.warn('[Complete Route Fit]',e);}
   };
-  if(map.loaded?.()||map._loaded||map.isStyleLoaded?.())requestAnimationFrame(doFit);
-  else map.once('load',()=>setTimeout(doFit,60));
+  if(map.loaded?.()||map._loaded||map.isStyleLoaded?.()) requestAnimationFrame(doFit);
+  else {
+    // Do not let the map's initial load camera win. The load handler also calls
+    // this function after its initialization work.
+    try{map.once('load',()=>setTimeout(doFit,80));}catch(e){}
+  }
 }
 async function buildPlannedRoute(){
   const points=collectPlannerPoints();
@@ -5508,7 +5524,7 @@ async function buildPlannedRoute(){
     routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan._rerouting=false;routePlan._lastRerouteAt=0;
     routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;
     clearEvChargingMarkers();
-    // V5.19: explicitly push the newly calculated route into the MapLibre
+    // V5.20: explicitly push the newly calculated route into the MapLibre
     // GeoJSON source. Previously the route source could remain empty when the
     // route was calculated after the map had already loaded.
     if(map&&map._loaded){ ensureRoutePlanLayer()?.set(result.coords); }
@@ -5528,8 +5544,8 @@ async function buildPlannedRoute(){
         const ev=calculateEvCandidates();
         // POIs are overlays. Never refit the camera after EV search: doing so
         // can change the complete-route overview just because a station arrived.
-        if(map&&map._loaded&&ev.candidates.length){
-          try{setEvChargingPoiData(ev.candidates);}catch(e){console.warn('EV POI render failed:',e);}
+        if(map&&map._loaded&&ev.allStations.length){
+          try{setEvChargingPoiData(ev.allStations);}catch(e){console.warn('EV POI render failed:',e);}
         }
         routePlannerHint(stations.length&&ev.candidates.length?'หาเส้นทางแล้ว · แสดงเส้นทางทั้งหมด + สถานีชาร์จ 1–4 จุด':'หาเส้นทางแล้ว · ไม่พบสถานีชาร์จตามแนวเส้นทางจากข้อมูล MapTiler/OSM · ระบบจะลองค้นหาใหม่');
       }
