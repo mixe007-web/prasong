@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.35 Auto Trip Recorder</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.36 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1029,7 +1029,7 @@ span[id^="wltpSegment"] {
 
 
 /* ================= NAV MODE ================= */
-.nav-mode-float{position:fixed;right:18px;bottom:22px;z-index:9998;width:52px!important;height:52px!important;min-width:52px!important;padding:0!important;margin:0!important;border-radius:50%!important;display:flex;align-items:center;justify-content:center;font-size:22px!important;line-height:1;background:rgba(5,16,28,.78)!important;border:1px solid rgba(0,220,255,.45)!important;box-shadow:0 6px 22px rgba(0,0,0,.45),0 0 14px rgba(0,220,255,.10);backdrop-filter:blur(8px);cursor:pointer;pointer-events:auto}.nav-mode-float:hover{transform:translateY(-1px);border-color:rgba(0,220,255,.75)!important}.nav-mode-float.active{border-color:rgba(0,255,154,.8)!important;box-shadow:0 6px 22px rgba(0,0,0,.45),0 0 18px rgba(0,255,154,.18)}
+.map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.38);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
 
 /* ===== V5.9 MODERN ROUTE PLANNER ===== */
@@ -1045,7 +1045,7 @@ span[id^="wltpSegment"] {
 .route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}
 @media (max-width:560px){.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
 
-/* V5.35 AUTO Trip Recorder */
+/* V5.36 AUTO Trip Recorder */
 .trip-rec-active{border-color:rgba(0,220,255,.32)!important}
 .trip-rec-title{font-weight:800;font-size:14px;margin-bottom:10px;color:var(--cyan)}
 .trip-rec-row,.trip-rec-battery-row{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:center;padding:5px 0;font-size:12px}
@@ -1073,7 +1073,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.35-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.36-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1122,8 +1122,11 @@ span[id^="wltpSegment"] {
 		</div>
 		<div id="tripHistory"></div>
 	</div>
-	<!-- V5.35: NAV mode and GPS follow controls stay behind the Trip Recorder panel when it is open -->
-	<button id="navModeBtn" class="nav-mode-float" type="button" title="สลับ NAV / EXPLORE" aria-label="สลับโหมด NAV">🧭</button>
+	<!-- V5.36: NAV mode returns to its original position on the map -->
+                <div class="map-mode-control" aria-label="Map mode control">
+                  <span class="map-mode-label">MODE</span>
+                  <button id="navModeBtn" type="button" title="สลับ NAV / EXPLORE">🧭 NAV</button>
+                </div>
 	<div id="speedometer-top">
 		<div id="speedometer">
 		
@@ -1521,9 +1524,9 @@ function tripRecorderRenderHistory() {
       <div class="record-details">
         <div class="history-line"><span class="field-name">เวลา</span><span class="field-value">${new Date(record.timestamp).toLocaleString()}</span></div>
         <div class="history-line"><span class="field-name">Start/km</span><span class="field-value">${Number(record.startWltp).toFixed(3)} km (WLTP)</span></div>
-        <div class="history-battery-line"><span class="field-name">แบตเริ่มต้น</span>${tripRecorderBatteryHtml('Start',startSoc)}<span class="history-battery-wltp">${startSoc.toFixed(2)}% · ${Number(record.startWltp).toFixed(3)} km</span></div>
+        <div class="history-battery-line"><span class="field-name">แบตเริ่มต้น</span>${tripRecorderBatteryHtml('Start',startSoc)}<span class="history-battery-wltp">${startSoc.toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">End/km</span><span class="field-value">${Number(record.endWltp).toFixed(3)} km (Real-time WLTP)</span></div>
-        <div class="history-battery-line"><span class="field-name">แบตสิ้นสุด</span>${tripRecorderBatteryHtml('End',endSoc)}<span class="history-battery-wltp">${endSoc.toFixed(2)}% · ${Number(record.endWltp).toFixed(3)} km</span></div>
+        <div class="history-battery-line"><span class="field-name">แบตสิ้นสุด</span>${tripRecorderBatteryHtml('End',endSoc)}<span class="history-battery-wltp">${endSoc.toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">SOC/Used</span><span class="field-value">${Number(record.usedSOC).toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">Distance(km)</span><span class="field-value">${Number(record.distance).toFixed(3)} km</span></div>
       </div>
