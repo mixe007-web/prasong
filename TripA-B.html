@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.30 EV Tracker</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.33 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1039,17 +1039,30 @@ span[id^="wltpSegment"] {
 .planner-place{position:relative;min-width:0}.planner-place-input{width:100%;box-sizing:border-box;background:rgba(0,0,0,.30);border:1px solid rgba(255,255,255,.15);color:inherit;border-radius:8px;padding:8px 9px;font-size:11px;outline:none}.planner-place-input:focus{border-color:rgba(0,220,255,.55);box-shadow:0 0 0 2px rgba(0,220,255,.08)}
 .planner-place-meta{display:flex;gap:6px;align-items:center;margin-top:3px;min-height:14px;font-size:9px;opacity:.68;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.planner-place-meta .coord{overflow:hidden;text-overflow:ellipsis}.planner-results{position:absolute;left:0;right:0;top:36px;z-index:10020;background:#07111d;border:1px solid rgba(0,220,255,.32);border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,.45);overflow:hidden;display:none}.planner-results.open{display:block}.planner-result{display:block;width:100%;padding:8px 9px;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:transparent;color:inherit;text-align:left;cursor:pointer;font-size:10px}.planner-result:last-child{border-bottom:0}.planner-result:hover,.planner-result:focus{background:rgba(0,220,255,.10)}.planner-result b{display:block;font-size:11px;font-weight:700}.planner-result span{display:block;opacity:.62;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .route-planner .planner-row>button{font-size:10px;padding:7px 8px;white-space:nowrap}.planner-stop-row{grid-template-columns:76px 1fr auto!important}.planner-stop-actions{display:flex;gap:4px}.planner-stop-actions button{font-size:10px!important;padding:7px 7px!important}
-.planner-ev-safety{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;padding:7px 8px;border:1px solid rgba(255,200,60,.22);border-radius:8px;background:rgba(255,180,0,.045);font-size:10px}.planner-ev-safety-control{display:flex;align-items:center;gap:4px}.planner-ev-safety-control input{width:72px;box-sizing:border-box;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);color:inherit;border-radius:6px;padding:5px 6px;font-size:10px;text-align:right}.planner-ev-safety-control span{font-size:9px;opacity:.7}.route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}
-.ev-charge-panel{margin-top:8px;padding:9px;border:1px solid rgba(0,220,255,.22);border-radius:9px;background:rgba(0,20,35,.42);display:none}.ev-charge-title{font-size:11px;color:var(--cyan);font-weight:700}.ev-charge-meta{font-size:9px;opacity:.68;margin-top:3px;line-height:1.45}.ev-charge-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}.ev-charge-card{padding:8px;border-radius:8px;border:1px solid rgba(0,220,255,.16);background:rgba(0,0,0,.16);min-width:0}.ev-charge-card b{font-size:11px}.ev-charge-card .ev-line{font-size:9px;opacity:.78;margin-top:3px;line-height:1.45}.ev-charge-actions{display:flex;gap:5px;margin-top:6px}.ev-charge-actions button{font-size:10px!important;padding:5px 8px!important;flex:1}.ev-charge-rank{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(0,200,255,.15);border:1px solid rgba(0,220,255,.35);margin-right:5px}.ev-map-marker{position:relative;z-index:10000!important;display:flex;align-items:center;gap:4px;padding:3px 6px;border-radius:999px;background:rgba(3,12,22,.92);border:1px solid rgba(0,220,255,.65);box-shadow:0 3px 12px rgba(0,0,0,.45);white-space:nowrap;font:700 9px/1 Rubik,sans-serif;color:#fff;pointer-events:auto}.ev-map-marker .ev-map-icon{font-size:17px;line-height:1}.ev-map-marker .ev-map-brand{max-width:110px;overflow:hidden;text-overflow:ellipsis}.ev-map-marker .ev-map-distance{color:var(--cyan);margin-left:2px}.route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}@media(max-width:560px){.ev-charge-list{grid-template-columns:1fr}.ev-map-marker .ev-map-brand{max-width:90px}}
+.route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}
+.route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}
 .route-plan-marker{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7));cursor:grab}.route-plan-marker:active{cursor:grabbing}
 .route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}
 @media (max-width:560px){.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
+
+/* V5.33 AUTO Trip Recorder */
+.trip-rec-active{border-color:rgba(0,220,255,.32)!important}
+.trip-rec-title{font-weight:800;font-size:14px;margin-bottom:10px;color:var(--cyan)}
+.trip-rec-row,.trip-rec-battery-row{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:center;padding:5px 0;font-size:12px}
+.trip-rec-row strong{font-variant-numeric:tabular-nums}
+.trip-rec-battery-row{grid-template-columns:100px 1fr auto}
+.trip-rec-battery{display:flex;gap:2px;align-items:center;min-width:0}
+.trip-rec-battery-cell{height:14px;flex:1;min-width:5px;border-radius:2px;background:#ccc;opacity:.3}
+.trip-rec-battery-cell.filled{background:linear-gradient(to top,#0f0,#0c0);opacity:1}
+.trip-rec-status{margin-top:8px;font-size:10px;color:var(--cyan);opacity:.8}
+.trip-rec-empty{padding:12px;text-align:center;opacity:.65;font-size:11px}
+.trip-rec-delete{margin-top:7px}
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.30-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.33-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1079,15 +1092,7 @@ span[id^="wltpSegment"] {
 			</label>
 		</div>
 	</div>
-            <!-- V5.30: Route Planner removed. EV station discovery will be handled as a standalone feature. -->
-            <div id="evStationPanel" class="ev-charge-panel" style="margin-top:12px;">
-              <div style="font-weight:700;font-size:13px;margin-bottom:4px;">⚡ สถานีชาร์จ EV</div>
-              <div style="font-size:11px;opacity:.72;line-height:1.45;">
-                ระบบวางแผนเส้นทางถูกนำออกแล้ว เนื่องจากไม่ตอบโจทย์การค้นหาสถานีชาร์จทั่วประเทศไทย
-              </div>
-            </div>
-
-	<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px;">
+<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px;">
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 		<button id="startBtn">▶ Trip Start</button>
 		<button id="stopBtn" disabled>■ Stop Trip</button>
@@ -1325,7 +1330,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 (() => {
-const APP_VERSION = "PRO-66-V5.26-EV-PHOTON-FIRST";
+const APP_VERSION = "PRO-68-V5.33-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -1363,294 +1368,276 @@ function escapeHtml(value) {
   }[ch]));
 }
 
-//Trip Recorder - Standalone
+//Trip Recorder - AUTO SEGMENT RECORDER
+// Records only. No manual Save / Reset / Start-km / End-km editing is required.
+// Part 1 is the first segment; checked Part 2 / Part 3 become the next automatic segments.
 const tripRecorderBtn = document.getElementById("tripRecorderBtn");
 const tripRecorderPanel = document.getElementById("tripRecorderPanel");
 const tripHistoryDiv = document.getElementById("tripHistory");
 const tripToggleBtn = document.getElementById("tripToggleBtn");
 const tripDeleteAllBtn = document.getElementById("tripDeleteAllBtn");
-tripRecorderBtn.addEventListener("click", () => {
-	if (!tripRecorderPanel.classList.contains("open")) {
-		tripRecorderPanel.style.display = "block";
-			requestAnimationFrame(() => {
-				tripRecorderPanel.classList.add("open");
-			});
-	} else {
-		tripRecorderPanel.classList.remove("open");
-		tripRecorderPanel.addEventListener("transitionend", function hide() {
-			tripRecorderPanel.style.display = "none";
-			tripRecorderPanel.removeEventListener("transitionend", hide);
-		});
-	}
-});
-document.getElementById("backToMainBtn").addEventListener("click", () => {
-	if (tripRecorderPanel.classList.contains("open")) {
-		tripRecorderPanel.classList.remove("open");
-		tripRecorderPanel.addEventListener("transitionend", function hide() {
-			tripRecorderPanel.style.display = "none";
-			tripRecorderPanel.removeEventListener("transitionend", hide);
-		});
-	}
-});
-let trips = JSON.parse(localStorage.getItem("tripRecorderTrips")) || [
-	{id:1, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
-	{id:2, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0},
-	{id:3, name:'', startSOC:'', endSOC:'', usedSOC:0, distanceAccum:0, lastDistance:0, saved:false, locked:false, distanceStartAt: 0}
-];
-let allHistory = JSON.parse(localStorage.getItem("tripRecorderHistory")||"[]");
-let showAll = false;
-window.addEventListener("load", () => {
-	const mainDistanceNow = parseFloat(document.getElementById('distance').innerText) || 0;
-		trips.forEach(trip => {
-			if (!trip.locked) {
-				trip.distanceStartAt = mainDistanceNow;
-				trip.lastDistance = mainDistanceNow;
-			}
-		});
-  saveTripsToStorage();
-});
-// ===================== Render Trips =====================
-function renderTrips(){
-	const tripsDiv = document.getElementById("trips");
-	tripsDiv.innerHTML='';
-	const fragment = document.createDocumentFragment();
-	trips.forEach(trip=>{
-		const div = document.createElement("div");
-		div.className="trip-card";
-		div.innerHTML=`
-		<div class="trip-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
-			<label for="tripName${trip.id}" style="flex: 0 0 auto;">Trip:</label>
-			<input type="text" id="tripName${trip.id}" value="${escapeHtml(trip.name || '')}" placeholder="กรอกชื่อทริป" style="flex: 1 1 auto; min-width: 0;">
-		</div>
-		<div class="trip-row battery-wrapper">
-			<label>Start/km:</label>
-			<div class="battery-bar-container"><div class="battery-bar-fill" id="startBar${trip.id}"></div></div>
-			<input type="number" id="start${trip.id}" value="${trip.startSOC}" min="0" max="602" maxlength="3">
-			<span id="startPct${trip.id}" class="percent">0%</span>
-		</div>
-		<div class="trip-row battery-wrapper">
-			<label>End/km:</label>
-			<div class="battery-bar-container"><div class="battery-bar-fill" id="endBar${trip.id}"></div></div>
-			<input type="number" id="end${trip.id}" value="${trip.endSOC}" min="0" max="602" maxlength="3">
-			<span id="endPct${trip.id}" class="percent">0%</span>
-		</div>
-		<div class="trip-row info-distance">
-			<label>SOC/Used:</label>
-			<span id="used${trip.id}" class="used">${trip.usedSOC.toFixed(2)}%</span>
-		</div>
-		<div class="trip-row info-distance">
-			<label>Distance(km):</label>
-			<span id="tripDistance${trip.id}" class="distance">${trip.distanceAccum.toFixed(3)}km </span>
-		</div>
-		<div class="progress-bar-container"><div class="progress-bar" id="progress${trip.id}"></div></div>
-		<div class="button-row">
-			<button id="save${trip.id}" ${trip.saved?'class="saved"':''}>บันทึก</button>
-			<button id="reset${trip.id}">Reset</button>
-		</div>
-		`;
-		fragment.appendChild(div);
-		const tripNameInput = div.querySelector(`#tripName${trip.id}`);
-		tripNameInput.addEventListener('input', () => {
-			trip.name = tripNameInput.value;
-		saveTripsToStorage();
-	});
-    const startInput = div.querySelector(`#start${trip.id}`);
-    const endInput = div.querySelector(`#end${trip.id}`);
-    const startPctElem = div.querySelector(`#startPct${trip.id}`);
-    const endPctElem = div.querySelector(`#endPct${trip.id}`);
-    const usedElem = div.querySelector(`#used${trip.id}`);
-    const distElem = div.querySelector(`#tripDistance${trip.id}`);
-    const saveBtn = div.querySelector(`#save${trip.id}`);
-    const resetBtn = div.querySelector(`#reset${trip.id}`);
-    const progressBar = div.querySelector(`#progress${trip.id}`);
-    const startBar = div.querySelector(`#startBar${trip.id}`);
-    const endBar = div.querySelector(`#endBar${trip.id}`);
-    function updateBatteryBar(bar,pct){
-		pct=Math.min(Math.max(pct,0),100);
-		bar.style.width=pct+'%';
-		if(pct<10) bar.style.background='linear-gradient(to top, red 0%, darkred 100%)';
-		else if(pct<30) bar.style.background='linear-gradient(to top, yellow 0%, orange 100%)';
-		else if(pct<70) bar.style.background='linear-gradient(to top, gold 0%, darkgoldenrod 100%)';
-		else bar.style.background='linear-gradient(to top, #0f0 0%, #0c0 100%)';
-    }
-    function updatePercentAndUsed(){
-		let startVal=parseFloat(startInput.value)||0;
-		let endVal=parseFloat(endInput.value)||0;
-		if(startVal>602) startVal=602,startInput.value=602;
-		if(endVal>602) endVal=602,endInput.value=602;
-		if(endVal>startVal) endVal=startVal,endInput.value=startVal;
-		const startPct=Math.min(Math.max(startVal/602*100,0),100);
-		const endPct=Math.min(Math.max(endVal/602*100,0),100);
-		startPctElem.innerText=startPct.toFixed(2)+'%';
-		endPctElem.innerText=endPct.toFixed(2)+'%';
-		trip.usedSOC=startPct-endPct;
-		usedElem.innerText=trip.usedSOC.toFixed(2)+'%';
-		updateBatteryBar(startBar,startPct);
-		updateBatteryBar(endBar,endPct);
-		const percent=Math.min(trip.distanceAccum/100*100,100);
-		progressBar.style.width=percent+'%';
-    }
-    startInput.addEventListener('input',()=>{
-      trip.startSOC=startInput.value;
-      updatePercentAndUsed();
-      saveTripsToStorage();
+const TRIP_RECORDER_HISTORY_KEY = "tripRecorderSegmentHistory";
+const TRIP_RECORDER_STATE_KEY = "tripRecorderSegmentState";
+
+// Remove the old manual Trip Recorder data. The new segment history replaces it.
+try { localStorage.removeItem("tripRecorderHistory"); } catch (_) {}
+try { localStorage.removeItem("tripRecorderTrips"); } catch (_) {}
+
+let tripRecorderHistory = [];
+try {
+  tripRecorderHistory = JSON.parse(localStorage.getItem(TRIP_RECORDER_HISTORY_KEY) || "[]");
+  if (!Array.isArray(tripRecorderHistory)) tripRecorderHistory = [];
+} catch (_) { tripRecorderHistory = []; }
+
+let tripRecorderState = {
+  current: null,
+  completedParts: [],
+  sequence: 0
+};
+try {
+  const savedState = JSON.parse(localStorage.getItem(TRIP_RECORDER_STATE_KEY) || "null");
+  if (savedState && typeof savedState === "object") tripRecorderState = { ...tripRecorderState, ...savedState };
+} catch (_) {}
+if (!Array.isArray(tripRecorderState.completedParts)) tripRecorderState.completedParts = [];
+
+let tripRecorderShowAll = false;
+let tripRecorderUiTimer = null;
+
+function saveTripRecorderState() {
+  try { localStorage.setItem(TRIP_RECORDER_STATE_KEY, JSON.stringify(tripRecorderState)); } catch (_) {}
+}
+function saveTripRecorderHistory() {
+  try { localStorage.setItem(TRIP_RECORDER_HISTORY_KEY, JSON.stringify(tripRecorderHistory)); } catch (_) {}
+}
+function tripRecorderFullWltpKm() {
+  return VEHICLE_CONFIG.nedcKm / VEHICLE_CONFIG.wltpFactor;
+}
+function tripRecorderGetPartKm(part) {
+  const input = document.getElementById(`inputKm${part}`);
+  const value = Number(input?.value);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+function tripRecorderGetPartWltp(part) {
+  const km = tripRecorderGetPartKm(part);
+  return km > 0 ? km / VEHICLE_CONFIG.wltpFactor : 0;
+}
+function tripRecorderSelectedParts() {
+  const selected = [];
+  if (tripRecorderGetPartKm(1) > 0) selected.push(1);
+  for (const part of [2, 3]) {
+    const chk = document.getElementById(`chkSegment${part}`);
+    if (chk?.checked && tripRecorderGetPartKm(part) > 0) selected.push(part);
+  }
+  return selected;
+}
+function tripRecorderNextPart() {
+  const selected = tripRecorderSelectedParts();
+  // If the previous cycle is complete, begin a new cycle from Part 1.
+  if (selected.every(part => tripRecorderState.completedParts.includes(part))) {
+    tripRecorderState.completedParts = [];
+  }
+  return selected.find(part => !tripRecorderState.completedParts.includes(part)) || selected[0];
+}
+function tripRecorderRealtimeWltp() {
+  const elem = document.getElementById("wltpKmValue");
+  const fromUi = Number.parseFloat(String(elem?.textContent || "").replace(/[^0-9.+-]/g, ""));
+  if (Number.isFinite(fromUi)) return Math.max(0, fromUi);
+  const soc = Number.parseFloat(String(document.getElementById("socPercent")?.textContent || "").replace(/[^0-9.+-]/g, ""));
+  if (Number.isFinite(soc)) return Math.max(0, soc / 100 * tripRecorderFullWltpKm());
+  return 0;
+}
+function tripRecorderSocFromWltp(wltpKm) {
+  const full = tripRecorderFullWltpKm();
+  return full > 0 ? Math.min(Math.max((Number(wltpKm) / full) * 100, 0), 100) : 0;
+}
+function tripRecorderCurrentDistance() {
+  return Math.max(0, Number(cumulativeDistance) || 0);
+}
+function tripRecorderFormatKm(value) {
+  return `${Math.max(0, Number(value) || 0).toFixed(3)} km`;
+}
+function tripRecorderBatteryHtml(prefix, pct) {
+  const safe = Math.min(Math.max(Number(pct) || 0, 0), 100);
+  const bars = Array.from({length:10}, (_,i) => {
+    const filled = safe >= ((i + 1) * 10);
+    return `<span class="trip-rec-battery-cell${filled ? ' filled' : ''}"></span>`;
+  }).join('');
+  return `<div class="trip-rec-battery" aria-label="${prefix} ${safe.toFixed(2)}%">${bars}</div>`;
+}
+function tripRecorderRenderCurrent() {
+  const el = document.getElementById("trips");
+  if (!el) return;
+  const cur = tripRecorderState.current;
+  if (!cur) {
+    el.innerHTML = `<div class="trip-card trip-rec-empty">ยังไม่มีช่วงที่กำลังบันทึก — กด Trip Start เพื่อเริ่มบันทึกอัตโนมัติ</div>`;
+    return;
+  }
+  const endWltp = tripRecorderRealtimeWltp();
+  const endSoc = tripRecorderSocFromWltp(endWltp);
+  const usedSoc = Math.max(0, cur.startSOC - endSoc);
+  const distance = tripRecorderCurrentDistance();
+  el.innerHTML = `
+    <div class="trip-card trip-rec-active">
+      <div class="trip-rec-title">${escapeHtml(cur.tripName)} · Part ${cur.part}</div>
+      <div class="trip-rec-row"><span>Start/km:</span><strong>${cur.startWltp.toFixed(3)} km</strong></div>
+      <div class="trip-rec-battery-row"><span></span>${tripRecorderBatteryHtml('Start',cur.startSOC)}<strong>${cur.startSOC.toFixed(2)}%</strong></div>
+      <div class="trip-rec-row"><span>End/km:</span><strong>${endWltp.toFixed(3)} km</strong></div>
+      <div class="trip-rec-battery-row"><span></span>${tripRecorderBatteryHtml('End',endSoc)}<strong>${endSoc.toFixed(2)}%</strong></div>
+      <div class="trip-rec-row"><span>SOC/Used:</span><strong>${usedSoc.toFixed(2)}%</strong></div>
+      <div class="trip-rec-row"><span>Distance(km):</span><strong>${distance.toFixed(3)} km</strong></div>
+      <div class="trip-rec-status">● AUTO RECORDING · Part ${cur.part}</div>
+    </div>`;
+}
+function tripRecorderRenderHistory() {
+  if (!tripHistoryDiv) return;
+  const sorted = [...tripRecorderHistory].sort((a,b) => Number(b.timestamp || b.endTime || 0) - Number(a.timestamp || a.endTime || 0));
+  const display = tripRecorderShowAll ? sorted : sorted.slice(0, 1);
+  tripHistoryDiv.innerHTML = '';
+  if (!sorted.length) {
+    tripHistoryDiv.innerHTML = '<div class="trip-rec-empty">ยังไม่มีประวัติช่วงการเดินทาง</div>';
+    return;
+  }
+  const summary = document.createElement('div');
+  summary.className = 'history-summary';
+  const totalKm = sorted.reduce((n,r) => n + (Number(r.distance) || 0), 0);
+  summary.innerHTML = `<div class="history-stat"><b>${sorted.length}</b><span>Segments</span></div><div class="history-stat"><b>${totalKm.toFixed(1)} km</b><span>Total distance</span></div><div class="history-stat"><b>${new Set(sorted.map(r=>r.tripName)).size}</b><span>Trips</span></div>`;
+  tripHistoryDiv.appendChild(summary);
+  display.forEach(record => {
+    const div = document.createElement('div');
+    div.className = 'trip-history-record';
+    div.innerHTML = `
+      <div class="record-header">${escapeHtml(record.tripName)} · Part ${record.part} | ${new Date(record.timestamp).toLocaleString()}</div>
+      <div class="record-details">
+        <div><span class="field-name">Start/km:</span> <span class="field-value">${Number(record.startWltp).toFixed(3)} km</span></div>
+        <div><span class="field-name">End/km:</span> <span class="field-value">${Number(record.endWltp).toFixed(3)} km</span></div>
+        <div><span class="field-name">SOC/Used:</span> <span class="field-value">${Number(record.usedSOC).toFixed(2)}%</span></div>
+        <div><span class="field-name">Distance:</span> <span class="field-value">${Number(record.distance).toFixed(3)} km</span></div>
+      </div>
+      <button class="deleteBtn trip-rec-delete" data-id="${escapeHtml(record.id)}">ลบช่วงนี้</button>`;
+    tripHistoryDiv.appendChild(div);
+  });
+}
+function tripRecorderRender() {
+  tripRecorderRenderCurrent();
+  tripRecorderRenderHistory();
+}
+function tripRecorderBeginSegment() {
+  const part = tripRecorderNextPart();
+  const startWltp = tripRecorderGetPartWltp(part);
+  if (!(startWltp > 0)) return false;
+  const tripName = (plateInput?.value || '').trim() || 'Trip';
+  tripRecorderState.current = {
+    id: `seg-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    tripName,
+    part,
+    startWltp,
+    startSOC: tripRecorderSocFromWltp(startWltp),
+    distanceBase: tripRecorderCurrentDistance(),
+    startTime: Date.now()
+  };
+  tripRecorderState.sequence = Number(tripRecorderState.sequence || 0) + 1;
+  saveTripRecorderState();
+  tripRecorderRenderCurrent();
+  if (tripRecorderUiTimer) clearInterval(tripRecorderUiTimer);
+  tripRecorderUiTimer = setInterval(() => {
+    if (!tripRecorderState.current) return;
+    tripRecorderRenderCurrent();
+  }, 500);
+  return true;
+}
+function tripRecorderFinalizeSegment(endTime = Date.now()) {
+  const cur = tripRecorderState.current;
+  if (!cur) return null;
+  const endWltp = tripRecorderRealtimeWltp();
+  const endSOC = tripRecorderSocFromWltp(endWltp);
+  const distance = Math.max(0, tripRecorderCurrentDistance() - (Number(cur.distanceBase) || 0));
+  const record = {
+    id: cur.id,
+    tripName: cur.tripName,
+    part: cur.part,
+    startWltp: Number(cur.startWltp) || 0,
+    endWltp: Number(endWltp) || 0,
+    startSOC: Number(cur.startSOC) || 0,
+    endSOC: Number(endSOC) || 0,
+    usedSOC: Math.max(0, (Number(cur.startSOC) || 0) - (Number(endSOC) || 0)),
+    distance,
+    startTime: Number(cur.startTime) || endTime,
+    endTime,
+    timestamp: endTime
+  };
+  tripRecorderHistory.push(record);
+  if (tripRecorderHistory.length > 300) tripRecorderHistory.splice(0, tripRecorderHistory.length - 300);
+  tripRecorderState.completedParts = Array.from(new Set([...(tripRecorderState.completedParts || []), cur.part]));
+  tripRecorderState.current = null;
+  saveTripRecorderHistory();
+  saveTripRecorderState();
+  if (tripRecorderUiTimer) { clearInterval(tripRecorderUiTimer); tripRecorderUiTimer = null; }
+  tripRecorderRender();
+  return record;
+}
+
+tripRecorderBtn?.addEventListener("click", () => {
+  if (!tripRecorderPanel.classList.contains("open")) {
+    tripRecorderPanel.style.display = "block";
+    requestAnimationFrame(() => tripRecorderPanel.classList.add("open"));
+  } else {
+    tripRecorderPanel.classList.remove("open");
+    tripRecorderPanel.addEventListener("transitionend", function hide() {
+      tripRecorderPanel.style.display = "none";
+      tripRecorderPanel.removeEventListener("transitionend", hide);
     });
-    endInput.addEventListener('input',()=>{
-      trip.endSOC=endInput.value;
-      updatePercentAndUsed();
-      saveTripsToStorage();
-    });
-    // ================= Save =================
-    saveBtn.addEventListener('click', () => {
-		if (trip.saved) {
-			alert('ทริปนี้บันทึกแล้ว');
-			return;
-		}
-		updateDistanceAccum(trip, distElem);
-		trip.startSOC = startInput.value;
-		trip.endSOC = endInput.value;
-		updatePercentAndUsed();
-		const currentDistance = parseFloat(distElem.innerText) || 0;
-		trip.distanceAccum = currentDistance;
-		trip.saved = true;
-		trip.locked = true;
-		startInput.disabled = true;
-		endInput.disabled = true;
-		saveBtn.classList.add('saved');
-		saveBtn.innerText = '✔ บันทึกแล้ว';
-		saveBtn.disabled = true;
-		saveTripsToStorage();
-		const newRecord = {
-			tripId: trip.id,
-			tripName: trip.name || `Trip ${trip.id}`,
-			startSOC: parseFloat(startPctElem.innerText),
-			endSOC: parseFloat(endPctElem.innerText),
-			usedSOC: trip.usedSOC,
-			newDistance: currentDistance,
-			timestamp: Date.now()
-		};
-		allHistory.push(newRecord);
-		localStorage.setItem("tripRecorderHistory", JSON.stringify(allHistory));
-		updateHistory();
-	});
-    // ================= Reset =================
-	resetBtn.addEventListener('click', () => {
-		const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
-		trip.startSOC = '';
-		trip.endSOC = '';
-		trip.usedSOC = 0;
-		trip.distanceAccum = 0;
-		trip.lastDistance = 0;
-		trip.distanceStartAt = mainDistance;
-		trip.saved = false;
-		trip.locked = false;
-		trip.name = '';
-		startInput.value = '';
-		endInput.value = '';
-		tripNameInput.value = '';
-		startInput.disabled = false;
-		endInput.disabled = false;
-		saveBtn.disabled = false;
-		startPctElem.innerText = '0%';
-		endPctElem.innerText = '0%';
-		usedElem.innerText = '0.00%';
-		distElem.innerText = '0.000 km';
-		progressBar.style.width = '0%';
-		updateBatteryBar(startBar, 0);
-		updateBatteryBar(endBar, 0);
-		saveBtn.classList.remove('saved');
-		saveBtn.innerText = 'บันทึก';
-		saveTripsToStorage();
-	});
-    updatePercentAndUsed();
-	});
-  tripsDiv.appendChild(fragment);
-}
-// ===================== Update Distance =====================
-function updateDistanceAccum(trip, distElem){
-	const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
-	let delta = mainDistance - (trip.lastDistance || trip.distanceStartAt);
-	if (delta > 0 && delta < 100) {
-		trip.distanceAccum += delta;
-	}
-	trip.lastDistance = mainDistance;
-	distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
-	saveTripsToStorage();
-}
-function saveTripsToStorage(){ localStorage.setItem("tripRecorderTrips",JSON.stringify(trips)); }
-// ===================== History (batch, smooth) =====================
-function updateHistory() {
-	if (!tripHistoryDiv) return;
-	const sorted = [...allHistory].sort((a,b)=>b.timestamp - a.timestamp);
-	const display = showAll ? sorted : [sorted[0]].filter(Boolean);
-	tripHistoryDiv.innerHTML='';
-    const totalCount=sorted.length; const totalKm=sorted.reduce((n,r)=>n+(Number(r.distance??r.newDistance)||0),0); const totalKwh=sorted.reduce((n,r)=>n+(Number(r.energyUsed??r.energyConsumption)||0),0); const summary=document.createElement('div'); summary.className='history-summary'; summary.innerHTML=`<div class="history-stat"><b>${totalCount}</b><span>Trips</span></div><div class="history-stat"><b>${totalKm.toFixed(1)} km</b><span>Total distance</span></div><div class="history-stat"><b>${totalKwh.toFixed(2)} kWh</b><span>Total energy</span></div>`; tripHistoryDiv.appendChild(summary);
-	const batchSize = 100;
-	let index = 0;
-	function renderBatch() {
-		const fragment = document.createDocumentFragment();
-		for(let i=0;i<batchSize && index<display.length;i++,index++){
-			const record = display[index];
-			const dateStr = new Date(record.timestamp).toLocaleDateString();
-			const div = document.createElement('div');
-			div.className = 'trip-history-record';
-			div.innerHTML = `
-			<div class="record-header">
-				${escapeHtml(record.tripName || `Trip ${record.tripId}`)} | ${new Date(record.timestamp).toLocaleDateString()}
-			</div>
-			<div class="record-details">
-				<div><span class="field-name">Start/SOC:</span> <span class="field-value">${(Number(record.startSOC)||0).toFixed(2)}%</span></div>
-				<div><span class="field-name">End/SOC:</span> <span class="field-value">${(Number(record.endSOC)||0).toFixed(2)}%</span></div>
-				<div><span class="field-name">SOC/Used:</span> <span class="field-value">${(Number(record.usedSOC)||0).toFixed(2)}%</span></div>
-				<div><span class="field-name">Distance:</span> <span class="field-value">${(Number(record.newDistance)||0).toFixed(3)} km</span></div>
-			</div>
-			<button class="deleteBtn" data-ts="${record.timestamp}">ลบ</button>
-			`;
-			tripHistoryDiv.appendChild(div);
-		}
-		if(index < display.length) requestAnimationFrame(renderBatch);
-	}
-  requestAnimationFrame(renderBatch);
-}
-tripHistoryDiv.addEventListener('click', e=>{
-	const target=e.target;
-	if(target.classList.contains('deleteBtn')){
-		const ts=parseInt(target.dataset.ts);
-		if(!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
-		allHistory=allHistory.filter(r=>r.timestamp!==ts);
-		localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
-		updateHistory();
-	}
+  }
 });
-tripToggleBtn.addEventListener('click',()=>{
-	showAll=!showAll;
-	tripToggleBtn.innerText = showAll?'History ▼':'History ▲';
-	updateHistory();
+document.getElementById("backToMainBtn")?.addEventListener("click", () => {
+  tripRecorderPanel.classList.remove("open");
+  tripRecorderPanel.addEventListener("transitionend", function hide() {
+    tripRecorderPanel.style.display = "none";
+    tripRecorderPanel.removeEventListener("transitionend", hide);
+  });
 });
-tripDeleteAllBtn.addEventListener('click',()=>{
-	if(!confirm('ต้องการลบประวัติทั้งหมดหรือไม่?')) return;
-	allHistory=[];
-	localStorage.setItem("tripRecorderHistory",JSON.stringify(allHistory));
-	updateHistory();
+tripHistoryDiv?.addEventListener('click', e => {
+  const btn = e.target.closest('.trip-rec-delete');
+  if (!btn) return;
+  const id = String(btn.dataset.id || '');
+  if (!confirm('ต้องการลบช่วงนี้หรือไม่?')) return;
+  tripRecorderHistory = tripRecorderHistory.filter(r => String(r.id) !== id);
+  saveTripRecorderHistory();
+  tripRecorderRenderHistory();
 });
-setInterval(()=>{
-	const mainDistance = parseFloat(document.getElementById('distance').innerText) || 0;
-	trips.forEach(trip=>{
-		if(trip.locked) return;
-		let delta = mainDistance - (trip.lastDistance !== 0 ? trip.lastDistance : trip.distanceStartAt);
-		if (delta > 0 && delta < 100) {
-			trip.distanceAccum += delta;
-		}
-		trip.lastDistance = mainDistance;
-		const distElem = document.getElementById(`tripDistance${trip.id}`);
-		const progressBar = document.getElementById(`progress${trip.id}`);
-		if(distElem) distElem.innerText = trip.distanceAccum.toFixed(3) + ' km';
-		if(progressBar) progressBar.style.width = Math.min(trip.distanceAccum/100*100,100)+'%';
-	});
-  saveTripsToStorage();
-}, 500);
-renderTrips();
-updateHistory();
+tripToggleBtn?.addEventListener('click', () => {
+  tripRecorderShowAll = !tripRecorderShowAll;
+  tripToggleBtn.innerText = tripRecorderShowAll ? 'History ▲' : 'History All';
+  tripRecorderRenderHistory();
+});
+tripDeleteAllBtn?.addEventListener('click', () => {
+  if (!confirm('ต้องการลบประวัติช่วงทั้งหมดหรือไม่?')) return;
+  tripRecorderHistory = [];
+  saveTripRecorderHistory();
+  tripRecorderRenderHistory();
+});
+
+// Part 2 / Part 3 are activated by their existing checkboxes.
+// A new Trip Start automatically uses the next checked Part and does not ask for any values.
+[1,2,3].forEach(part => {
+  document.getElementById(`inputKm${part}`)?.addEventListener('input', () => tripRecorderRenderCurrent());
+  document.getElementById(`chkSegment${part}`)?.addEventListener('change', () => {
+    tripRecorderRenderCurrent();
+    // While driving, checking Part 2/3 closes the current Part automatically
+    // and starts the selected Part from its own WLTP source value.
+    const cur = tripRecorderState.current;
+    const chk = document.getElementById(`chkSegment${part}`);
+    if (cur && chk?.checked && part > cur.part && tripRecorderGetPartWltp(part) > 0 && typeof isTracking !== 'undefined' && isTracking) {
+      try {
+        tripRecorderFinalizeSegment(Date.now());
+        tripRecorderBeginSegment();
+      } catch (e) {
+        console.warn('[Trip Recorder] automatic Part switch failed', e);
+      }
+    }
+  });
+});
+tripRecorderRender();
+
 //Trip real time 
   let updateEndTimeInterval = null;
   let tripStartTime = null;
@@ -2309,7 +2296,7 @@ function updateBatteryBars(socValue) {
 		wltpKmValueElem.classList.add("blinking-red");
 		wltpKmValueElem.style.color = barColor;
 	}
-	if(typeof scheduleEvChargingRecommendation==='function' && routePlan?.route?.length) scheduleEvChargingRecommendation(true);
+	
 }
 document.addEventListener("DOMContentLoaded", function() {loadHistory(2);});
 	const toggleBtn = document.getElementById("toggleTripHistory");
@@ -3824,7 +3811,7 @@ function initMap(lat, lon) {
             disableMapInteraction();
             syncMapModeUi();
             map.resize();
-            if(routePlan?.route?.length>1){ try { ensureRoutePlanLayer()?.set(routePlan.route); renderRoutePlanMarkers(); fitCompletePlannedRoute(routePlan.route); renderEvChargingRecommendation(); } catch(e){} }
+            if(routePlan?.route?.length>1){ try { ensureRoutePlanLayer()?.set(routePlan.route); renderRoutePlanMarkers(); fitCompletePlannedRoute(routePlan.route); } catch(e){} }
         });
     }
     vehicleMarker=createVehicleMarker(lat,lon);
@@ -4287,10 +4274,14 @@ function startTracking() {
         lastRouteLat=null;lastRouteLon=null;lastRawGpsLat=null;lastRawGpsLon=null;lastInputGpsLat=null;lastInputGpsLon=null;lastInputTimestamp=null;kf=structuredClone(KF_DEFAULT);filteredMotionHeading=null;autoFollow=true;autoRotate=true;lastZoomLevel=calculateTargetZoom(0);lastAppliedZoom=lastZoomLevel;disableMapInteraction();lastGpsUpdateTime=performance.now();prevTimestamp=null;
         totalEnergyWh=0;cumulativeEnergyWh=0;driveEnergyWh=0;driveDistanceKm=0;prevAlt=null;prevSpeed=0;lastRegenTime=0;lastAccuracy=null;document.getElementById("energyConsumption").textContent="0.00 kWh";totalRegenEnergyWh=0;document.getElementById("totalRegenEnergy").textContent="0.00";maxSpeed=0;displayVelocity=0;lastTimestamp=null;tripLog.length=0;idleStartTime=null;belowStopLockSince=Date.now();filteredSpeedKmh=0;sensorSpeedKmh=0;rawSpeedKmh=0;displayedSpeed=0;avgGpsIntervalMs=1000;lastSpeedSlopeTimestamp=0;lastGpsSpeed=0;speedSlope=0;shownSpeed=0;gpsLossTime=0;lastGpsTimestamp=null;gpsIntervalSec=1;lastStorageUpdate=0;prevPos=null;
         tripStartTime=Date.now();socBonusPercent=0;lastSOCUsed=0;cumulativeDistance=0;idleEnergyWhTotal=0;idleTimeTotal=0;elapsedTime=0;totalDistance=0;positions.length=0;lastGpsFixWallClock=0;gpsWatchdogLastState="";headingConfidencePercent=0;lastHeadingConfidence=0;
+        // AUTO Trip Recorder: select Part 1 first, then the next checked Part automatically.
+        if (!tripRecorderBeginSegment()) {
+            console.warn("[Trip Recorder] No valid Part distance found; recorder will remain idle.");
+        }
         if(!speedAnimFrame)speedAnimFrame=requestAnimationFrame(animateDigitalSpeed);startAvgEfficiencyTracking();
         startTimeSpan.textContent=new Date(tripStartTime).toLocaleString();endTimeSpan.textContent="-";distanceSpan.textContent="0.000";maxSpeedSpan.textContent="0.0";avgSpeedSpan.textContent="0.0";startCoordSpan.textContent="-";endCoordSpan.textContent="-";lastRenderedSpeedText="";lastSpeedClass="";
         if(elapsedTimeInterval)clearInterval(elapsedTimeInterval);if(updateEndTimeInterval)clearInterval(updateEndTimeInterval);elapsedTimeInterval=setInterval(()=>{try{checkIdleStatus();updateTripTime();updateIdleDisplay();}catch(e){console.warn("Trip timer update failed",e);}},1000);
-        isTracking=true;startBtn.disabled=true;stopBtn.disabled=false;setTrackingStatus("กำลังค้นหา GPS...","info","Watch started — กด Stop ได้ทันที");if(routePlan.route?.length){if(routePlan.chargingStations?.length)scheduleEvChargingRecommendation(true);else refreshEvChargingStations(true).catch(()=>{});}updateGpsUi("acquiring",null);if(gpsWatchdogInterval)clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=setInterval(updateGpsWatchdog,1000);requestWakeLock();
+        isTracking=true;startBtn.disabled=true;stopBtn.disabled=false;setTrackingStatus("กำลังค้นหา GPS...","info","Watch started — กด Stop ได้ทันที");updateGpsUi("acquiring",null);if(gpsWatchdogInterval)clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=setInterval(updateGpsWatchdog,1000);requestWakeLock();
         if(firstFixTimer)clearTimeout(firstFixTimer);firstFixTimer=setTimeout(()=>{if(isTracking&&!tripInitialized)setTrackingStatus("GPS ยังไม่พบตำแหน่ง","warn","ยังทำงานอยู่ — รอสัญญาณหรือกด Stop");},FIRST_FIX_UI_TIMEOUT_MS);
         let newWatchId;
         try{
@@ -4591,7 +4582,7 @@ async function stopTracking() {
 	}
 	autoFollow = false;
 	autoRotate = false;
-	try{routePlan.navigating=false;routePlan._rerouting=false;routePlanLayer?.clear();clearEvChargingMarkers();clearRoutePlanMarkers();hardClearMapRotation(map);}catch(e){}
+	try{routePlan.navigating=false;routePlan._rerouting=false;routePlanLayer?.clear();clearRoutePlanMarkers();hardClearMapRotation(map);}catch(e){}
 	renderCompletedTripOnMap(validCoords);
 
 	if (frozenTripLog.length === 0 && lastGpsLat != null && lastGpsLng != null) {
@@ -4607,6 +4598,8 @@ async function stopTracking() {
 	const lastPoint = frozenTripLog[frozenTripLog.length - 1];
 	const compactPath = compressPath(frozenTripLog);
 	const batterySOCUsed = Math.max(0, (snapshot_totalEnergyWh / VEHICLE_CONFIG.batteryKWh / 1000) * 100);
+	// AUTO Trip Recorder segment is finalized from the real-time WLTP shown at Stop.
+	try { tripRecorderFinalizeSegment(lastPoint?.time || Date.now()); } catch (e) { console.warn("[Trip Recorder] segment finalize failed", e); }
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
 		startTime: tripStartTime,
@@ -4695,16 +4688,9 @@ const routePlan = {
   distanceKm: 0,
   durationSec: 0,
   navigating: false,
-  chargingStations: [],
-  chargingRouteKey: '',
-  chargingLoading: false,
-  chargingLastProgressKm: -1,
-  chargingLastAutoRefresh: 0,
   plannedProgressIndex: 0
 };
 let routePlanMarkers = [];
-let evChargingMarkers = [];
-let evChargingAutoRefreshTimer = null;
 let routePlanLayer = null;
 let routeSearchTimer = null;
 let routeSearchAbort = null;
@@ -4733,7 +4719,6 @@ function parseRouteCoord(text){
 }
 function routePlannerHint(t){ const el=document.getElementById('routePlannerHint'); if(el)el.textContent=t; }
 function clearRoutePlanMarkers(){ routePlanMarkers.forEach(m=>{try{m.remove();}catch(e){}});routePlanMarkers=[]; }
-function clearEvChargingMarkers(){ evChargingMarkers.forEach(m=>{try{m.remove();}catch(e){}});evChargingMarkers=[]; }
 function routePointFor(kind,index){
   if(kind==='start') return routePlan.start;
   if(kind==='dest') return routePlan.destination;
@@ -4752,8 +4737,8 @@ function setRoutePoint(kind,index,p,name=''){
     if(!routePlan.stops[index])routePlan.stops[index]={point:null,name:''};
     routePlan.stops[index].point=p; if(name)routePlan.stops[index].name=name;
   }
-  routePlan.route=[]; routePlan.distanceKm=0; routePlan.durationSec=0; routePlan.plannedProgressIndex=0; routePlan._lastLat=null; routePlan._lastLon=null; routePlan.chargingStations=[]; routePlan.chargingRouteKey=''; routePlan.chargingLastProgressKm=-1; routePlan.chargingLastSearchPositionKm=-Infinity;
-  const ev=document.getElementById('evChargePanel');if(ev){ev.style.display='none';ev.innerHTML='';}
+  routePlan.route=[]; routePlan.distanceKm=0; routePlan.durationSec=0; routePlan.plannedProgressIndex=0; routePlan._lastLat=null; routePlan._lastLon=null;
+  
   const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}
 }
 function pointObject(x){ return x?.point ? x.point : x; }
@@ -4784,7 +4769,7 @@ function refreshRoutePlannerRows(){
     inp.addEventListener('focus',()=>{if(inp.value.trim().length>=2)showPlaceSearchResults(inp.value,'stop',Number(inp.dataset.stopSearch),inp);});
   });
   wrap.querySelectorAll('[data-stop-pick]').forEach(btn=>btn.addEventListener('click',()=>chooseRoutePoint('stop',Number(btn.dataset.stopPick))));
-  wrap.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.addEventListener('click',()=>{routePlan.stops.splice(Number(btn.dataset.removeStop),1);routePlan.route=[];routePlan.plannedProgressIndex=0;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;clearEvChargingMarkers();refreshRoutePlannerRows();renderRoutePlanMarkers();routePlannerHint('ลบจุดแวะแล้ว — กด “หาเส้นทาง” เพื่อคำนวณใหม่');}));
+  wrap.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.addEventListener('click',()=>{routePlan.stops.splice(Number(btn.dataset.removeStop),1);routePlan.route=[];routePlan.plannedProgressIndex=0;refreshRoutePlannerRows();renderRoutePlanMarkers();routePlannerHint('ลบจุดแวะแล้ว — กด “หาเส้นทาง” เพื่อคำนวณใหม่');}));
 }
 function ensureRoutePlanLayer(){
   if(!map||!map._loaded)return null;
@@ -4955,7 +4940,6 @@ const ROUTE_POI_PATTERNS = [
   {re:/ห้าง|ศูนย์การค้า|department|mall/i, label:'ห้าง/ศูนย์การค้า', tags:['shop~"^(mall|department_store)$"']},
   {re:/ตลาด/i, label:'ตลาด', tags:['amenity="marketplace"']},
   {re:/ปั๊ม|ปั๊มน้ำมัน|น้ำมัน|fuel/i, label:'ปั๊มน้ำมัน', tags:['amenity="fuel"']},
-  {re:/ชาร์จ|ชาร์จรถ|สถานีชาร์จ|ev/i, label:'สถานีชาร์จ EV', tags:['amenity="charging_station"']},
   {re:/โรงแรม|ที่พัก|รีสอร์ท|hotel|motel|guest.?house/i, label:'ที่พัก', tags:['tourism~"^(hotel|motel|guest_house|hostel)$"']},
   {re:/ท่องเที่ยว|ที่เที่ยว|สถานที่ท่องเที่ยว|จุดชมวิว|พิพิธภัณฑ์|museum|attraction|viewpoint/i, label:'สถานที่ท่องเที่ยว', tags:['tourism~"^(attraction|museum|viewpoint|theme_park|zoo|gallery)$"']},
   {re:/วัด|temple/i, label:'วัด/ศาสนสถาน', tags:['amenity="place_of_worship"']},
@@ -5102,27 +5086,6 @@ function collectPlannerPoints(){
   routePlan.stops=routePlan.stops.map((item,i)=>{const obj=stopObject(item),el=document.querySelector(`input[data-stop-index="${i}"]`),p=parseRouteCoord(el?.value)||obj.point;return p?{point:p,name:obj.name||`จุดแวะ ${i+1}`}:null;}).filter(Boolean);
   return [routePlan.start,...routePlan.stops.map(x=>x.point),routePlan.destination].filter(Boolean);
 }
-
-function getEvSafetyDistanceKm(){
-  const el=document.getElementById('evSafetyDistanceKm');
-  const v=Number(el?.value);
-  return Number.isFinite(v)?Math.max(0,Math.min(1000,v)):100;
-}
-function saveEvSafetyDistanceKm(){
-  const v=getEvSafetyDistanceKm();
-  try{localStorage.setItem('tripRecorderEvSafetyDistanceKm',String(v));}catch(e){}
-  return v;
-}
-function loadEvSafetyDistanceKm(){
-  const el=document.getElementById('evSafetyDistanceKm');if(!el)return;
-  let v=100;try{const saved=Number(localStorage.getItem('tripRecorderEvSafetyDistanceKm'));if(Number.isFinite(saved))v=saved;}catch(e){}
-  el.value=Math.max(0,Math.min(1000,v));
-}
-function getWltpRealtimeKm(){
-  const el=document.getElementById('wltpKmValue');
-  const v=parseFloat(String(el?.textContent||'').replace(/[^0-9.\-]/g,''));
-  return Number.isFinite(v)?Math.max(0,v):null;
-}
 function routeCumulativeDistances(route){
   const out=[0];
   for(let i=1;i<route.length;i++)out.push(out[i-1]+haversineMeters(route[i-1][0],route[i-1][1],route[i][0],route[i][1])/1000);
@@ -5141,560 +5104,6 @@ function nearestRoutePositionKm(lat,lon,route,cum){
     if(d<best.offsetKm)best={km,offsetKm:d/1000,index:i,t};
   }
   return best;
-}
-function routeChargingKey(route){
-  if(!route?.length)return '';
-  const a=route[0],b=route[Math.floor(route.length/2)],c=route[route.length-1];
-  return [a,b,c,route.length].flat().map(v=>Number(v).toFixed(4)).join('|');
-}
-function normalizeChargingStation(raw){
-  const tags=raw?.tags||{};
-  const lat=Number(raw?.lat ?? raw?.center?.lat),lon=Number(raw?.lon ?? raw?.center?.lon);
-  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
-  const name=tags.name||tags['name:th']||tags.operator||'สถานีชาร์จ EV';
-  const operator=tags.operator||tags.brand||'';
-  const power=tags['charging:power']||tags['max_power']||tags['capacity:power']||'';
-  const capacity=tags.capacity||'';
-  const sockets=Object.keys(tags).filter(k=>/^socket:/.test(k)&&tags[k]).map(k=>k.replace(/^socket:/,'').toUpperCase()).join(', ');
-  const opening=tags.opening_hours||'';
-  return {lat,lon,name,operator,power,capacity,sockets,opening,source:'OpenStreetMap'};
-}
-const EV_DISPLAY_COUNT = 4;
-const EV_ROUTE_NEAR_KM = 8;
-const EV_SEARCH_ROUTE_NEAR_KM = 18;
-const EV_SEARCH_CHUNK_KM = 40;
-const EV_SEARCH_TIMEOUT_MS = 7000;
-const EV_SEARCH_CONCURRENCY = 2;
-const EV_MAPTILER_SAMPLE_KM = 40;
-const EV_OSM_API_URL = 'https://api.openstreetmap.org/api/0.6/map';
-
-function getEvReferencePosition(){
-  // V5.30: always provide a stable reference for EV planning.
-  // Before the first GPS fix, use the planner start point; after GPS fix,
-  // use the current vehicle position.
-  if(Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng)){
-    return {lat:Number(lastGpsLat),lon:Number(lastGpsLng)};
-  }
-  const start=routePlan?.start;
-  if(start&&Number.isFinite(Number(start.lat))&&Number.isFinite(Number(start.lon))){
-    return {lat:Number(start.lat),lon:Number(start.lon)};
-  }
-  return null;
-}
-
-function getEvUsableRangeKm(wltpRealtimeKm, safetyKm){
-  if(!Number.isFinite(wltpRealtimeKm))return null;
-  const safety=Number.isFinite(safetyKm)?Math.max(0,safetyKm):100;
-  const diff=wltpRealtimeKm-safety;
-  return diff>0?diff:wltpRealtimeKm;
-}
-
-function getEvSearchWindow(route, maxDistanceKm){
-  if(!Array.isArray(route)||route.length<2)return [];
-  const ref=getEvReferencePosition()||routePlan.start;
-  const cum=routeCumulativeDistances(route);
-  const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,route,cum):{km:0,index:0};
-  const totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
-  const targetKm=Math.min(totalKm,rp.km+Math.max(0,maxDistanceKm));
-  if(targetKm<=rp.km+0.1)return [];
-  const startIndex=Math.max(0,Math.min(route.length-2,rp.index||0));
-  const out=[route[startIndex]];
-  for(let i=startIndex+1;i<route.length;i++){
-    if(cum[i]>targetKm)break;
-    out.push(route[i]);
-  }
-  for(let i=Math.max(startIndex+1,1);i<route.length;i++){
-    if(cum[i]>=targetKm){out.push(route[i]);break;}
-  }
-  return out.length>=2?out:route.slice(Math.max(0,route.length-2));
-}
-
-function evRouteSamplePoints(route, stepKm=EV_MAPTILER_SAMPLE_KM){
-  if(!Array.isArray(route)||route.length<2)return [];
-  const cum=routeCumulativeDistances(route);
-  const total=cum[cum.length-1]||0;
-  const pts=[];
-  const pointAtKm=t=>{
-    const target=Math.max(0,Math.min(total,t));
-    let i=0;
-    while(i<cum.length-1 && cum[i+1]<target)i++;
-    const a=route[i],b=route[Math.min(i+1,route.length-1)];
-    const seg=Math.max(0,(cum[i+1]||cum[i])-cum[i]);
-    const f=seg>0?Math.max(0,Math.min(1,(target-cum[i])/seg)):0;
-    return [a[0]+((b?.[0]??a[0])-a[0])*f,a[1]+((b?.[1]??a[1])-a[1])*f];
-  };
-  for(let km=0;km<=total;km+=Math.max(20,stepKm))pts.push({km,point:pointAtKm(km)});
-  if(!pts.length||pts[pts.length-1].km<total-1)pts.push({km:total,point:pointAtKm(total)});
-  return pts;
-}
-
-async function fetchPhotonEvStations(route, signal){
-  if(!Array.isArray(route)||route.length<2)return [];
-  const samples=evRouteSamplePoints(route,EV_MAPTILER_SAMPLE_KM);
-  if(!samples.length)return [];
-  const cum=routeCumulativeDistances(route);
-  const unique=new Map();
-  const queryOne=async(sample,query)=>{
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS);
-    const onAbort=()=>controller.abort();
-    signal?.addEventListener('abort',onAbort,{once:true});
-    try{
-      const qs=new URLSearchParams({
-        q:query,lat:String(sample.point[0]),lon:String(sample.point[1]),limit:'20',lang:'th'
-      });
-      const url=`${ROUTE_GEOCODER_FALLBACK_URL}?${qs.toString()}`;
-      const r=await fetch(url,{signal:controller.signal,mode:'cors',cache:'no-store',headers:{Accept:'application/json'}});
-      if(!r.ok)throw new Error(`Photon EV ${r.status}`);
-      const data=await r.json();
-      for(const f of (data.features||[])){
-        const st=normalizeGeocoderResult(f,'Photon');
-        if(!st)continue;
-        const props=f?.properties||{};
-        const text=[props.name,props.street,props.city,props.district,props.osm_value,props.osm_key].filter(Boolean).join(' ');
-        // Photon can return nearby generic POIs for a broad query. Keep only
-        // records that are recognizably charging-related.
-        if(!/charg|ev|สถานีชาร์จ|จุดชาร์จ|รถไฟฟ้า|ไฟฟ้า/i.test(text))continue;
-        const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-        if(pos.offsetKm>EV_SEARCH_ROUTE_NEAR_KM)continue;
-        const name=String(props.name||st.name||'สถานีชาร์จ EV').trim();
-        const operator=String(props.operator||props.brand||'').trim();
-        const station={...st,name,operator,source:'Photon'};
-        const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
-        if(!unique.has(k))unique.set(k,{...station,routeKm:pos.km,routeOffsetKm:pos.offsetKm});
-      }
-    }finally{
-      clearTimeout(timer);
-      signal?.removeEventListener('abort',onAbort);
-    }
-  };
-  let next=0;
-  const queries=['สถานีชาร์จรถยนต์ไฟฟ้า','charging station'];
-  const worker=async()=>{
-    while(true){
-      if(signal?.aborted)return;
-      const i=next++;
-      if(i>=samples.length)return;
-      for(const q of queries){
-        if(signal?.aborted)return;
-        try{await queryOne(samples[i],q);}
-        catch(e){if(e?.name!=='AbortError')console.warn('[EV Photon]',e?.message||e);}
-      }
-    }
-  };
-  await Promise.all(Array.from({length:Math.min(EV_SEARCH_CONCURRENCY,samples.length)},worker));
-  return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-}
-
-async function fetchMapTilerEvStations(route, signal){
-  const key=String(MAP_CONFIG.apiKey||'').trim();
-  if(!key||!Array.isArray(route)||route.length<2)return [];
-  const samples=evRouteSamplePoints(route,EV_MAPTILER_SAMPLE_KM);
-  if(!samples.length)return [];
-  const cum=routeCumulativeDistances(route);
-  const unique=new Map();
-  const queryOne=async(sample)=>{
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS);
-    const onAbort=()=>controller.abort();
-    signal?.addEventListener('abort',onAbort,{once:true});
-    try{
-      const qs=new URLSearchParams({key,language:'th',country:'th',limit:'20',types:'POI',proximity:`${sample.point[1]},${sample.point[0]}`});
-      const url=`${MAPTILER_GEOCODER_URL}charging%20station.json?${qs.toString()}`;
-      const r=await fetch(url,{signal:controller.signal,mode:'cors',cache:'no-store',headers:{Accept:'application/json'}});
-      if(!r.ok)throw new Error(`MapTiler EV ${r.status}`);
-      const data=await r.json();
-      for(const f of (data.features||[])){
-        const st=normalizeGeocoderResult(f,'MapTiler');
-        if(!st)continue;
-        const props=f?.properties||{};
-        const text=[props.name,props.category,props.type,props.osm_value].filter(Boolean).join(' ');
-        if(!/charg|ev|สถานีชาร์จ|จุดชาร์จ|รถไฟฟ้า|ไฟฟ้า/i.test(text))continue;
-        const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-        if(pos.offsetKm>EV_SEARCH_ROUTE_NEAR_KM)continue;
-        const station={...st,name:String(props.name||st.name||'สถานีชาร์จ EV'),operator:String(props.operator||props.brand||''),source:'MapTiler'};
-        const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
-        if(!unique.has(k))unique.set(k,{...station,routeKm:pos.km,routeOffsetKm:pos.offsetKm});
-      }
-    }finally{
-      clearTimeout(timer);
-      signal?.removeEventListener('abort',onAbort);
-    }
-  };
-  let next=0;
-  const worker=async()=>{
-    while(true){
-      if(signal?.aborted)return;
-      const i=next++;
-      if(i>=samples.length)return;
-      try{await queryOne(samples[i]);}
-      catch(e){if(e?.name!=='AbortError')console.warn('[EV MapTiler]',e?.message||e);}
-    }
-  };
-  await Promise.all(Array.from({length:Math.min(EV_SEARCH_CONCURRENCY,samples.length)},worker));
-  return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-}
-async function fetchOsmApiEvStations(route, signal){
-  if(!Array.isArray(route)||route.length<2)return [];
-  const samples=evRouteSamplePoints(route,EV_MAPTILER_SAMPLE_KM);
-  const cum=routeCumulativeDistances(route);
-  const unique=new Map();
-  let next=0;
-  const queryOne=async(sample)=>{
-    const lat=Number(sample.point[0]),lon=Number(sample.point[1]);
-    if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
-    const latPad=0.10;
-    const lonPad=latPad/Math.max(0.35,Math.cos(lat*Math.PI/180));
-    const bbox=[lon-lonPad,lat-latPad,lon+lonPad,lat+latPad].map(Number);
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),EV_SEARCH_TIMEOUT_MS);
-    const onAbort=()=>controller.abort();
-    signal?.addEventListener('abort',onAbort,{once:true});
-    try{
-      const qs=new URLSearchParams({bbox:bbox.map(v=>v.toFixed(6)).join(',')});
-      const r=await fetch(`${EV_OSM_API_URL}?${qs.toString()}`,{signal:controller.signal,mode:'cors',cache:'no-store',headers:{Accept:'application/xml,text/xml'}});
-      if(!r.ok)throw new Error(`OSM API ${r.status}`);
-      const xml=await r.text();
-      const doc=new DOMParser().parseFromString(xml,'application/xml');
-      if(doc.querySelector('parsererror'))throw new Error('OSM API XML parse error');
-      for(const el of Array.from(doc.querySelectorAll('node,way,relation'))){
-        const tags={};
-        for(const t of Array.from(el.querySelectorAll(':scope > tag')))tags[t.getAttribute('k')||'']=t.getAttribute('v')||'';
-        const amenity=String(tags.amenity||'').toLowerCase();
-        const isCharging=amenity==='charging_station' || /charging_station|ev_charging|ev.*charg|charg.*ev/i.test(`${tags.shop||''} ${tags.amenity||''} ${tags.description||''}`);
-        if(!isCharging)continue;
-        let slat=Number(el.getAttribute('lat')),slon=Number(el.getAttribute('lon'));
-        if(!Number.isFinite(slat)||!Number.isFinite(slon)){
-          const center=el.querySelector(':scope > center');
-          slat=Number(center?.getAttribute('lat'));slon=Number(center?.getAttribute('lon'));
-        }
-        if(!Number.isFinite(slat)||!Number.isFinite(slon))continue;
-        const pos=nearestRoutePositionKm(slat,slon,route,cum);
-        if(pos.offsetKm>EV_SEARCH_ROUTE_NEAR_KM)continue;
-        const name=String(tags.name||tags['name:th']||tags.operator||tags.brand||'สถานีชาร์จ EV').trim();
-        const operator=String(tags.operator||tags.brand||'').trim();
-        const power=String(tags['charging:power']||tags['capacity:power']||tags.max_power||'').trim();
-        const station={lat:slat,lon:slon,name,operator,power,source:'OpenStreetMap',routeKm:pos.km,routeOffsetKm:pos.offsetKm,osmId:el.getAttribute('id')||''};
-        const k=`${slat.toFixed(5)},${slon.toFixed(5)}`;
-        if(!unique.has(k))unique.set(k,station);
-      }
-    }finally{
-      clearTimeout(timer);signal?.removeEventListener('abort',onAbort);
-    }
-  };
-  const worker=async()=>{
-    while(true){
-      if(signal?.aborted)return;
-      const i=next++;if(i>=samples.length)return;
-      try{await queryOne(samples[i]);}
-      catch(e){if(e?.name!=='AbortError')console.warn('[EV OSM API]',e?.message||e);}
-    }
-  };
-  await Promise.all(Array.from({length:Math.min(EV_SEARCH_CONCURRENCY,samples.length)},worker));
-  return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-}
-
-const OCM_API_URL = 'https://api.openchargemap.io/v3/poi/';
-// Open Charge Map is a dedicated EV charging database. A key is optional for
-// basic use; if one is available, put it here. Never use the MapTiler key here.
-const OCM_API_KEY = '20916ec7-8492-43c5-8f72-76f5bd97c4bd'; // ใส่ Open Charge Map API Key ของคุณที่นี่
-const OCM_SAMPLE_KM = 35;
-const OCM_RADIUS_KM = 25;
-const OCM_MAX_RESULTS = 100;
-const OCM_TIMEOUT_MS = 4500;
-const OCM_CONCURRENCY = 2;
-const OCM_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-
-function normalizeOcmStation(raw){
-  const a=raw?.AddressInfo||{};
-  const lat=Number(a.Latitude), lon=Number(a.Longitude);
-  if(!Number.isFinite(lat)||!Number.isFinite(lon))return null;
-  const operator=String(raw?.OperatorInfo?.Title||'').trim();
-  const title=String(a.Title||operator||'สถานีชาร์จ EV').trim();
-  const connections=Array.isArray(raw?.Connections)?raw.Connections:[];
-  const powers=connections.map(c=>Number(c?.PowerKW)).filter(Number.isFinite);
-  const types=connections.map(c=>String(c?.ConnectionType?.Title||'').trim()).filter(Boolean);
-  const power=powers.length?`${Math.max(...powers).toFixed(0)} kW`:'';
-  const sockets=types.slice(0,4).join(', ');
-  const address=[a.AddressLine1,a.Town,a.StateOrProvince].filter(Boolean).join(', ');
-  return {
-    lat,lon,name:title,operator,power,capacity:String(raw?.NumberOfPoints||''),
-    sockets,opening:String(a.AccessComments||a.AccessInfo||''),address,
-    source:'Open Charge Map',ocmId:String(raw?.ID||'')
-  };
-}
-
-function ocmCacheKey(lat,lon){return `tripab-ocm-v530-${Number(lat).toFixed(2)}-${Number(lon).toFixed(2)}`;}
-function readOcmCache(lat,lon){
-  try{
-    const raw=localStorage.getItem(ocmCacheKey(lat,lon));
-    if(!raw)return null;
-    const obj=JSON.parse(raw);
-    if(!obj||Date.now()-Number(obj.t)>OCM_CACHE_TTL_MS)return null;
-    return Array.isArray(obj.data)?obj.data:null;
-  }catch(e){return null;}
-}
-function writeOcmCache(lat,lon,data){
-  try{localStorage.setItem(ocmCacheKey(lat,lon),JSON.stringify({t:Date.now(),data:data||[]}));}catch(e){}
-}
-
-async function fetchOpenChargeMapStations(route, signal){
-  if(!Array.isArray(route)||route.length<2)return [];
-  const samples=evRouteSamplePoints(route,OCM_SAMPLE_KM);
-  const cum=routeCumulativeDistances(route);
-  const unique=new Map();
-  let next=0;
-  const queryOne=async(sample)=>{
-    if(signal?.aborted)throw new DOMException('Aborted','AbortError');
-    const cached=readOcmCache(sample.point[0],sample.point[1]);
-    let stations=cached;
-    if(!stations){
-      const controller=new AbortController();
-      const onAbort=()=>controller.abort();
-      signal?.addEventListener('abort',onAbort,{once:true});
-      const timer=setTimeout(()=>controller.abort(),OCM_TIMEOUT_MS);
-      try{
-        const qs=new URLSearchParams({
-          output:'json',countrycode:'TH',latitude:String(sample.point[0]),longitude:String(sample.point[1]),
-          distance:String(OCM_RADIUS_KM),distanceunit:'KM',maxresults:String(OCM_MAX_RESULTS),compact:'false',verbose:'false'
-        });
-        if(OCM_API_KEY)qs.set('key',OCM_API_KEY);
-        const r=await fetch(`${OCM_API_URL}?${qs.toString()}`,{
-          method:'GET',mode:'cors',credentials:'omit',signal:controller.signal,cache:'no-store',
-          headers:{Accept:'application/json'}
-        });
-        if(!r.ok)throw new Error(`Open Charge Map HTTP ${r.status}`);
-        const data=await r.json();
-        stations=Array.isArray(data)?data:[];
-        writeOcmCache(sample.point[0],sample.point[1],stations);
-      }finally{
-        clearTimeout(timer);signal?.removeEventListener('abort',onAbort);
-      }
-    }
-    for(const raw of stations){
-      const st=raw?.lat&&raw?.lon?raw:normalizeOcmStation(raw);
-      if(!st)continue;
-      const pos=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-      if(pos.offsetKm>EV_SEARCH_ROUTE_NEAR_KM)continue;
-      const k=`${st.lat.toFixed(5)},${st.lon.toFixed(5)}`;
-      if(!unique.has(k))unique.set(k,{...st,routeKm:pos.km,routeOffsetKm:pos.offsetKm});
-    }
-  };
-  const worker=async()=>{
-    while(true){
-      if(signal?.aborted)return;
-      const i=next++;if(i>=samples.length)return;
-      try{await queryOne(samples[i]);}
-      catch(e){if(e?.name!=='AbortError')console.warn('[EV V5.30] Open Charge Map',e?.message||e);}
-    }
-  };
-  await Promise.all(Array.from({length:Math.min(OCM_CONCURRENCY,samples.length)},worker));
-  return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-}
-
-async function fetchEvChargingStations(route){
-  if(!Array.isArray(route)||route.length<2)return [];
-  const searchController=new AbortController();
-  const unique=new Map();
-  const add=arr=>{
-    for(const st of arr||[]){
-      if(!st||!Number.isFinite(Number(st.lat))||!Number.isFinite(Number(st.lon)))continue;
-      const k=`${Number(st.lat).toFixed(5)},${Number(st.lon).toFixed(5)}`;
-      if(!unique.has(k))unique.set(k,st);
-    }
-  };
-
-  // PRIMARY: dedicated EV database. MapTiler is intentionally not involved.
-  try{
-    const ocm=await fetchOpenChargeMapStations(route,searchController.signal);
-    add(ocm);
-    console.log(`[EV V5.30] Open Charge Map stations=${unique.size}`);
-    if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-  }catch(e){console.warn('[EV V5.30] Open Charge Map',e?.message||e);}
-
-  // FALLBACK: direct OSM database API. This is only used when the dedicated
-  // EV source returns no usable station data.
-  try{
-    const osm=await fetchOsmApiEvStations(route,searchController.signal);
-    add(osm);
-    console.log(`[EV V5.30] OSM fallback stations=${unique.size}`);
-    if(unique.size)return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-  }catch(e){console.warn('[EV V5.30] OSM fallback',e?.message||e);}
-
-  return [...unique.values()].sort((a,b)=>a.routeKm-b.routeKm);
-}
-
-function calculateEvCandidates(){
-  if(!routePlan.route?.length)return {wltpRealtimeKm:null,safetyKm:getEvSafetyDistanceKm(),usableWltpKm:null,positionKm:0,remainingKm:0,needCharging:false,allStations:[],candidates:[]};
-  const wltpRealtimeKm=getWltpRealtimeKm();
-  const safetyKm=getEvSafetyDistanceKm();
-  if(wltpRealtimeKm==null)return {wltpRealtimeKm:null,safetyKm,usableWltpKm:null,positionKm:0,remainingKm:0,needCharging:false,allStations:routePlan.chargingStations||[],candidates:[]};
-  const usableWltpKm=getEvUsableRangeKm(wltpRealtimeKm,safetyKm);
-  const cum=routeCumulativeDistances(routePlan.route),totalKm=cum[cum.length-1]||routePlan.distanceKm||0;
-  const ref=getEvReferencePosition();
-  const rp=ref?nearestRoutePositionKm(ref.lat,ref.lon,routePlan.route,cum):{km:0,offsetKm:0};
-  const remainingKm=Math.max(0,totalKm-rp.km);
-  const needCharging=remainingKm>usableWltpKm;
-
-  // V5.30: keep every station found on the route for the map. Do not remove
-  // stations merely because they are behind the vehicle or beyond the current
-  // remaining distance; only the recommendation list is directional.
-  const all=routePlan.chargingStations.map(st=>{
-    const p=Number.isFinite(st.routeKm)?{km:st.routeKm,offsetKm:st.routeOffsetKm}:nearestRoutePositionKm(st.lat,st.lon,routePlan.route,cum);
-    return {...st,routeKm:p.km,routeOffsetKm:p.offsetKm,aheadKm:p.km-rp.km};
-  }).filter(st=>st.routeOffsetKm<=EV_SEARCH_ROUTE_NEAR_KM)
-    .sort((a,b)=>a.routeKm-b.routeKm);
-
-  // Recommendations: only stations ahead of the vehicle are selectable.
-  // Prefer stations before the effective WLTP/Safety range, then fill to 4.
-  const ahead=all.filter(st=>st.aheadKm>0.2);
-  const before=ahead.filter(st=>st.aheadKm<=usableWltpKm);
-  const after=ahead.filter(st=>st.aheadKm>usableWltpKm);
-  const candidates=[...before,...after].slice(0,EV_DISPLAY_COUNT);
-  return {wltpRealtimeKm,safetyKm,usableWltpKm,positionKm:rp.km,remainingKm,needCharging,allStations:all,candidates};
-}
-function ensureEvChargingPoiLayer(){
-  if(!map||!map._loaded)return null;
-  const source='ev-charging-poi-source-v522';
-  const circle='ev-charging-poi-circle-v522';
-  const label='ev-charging-poi-label-v522';
-  try{
-    if(!map.getSource(source)){
-      map.addSource(source,{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-    }
-    if(!map.getLayer(circle)){
-      map.addLayer({id:circle,type:'circle',source,paint:{
-        'circle-radius':['interpolate',['linear'],['zoom'],8,6,12,8,16,10],
-        'circle-color':'#00b8ff','circle-stroke-color':'#ffffff','circle-stroke-width':2,
-        'circle-opacity':0.95
-      }});
-    }
-    if(!map.getLayer(label)){
-      map.addLayer({id:label,type:'symbol',source,layout:{
-        'text-field':['concat','⚡ ',['get','label']],
-        'text-size':['interpolate',['linear'],['zoom'],8,8,12,10,16,12],
-        'text-anchor':'top','text-offset':[0,0.9],'text-allow-overlap':true,'text-ignore-placement':true
-      },paint:{'text-color':'#ffffff','text-halo-color':'#06121d','text-halo-width':1.5}});
-    }
-    return source;
-  }catch(e){console.warn('[EV POI layer]',e);return null;}
-}
-function setEvChargingPoiData(candidates){
-  if(!map||!map._loaded)return;
-  const source=ensureEvChargingPoiLayer();if(!source)return;
-  const features=(candidates||[]).map((st,i)=>({
-    type:'Feature',
-    properties:{
-      index:i+1,
-      label:`${st.operator||st.name||'สถานีชาร์จ EV'} · ${Number(st.aheadKm||0).toFixed(0)} km`,
-      name:st.name||'สถานีชาร์จ EV'
-    },
-    geometry:{type:'Point',coordinates:[st.lon,st.lat]}
-  }));
-  try{map.getSource(source)?.setData({type:'FeatureCollection',features});}catch(e){console.warn('[EV POI data]',e);}
-}
-function clearEvChargingMarkers(){
-  // V5.17 uses a MapLibre GeoJSON POI layer instead of many DOM markers.
-  // This is substantially cheaper to render and keeps charging POIs attached to the map.
-  if(map&&map._loaded){
-    try{map.getSource('ev-charging-poi-source-v522')?.setData({type:'FeatureCollection',features:[]});}catch(e){}
-  }
-  evChargingMarkers.forEach(m=>{try{m.remove();}catch(e){}});evChargingMarkers=[];
-}
-function renderEvChargingMarkers(candidates){ setEvChargingPoiData(candidates); }
-
-function renderEvChargingRecommendation(){
-  const el=document.getElementById('evChargePanel');if(!el)return;
-  const result=calculateEvCandidates();
-  if(result.wltpRealtimeKm==null){el.style.display='none';el.innerHTML='';clearEvChargingMarkers();return;}
-  // Show charging choices even when the route does not yet require charging.
-  // They are optional stops, while the WLTP/Safety point remains the primary
-  // energy-planning threshold.
-  el.style.display='block';
-  const rangeLabel=(result.safetyKm>result.wltpRealtimeKm)
-    ? `ใช้ WLTP โดยตรง ${result.usableWltpKm.toFixed(1)} km (WLTP − Safety ติดลบ)`
-    : `WLTP − Safety = ${result.usableWltpKm.toFixed(1)} km`;
-  let html=`<div class="ev-charge-title">⚡ สถานีชาร์จตามแนวเส้นทาง</div><div class="ev-charge-meta">WLTP Real-time ${result.wltpRealtimeKm.toFixed(1)} km · Safety ${result.safetyKm.toFixed(0)} km · ${rangeLabel} · Route เหลือ ${result.remainingKm.toFixed(1)} km</div>`;
-  const candidates=result.candidates.slice(0,EV_DISPLAY_COUNT);renderEvChargingMarkers(result.allStations||candidates);
-  if(!candidates.length){
-    html+=`<div class="ev-charge-meta">ยังไม่พบสถานีจากฐานข้อมูลที่ตอบกลับ · ระบบค้นหาตามแนวเส้นทางจาก OSM/Overpass และ MapTiler แล้ว</div>`;
-    el.innerHTML=html;return;
-  }
-  html+=`<div class="ev-charge-meta">บนแผนที่แสดงสถานีที่ค้นพบตามแนวเส้นทางทั้งหมด ${result.allStations.length} แห่ง · รายการแนะนำ ${EV_DISPLAY_COUNT} แห่ง โดยให้ความสำคัญกับสถานีก่อนถึงจุด ${result.usableWltpKm.toFixed(1)} km และใช้สถานีถัดไปเป็นตัวเลือกสำรอง</div><div class="ev-charge-list">`;
-  candidates.forEach((st,i)=>{
-    const before=st.aheadKm<=result.usableWltpKm;
-    html+=`<div class="ev-charge-card"><div><span class="ev-charge-rank">${i+1}</span><b>${escapeHtml(st.name)}</b></div>${st.operator?`<div class="ev-line">ยี่ห้อ/ผู้ให้บริการ: ${escapeHtml(st.operator)}</div>`:''}<div class="ev-line">จากรถอีกประมาณ <b>${st.aheadKm.toFixed(1)} km</b> · ${before?'ก่อนถึงจุด WLTP/Safety':'ถัดจากจุด WLTP/Safety'} · ห่างแนวเส้นทาง ${st.routeOffsetKm.toFixed(1)} km</div>${st.power?`<div class="ev-line">กำลังชาร์จ: ${escapeHtml(st.power)}</div>`:''}${st.sockets?`<div class="ev-line">หัวชาร์จ: ${escapeHtml(st.sockets)}</div>`:''}${st.opening?`<div class="ev-line">เวลาเปิด: ${escapeHtml(st.opening)}</div>`:''}<div class="ev-charge-actions"><button type="button" data-ev-stop="${i}">⚡ แวะชาร์จ</button><button type="button" data-ev-center="${i}">ดูตำแหน่ง</button></div></div>`;
-  });
-  html+='</div>';el.innerHTML=html;
-  el.querySelectorAll('[data-ev-stop]').forEach(btn=>btn.addEventListener('click',()=>addEvChargingStop(candidates[Number(btn.dataset.evStop)])));
-  el.querySelectorAll('[data-ev-center]').forEach(btn=>btn.addEventListener('click',()=>{const st=candidates[Number(btn.dataset.evCenter)];if(map&&map._loaded)map.easeTo({center:[st.lon,st.lat],zoom:Math.max(map.getZoom(),14),duration:500});}));
-}
-function scheduleEvChargingRecommendation(force=false){
-  if(!routePlan.route?.length)return;
-  const result=calculateEvCandidates();
-  const w=Math.round((result.wltpRealtimeKm||0));
-  const progress=Math.round((result.positionKm||0));
-  const key=`${progress}|${w}|${Math.round(result.safetyKm||0)}|${result.needCharging?1:0}`;
-  if(force||routePlan.chargingLastProgressKey!==key){routePlan.chargingLastProgressKey=key;renderEvChargingRecommendation();}
-  if(!routePlan.chargingLoading){
-    const lastSearchKm=Number.isFinite(routePlan.chargingLastSearchPositionKm)?routePlan.chargingLastSearchPositionKm:0;
-    const movedKm=progress-lastSearchKm;
-    const noStations=!routePlan.chargingStations?.length;
-    if(force||noStations||movedKm>=15)refreshEvChargingStations(true).catch(()=>{});
-  }
-}
-async function refreshEvChargingStations(force=false){
-  if(!routePlan.route?.length)return [];
-  const key=routeChargingKey(routePlan.route);
-  if(!force&&routePlan.chargingRouteKey===key&&routePlan.chargingStations.length){renderEvChargingRecommendation();return routePlan.chargingStations;}
-  const panel=document.getElementById('evChargePanel');
-  if(panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ กำลังค้นหาสถานีชาร์จในช่วงระยะที่ใช้ได้…</div>';}
-  const searchSeq=(routePlan.chargingSearchSeq||0)+1;
-  routePlan.chargingSearchSeq=searchSeq;
-  routePlan.chargingLoading=true;
-  try{
-    const stations=await fetchEvChargingStations(routePlan.route);
-    if(searchSeq!==routePlan.chargingSearchSeq||key!==routeChargingKey(routePlan.route))return [];
-    routePlan.chargingStations=stations;
-    routePlan.chargingRouteKey=key;
-    routePlan.chargingLastProgressKm=-1;
-    routePlan.chargingLastProgressKey='';
-    routePlan.chargingLastAutoRefresh=Date.now();
-    const ref=getEvReferencePosition();
-    if(ref){const cum=routeCumulativeDistances(routePlan.route);routePlan.chargingLastSearchPositionKm=nearestRoutePositionKm(ref.lat,ref.lon,routePlan.route,cum).km;}
-    renderEvChargingRecommendation();
-    startEvChargingAutoRefresh();
-    return stations;
-  }catch(e){
-    console.warn('[EV Charging Search]',e);
-    if(searchSeq===routePlan.chargingSearchSeq&&panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ จุดชาร์จ</div><div class="ev-charge-meta">ยังเชื่อมต่อฐานข้อมูลสถานีชาร์จไม่ได้ · ระบบจะลอง Overpass สำรองอีกครั้งเมื่อคำนวณเส้นทาง/ระยะใหม่</div>';}
-    return [];
-  }finally{routePlan.chargingLoading=false;}
-}
-function stopEvChargingAutoRefresh(){
-  if(evChargingAutoRefreshTimer){clearInterval(evChargingAutoRefreshTimer);evChargingAutoRefreshTimer=null;}
-}
-function startEvChargingAutoRefresh(){
-  stopEvChargingAutoRefresh();
-  // Re-query the route corridor periodically so newly mapped stations can appear.
-  evChargingAutoRefreshTimer=setInterval(()=>{
-    if(!routePlan.route?.length||!routePlan.destination){stopEvChargingAutoRefresh();return;}
-    if(document.visibilityState==='hidden')return;
-    refreshEvChargingStations(true);
-  },6*60*60*1000);
-}
-function addEvChargingStop(st){
-  if(!st)return;
-  const exists=routePlan.stops.some(x=>{const p=stopObject(x).point;return p&&distanceMetersBetween(p,st)<80;});
-  if(exists){routePlannerHint('จุดชาร์จนี้ถูกเพิ่มเป็นจุดแวะแล้ว');return;}
-  if(routePlan.navigating&&Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng)){
-    routePlan.start={lat:lastGpsLat,lon:lastGpsLng};routePlan.startName='ตำแหน่งรถปัจจุบัน';
-  }
-  routePlan.stops.unshift({point:{lat:st.lat,lon:st.lon},name:`⚡ ${st.name}`});
-  routePlan.navigating=true;
-  refreshRoutePlannerRows();
-  routePlannerHint('เพิ่มสถานีชาร์จเป็นจุดแวะแล้ว · กำลังคำนวณเส้นทางใหม่…');
-  buildPlannedRoute();
 }
 function fitCompletePlannedRoute(coords){
   if(!Array.isArray(coords)||coords.length<2)return;
@@ -5748,8 +5157,7 @@ async function buildPlannedRoute(){
     const result=await fetchOsrmRoute(points);
     routePlan.route=result.coords;routePlan.plannedProgressIndex=0;routePlan._lastLat=null;routePlan._lastLon=null;
     routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan._rerouting=false;routePlan._lastRerouteAt=0;
-    routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;
-    clearEvChargingMarkers();
+    
     // V5.22: explicitly push the newly calculated route into the MapLibre
     // GeoJSON source. Previously the route source could remain empty when the
     // route was calculated after the map had already loaded.
@@ -5762,20 +5170,7 @@ async function buildPlannedRoute(){
     // user presses the button.
     fitCompletePlannedRoute(result.coords);
     if(nav)nav.disabled=false;
-    routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว · กำลังค้นหาสถานีชาร์จเบื้องหลัง');
-
-    // Start EV search without blocking the route UI.
-    refreshEvChargingStations(true).then(stations=>{
-      if(routePlan.route.length&&routeChargingKey(routePlan.route)===routePlan.chargingRouteKey){
-        const ev=calculateEvCandidates();
-        // POIs are overlays. Never refit the camera after EV search: doing so
-        // can change the complete-route overview just because a station arrived.
-        if(map&&map._loaded&&ev.allStations.length){
-          try{setEvChargingPoiData(ev.allStations);}catch(e){console.warn('EV POI render failed:',e);}
-        }
-        routePlannerHint(stations.length&&ev.candidates.length?'หาเส้นทางแล้ว · แสดงเส้นทางทั้งหมด + สถานีชาร์จ 1–4 จุด':'หาเส้นทางแล้ว · ยังไม่พบสถานีจากฐานข้อมูล OSM ที่ตอบกลับ · ระบบจะลองค้นหาใหม่');
-      }
-    }).catch(()=>{});
+    routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว');
   }catch(e){
     console.error('[Route Planner]',e);
     if(nav)nav.disabled=true;
@@ -5806,10 +5201,10 @@ function orientMapToPlannedRoutePreview(){
   }catch(e){console.warn('Planned route preview rotation failed:',e);}
 }
 function clearPlannedRoute(){
-  stopEvChargingAutoRefresh();clearEvChargingMarkers();
-  routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;routePlan.chargingSearchSeq++;routePlan.chargingLastSearchPositionKm=-Infinity;routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
+  
+  routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
   const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');if(ss)ss.value='';if(ds)ds.value='';
-  const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const ev=document.getElementById('evChargePanel');if(ev){ev.style.display='none';ev.innerHTML='';}const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;routePlannerHint('ค้นหาสถานที่ทั่วประเทศไทย หรือเลือกจากแผนที่ · เลื่อน/ซูมได้ · ลากหมุดเพื่อปรับตำแหน่งได้');
+  const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;routePlannerHint('ค้นหาสถานที่ทั่วประเทศไทย หรือเลือกจากแผนที่ · เลื่อน/ซูมได้ · ลากหมุดเพื่อปรับตำแหน่งได้');
 }
 function distanceMetersBetween(a,b){return getDistanceFromLatLonInKm(a.lat,a.lon,b.lat,b.lon)*1000;}
 function nearestPlannedRouteDistanceMeters(pos){
@@ -5830,9 +5225,9 @@ function updatePlannedNavigationProgress(lat,lon){
     const points=[pos,...routePlan.stops.map(x=>x.point),routePlan.destination];
     fetchOsrmRoute(points).then(result=>{
       if(!routePlan.navigating)return;
-      routePlan.start=pos;routePlan.route=result.coords;routePlan.plannedProgressIndex=0;routePlan._lastLat=pos.lat;routePlan._lastLon=pos.lon;routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;renderRoutePlanMarkers();const summary=document.getElementById('routeSummary');if(summary)summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;routePlannerHint('คำนวณเส้นทางใหม่แล้ว · กำลังคำนวณจุดชาร์จ');refreshEvChargingStations(true);
+      routePlan.start=pos;routePlan.route=result.coords;routePlan.plannedProgressIndex=0;routePlan._lastLat=pos.lat;routePlan._lastLon=pos.lon;routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;renderRoutePlanMarkers();const summary=document.getElementById('routeSummary');if(summary)summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;routePlannerHint('คำนวณเส้นทางใหม่แล้ว');
     }).catch(()=>routePlannerHint('ออกนอกเส้นทาง — ยังไม่สามารถคำนวณใหม่ได้')).finally(()=>{routePlan._rerouting=false;});
-  }else {scheduleEvChargingRecommendation();if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`เหลือ ${destM>=1000?(destM/1000).toFixed(1)+' km':Math.round(destM)+' m'}`);}
+  }else {if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`เหลือ ${destM>=1000?(destM/1000).toFixed(1)+' km':Math.round(destM)+' m'}`);}
 }
 
 function startPlannedNavigation(){
@@ -5861,15 +5256,9 @@ function startPlannedNavigation(){
       centerOnCurrent();
     },()=>centerOnCurrent(),{enableHighAccuracy:true,timeout:7000,maximumAge:5000});
   } else centerOnCurrent();
-  scheduleEvChargingRecommendation(true);
-  routePlannerHint('NAV เปิดแล้ว · ซูมเข้าพิกัดปัจจุบัน · ติดตามรถจริงตามเส้นทางที่กำหนด · จุดชาร์จคำนวณจาก WLTP Real-time และ Safety');
+  routePlannerHint('NAV เปิดแล้ว · ซูมเข้าพิกัดปัจจุบัน · ติดตามรถจริงตามเส้นทางที่กำหนด');
   if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`${routePlan.distanceKm.toFixed(1)} km`);
 }
-document.addEventListener('DOMContentLoaded',()=>{
-  loadEvSafetyDistanceKm();
-  const safety=document.getElementById('evSafetyDistanceKm');
-  safety?.addEventListener('input',()=>{saveEvSafetyDistanceKm();routePlan.chargingLastProgressKey='';scheduleEvChargingRecommendation(true);});
-});
 function bindRoutePlanner(){
   document.getElementById('routeStartPickBtn')?.addEventListener('click',()=>chooseRoutePoint('start'));
   document.getElementById('routeDestPickBtn')?.addEventListener('click',()=>chooseRoutePoint('dest'));
@@ -5900,11 +5289,6 @@ initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{ }catch(
   if(!window._historyEscapeBound){window._historyEscapeBound=true;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&window.isHistoryModalOpen)closeHistoryMapModal();});}
   setTimeout(recoverActiveTripDraft,500);
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reacquireWakeLockIfNeeded();if(isTracking)saveActiveTripDraft();},{passive:true});
-  document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible' && routePlan?.route?.length && routePlan.destination && Date.now()-(routePlan.chargingLastAutoRefresh||0)>6*60*60*1000){
-      refreshEvChargingStations(true);
-    }
-  },{passive:true});
   window.addEventListener("beforeunload",()=>{if(isTracking)saveActiveTripDraft();});
 })();
 // PATCH: bind resize/orientation ONCE (global scope)
