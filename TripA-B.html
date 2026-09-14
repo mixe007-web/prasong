@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.20-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.21-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -5206,37 +5206,71 @@ async function fetchEvChargingStations(route){
     }
   };
 
-  // V5.20: query the actual route corridor with small bounding boxes. This is
-  // more reliable than a large request containing many `around` clauses,
-  // especially for 500–1,000+ km routes in Thailand.
-  const SPACING_KM=70;
-  const BUFFER_DEG_LAT=0.11; // ~12 km
-  const BUFFER_DEG_LON=0.13; // ~13 km at central Thailand latitudes
-  const segments=[];
-  for(let from=0;from<totalKm;from+=SPACING_KM){
-    const to=Math.min(totalKm,from+SPACING_KM);
-    const pts=[];
-    for(let i=0;i<route.length;i++) if(cum[i]>=from&&cum[i]<=to)pts.push(route[i]);
-    // Always include interpolated-ish endpoints by nearest route vertices.
-    const idxA=Math.max(0,cum.findIndex(x=>x>=from));
-    const idxB=Math.max(idxA,cum.findIndex(x=>x>=to));
-    if(route[idxA])pts.push(route[idxA]);
-    if(route[idxB])pts.push(route[idxB]);
-    if(pts.length<2)continue;
-    const lats=pts.map(p=>Number(p[0])).filter(Number.isFinite),lons=pts.map(p=>Number(p[1])).filter(Number.isFinite);
-    if(!lats.length||!lons.length)continue;
-    segments.push({south:Math.max(-90,Math.min(...lats)-BUFFER_DEG_LAT),north:Math.min(90,Math.max(...lats)+BUFFER_DEG_LAT),west:Math.max(-180,Math.min(...lons)-BUFFER_DEG_LON),east:Math.min(180,Math.max(...lons)+BUFFER_DEG_LON)});
+  /*
+   * V5.21 EV SEARCH
+   * ----------------
+   * Do not depend on MapTiler's POI index for charging stations.  The basemap
+   * and the POI database are separate products.  OSM/Overpass is the source
+   * of truth for this feature, with several public Overpass instances as
+   * fallback.
+   *
+   * A long route is divided into 120-km corridor boxes.  Each request uses
+   * GET ?data=... instead of a large POST body.  The query deliberately covers
+   * several common OSM charging tags used in Thailand.  Results are filtered
+   * against the actual route afterwards, so the larger search boxes do not
+   * become false POIs.
+   */
+  const SEARCH_STEP_KM=120;
+  const BUFFER_LAT_DEG=0.16; // ~18 km
+  const BUFFER_LON_DEG=0.20; // ~20 km in Thailand
+  const boxes=[];
+
+  function routePointAtKm(target){
+    const t=Math.max(0,Math.min(totalKm,target));
+    let i=0;
+    while(i<cum.length-1 && cum[i+1]<t)i++;
+    const a=route[i],b=route[Math.min(i+1,route.length-1)];
+    if(!a)return null;
+    const seg=Math.max(0,(cum[i+1]||cum[i])-cum[i]);
+    const f=seg>0?Math.max(0,Math.min(1,(t-cum[i])/seg)):0;
+    return [a[0]+((b?.[0]??a[0])-a[0])*f,a[1]+((b?.[1]??a[1])-a[1])*f];
   }
 
-  const endpoints=ROUTE_OVERPASS_URLS;
-  const queryForBox=b=>`[out:json][timeout:20];(nwr["amenity"="charging_station"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});nwr["amenity"="fuel"]["fuel:electricity"="yes"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)}););out center tags;`;
+  for(let from=0;from<totalKm;from+=SEARCH_STEP_KM){
+    const to=Math.min(totalKm,from+SEARCH_STEP_KM);
+    const pts=[];
+    const a=routePointAtKm(from),b=routePointAtKm(to);
+    if(a)pts.push(a); if(b)pts.push(b);
+    for(let i=0;i<route.length;i++)if(cum[i]>=from&&cum[i]<=to)pts.push(route[i]);
+    if(pts.length<2)continue;
+    const lats=pts.map(p=>Number(p[0])).filter(Number.isFinite);
+    const lons=pts.map(p=>Number(p[1])).filter(Number.isFinite);
+    if(!lats.length||!lons.length)continue;
+    boxes.push({
+      south:Math.max(-90,Math.min(...lats)-BUFFER_LAT_DEG),
+      north:Math.min(90,Math.max(...lats)+BUFFER_LAT_DEG),
+      west:Math.max(-180,Math.min(...lons)-BUFFER_LON_DEG),
+      east:Math.min(180,Math.max(...lons)+BUFFER_LON_DEG)
+    });
+  }
+
+  const queryForBox=b=>`[out:json][timeout:25];(
+    nwr["amenity"="charging_station"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
+    nwr["amenity"="fuel"]["fuel:electricity"~"^(yes|charging|available)$",i](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
+    nwr["amenity"="fuel"]["fuel:charging"~"^(yes|charging|available)$",i](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
+    nwr["amenity"="fuel"]["charging_station"="yes"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
+    nwr["amenity"="fuel"]["motor_vehicle:charging"="yes"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
+  );out center tags;`;
+
   const fetchBox=async box=>{
     let lastErr=null;
-    for(const endpoint of endpoints){
+    for(const endpoint of ROUTE_OVERPASS_URLS){
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),11000);
+      const timer=setTimeout(()=>controller.abort(),9500);
       try{
-        const r=await fetch(endpoint,{method:'POST',mode:'cors',signal:controller.signal,headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},body:`data=${encodeURIComponent(queryForBox(box))}`});
+        const query=queryForBox(box);
+        const url=`${endpoint}?data=${encodeURIComponent(query)}`;
+        const r=await fetch(url,{method:'GET',mode:'cors',signal:controller.signal,headers:{Accept:'application/json'}});
         if(!r.ok)throw new Error(`Overpass ${r.status}`);
         const data=await r.json();
         const arr=(data.elements||[]).map(normalizeChargingStation).filter(Boolean);
@@ -5245,7 +5279,7 @@ async function fetchEvChargingStations(route){
         return arr.length;
       }catch(e){
         clearTimeout(timer);lastErr=e;
-        if(e?.name==='AbortError')break;
+        if(e?.name==='AbortError')continue;
       }
     }
     if(lastErr)console.warn('[EV corridor]',lastErr);
@@ -5256,46 +5290,35 @@ async function fetchEvChargingStations(route){
   const worker=async()=>{
     while(true){
       const i=cursor++;
-      if(i>=segments.length)break;
-      const n=await fetchBox(segments[i]);
+      if(i>=boxes.length)break;
+      const n=await fetchBox(boxes[i]);
       if(n>0)success+=n;
     }
   };
-  await Promise.all(Array.from({length:Math.min(3,segments.length)},worker));
+  await Promise.all(Array.from({length:Math.min(2,boxes.length)},worker));
 
-  // If Overpass is temporarily unavailable, try MapTiler only as a small
-  // supplementary lookup. It must never be required for the route to render.
-  if(!unique.size){
-    const key=String(MAP_CONFIG.apiKey||'').trim();
-    if(key){
-      const samples=[];
-      for(let km=0;km<=totalKm;km+=80){
-        const rp=nearestRoutePositionKm(route[0][0],route[0][1],route,cum);
-        const idx=cum.findIndex(x=>x>=km);
-        if(idx>=0)samples.push(route[idx]);
-      }
-      let next=0;
-      const workerMt=async()=>{
-        while(true){
-          const i=next++;if(i>=samples.length)break;
-          const p=samples[i],controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
-          try{
-            const rs=await fetchMapTilerPlaces('สถานีชาร์จ EV',controller,{lat:p[0],lon:p[1]});
-            addStations(rs.map(r=>({...r,source:'MapTiler POI'})));
-          }catch(e){}finally{clearTimeout(timer);}
-        }
-      };
-      await Promise.all(Array.from({length:Math.min(3,samples.length)},workerMt));
-    }
+  /* Final fallback: one broad route bounding box.  This is used only when
+     corridor queries returned nothing, which protects against an Overpass
+     instance rejecting one or more corridor requests. */
+  if(!unique.size&&boxes.length){
+    const whole={
+      south:Math.max(-90,Math.min(...boxes.map(b=>b.south))),
+      north:Math.min(90,Math.max(...boxes.map(b=>b.north))),
+      west:Math.max(-180,Math.min(...boxes.map(b=>b.west))),
+      east:Math.min(180,Math.max(...boxes.map(b=>b.east)))
+    };
+    await fetchBox(whole);
   }
 
   const filtered=[];
   for(const st of unique.values()){
     const p=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-    if(p.offsetKm<=13)filtered.push({...st,routeKm:p.km,routeOffsetKm:p.offsetKm});
+    if(p.offsetKm<=EV_SEARCH_ROUTE_NEAR_KM){
+      filtered.push({...st,routeKm:p.km,routeOffsetKm:p.offsetKm});
+    }
   }
   filtered.sort((a,b)=>a.routeKm-b.routeKm);
-  console.log(`[EV] corridor segments=${segments.length}, raw=${unique.size}, nearRoute=${filtered.length}`);
+  console.log(`[EV V5.21] boxes=${boxes.length}, raw=${unique.size}, nearRoute=${filtered.length}`);
   return filtered;
 }
 function getEvReferencePosition(){
@@ -5441,7 +5464,7 @@ async function refreshEvChargingStations(force=false){
     return stations;
   }catch(e){
     console.warn('[EV Charging Search]',e);
-    if(searchSeq===routePlan.chargingSearchSeq&&panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ จุดชาร์จ</div><div class="ev-charge-meta">ค้นหาสถานีชาร์จไม่สำเร็จ · ระบบจะลองใหม่เมื่อมีการคำนวณเส้นทาง/ระยะใหม่</div>';}
+    if(searchSeq===routePlan.chargingSearchSeq&&panel){panel.style.display='block';panel.innerHTML='<div class="ev-charge-title">⚡ จุดชาร์จ</div><div class="ev-charge-meta">ยังเชื่อมต่อฐานข้อมูลสถานีชาร์จไม่ได้ · ระบบจะลอง Overpass สำรองอีกครั้งเมื่อคำนวณเส้นทาง/ระยะใหม่</div>';}
     return [];
   }finally{routePlan.chargingLoading=false;}
 }
@@ -5524,7 +5547,7 @@ async function buildPlannedRoute(){
     routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan._rerouting=false;routePlan._lastRerouteAt=0;
     routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;
     clearEvChargingMarkers();
-    // V5.20: explicitly push the newly calculated route into the MapLibre
+    // V5.21: explicitly push the newly calculated route into the MapLibre
     // GeoJSON source. Previously the route source could remain empty when the
     // route was calculated after the map had already loaded.
     if(map&&map._loaded){ ensureRoutePlanLayer()?.set(result.coords); }
@@ -5547,7 +5570,7 @@ async function buildPlannedRoute(){
         if(map&&map._loaded&&ev.allStations.length){
           try{setEvChargingPoiData(ev.allStations);}catch(e){console.warn('EV POI render failed:',e);}
         }
-        routePlannerHint(stations.length&&ev.candidates.length?'หาเส้นทางแล้ว · แสดงเส้นทางทั้งหมด + สถานีชาร์จ 1–4 จุด':'หาเส้นทางแล้ว · ไม่พบสถานีชาร์จตามแนวเส้นทางจากข้อมูล MapTiler/OSM · ระบบจะลองค้นหาใหม่');
+        routePlannerHint(stations.length&&ev.candidates.length?'หาเส้นทางแล้ว · แสดงเส้นทางทั้งหมด + สถานีชาร์จ 1–4 จุด':'หาเส้นทางแล้ว · ยังไม่พบสถานีจากฐานข้อมูล OSM ที่ตอบกลับ · ระบบจะลองค้นหาใหม่');
       }
     }).catch(()=>{});
   }catch(e){
