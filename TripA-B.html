@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.21-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.16-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1319,11 +1319,30 @@ function showUpdatePopup() {
 	}, 2000);
 }
 if ('serviceWorker' in navigator) {
-	navigator.serviceWorker.addEventListener('message', event => {
-		if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
-			showUpdatePopup();
-		}
-	});
+  // Stable SW: TripA-B.html is fetched Network-First, so future Trip updates
+  // normally require uploading TripA-B.html only.
+  navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
+    .then(async reg => {
+      console.log('[SW] Registered:', reg.scope);
+      try { await reg.update(); } catch (e) { console.warn('[SW] Update check failed:', e); }
+
+      reg.addEventListener('updatefound', () => {
+        const worker = reg.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('[SW] New service worker ready');
+          }
+        });
+      });
+    })
+    .catch(err => console.error('[SW] Registration failed:', err));
+
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
+      showUpdatePopup();
+    }
+  });
 }
 </script>
 <!-- 🚗 TripA-B App Logic -->
@@ -2839,7 +2858,7 @@ let pathCoordinatesRender = [];
 let lastRenderLat = null;
 let lastRenderLon = null;
 const MAP_CONFIG = Object.freeze({
-    apiKey: "m03QINzrXTHePj5nVcyn",
+    apiKey: "",
     maxZoom: 20,
     tileSize: 256
 });
@@ -5207,24 +5226,14 @@ async function fetchEvChargingStations(route){
   };
 
   /*
-   * V5.21 EV SEARCH
-   * ----------------
-   * Do not depend on MapTiler's POI index for charging stations.  The basemap
-   * and the POI database are separate products.  OSM/Overpass is the source
-   * of truth for this feature, with several public Overpass instances as
-   * fallback.
-   *
-   * A long route is divided into 120-km corridor boxes.  Each request uses
-   * GET ?data=... instead of a large POST body.  The query deliberately covers
-   * several common OSM charging tags used in Thailand.  Results are filtered
-   * against the actual route afterwards, so the larger search boxes do not
-   * become false POIs.
+   * V5.22 EV SEARCH — one request, simple Overpass syntax.
+   * V5.22 generated many large bbox requests and used several complex tag
+   * expressions. In practice that produced HTTP 400 and then HTTP 429 from
+   * public Overpass servers. Here the route is sampled every ~40 km and all
+   * charging_station objects are requested in one union of `around` clauses.
+   * A second request for fuel/electric tags is made only if the first returns
+   * no stations. This greatly reduces server load and browser latency.
    */
-  const SEARCH_STEP_KM=120;
-  const BUFFER_LAT_DEG=0.16; // ~18 km
-  const BUFFER_LON_DEG=0.20; // ~20 km in Thailand
-  const boxes=[];
-
   function routePointAtKm(target){
     const t=Math.max(0,Math.min(totalKm,target));
     let i=0;
@@ -5236,89 +5245,74 @@ async function fetchEvChargingStations(route){
     return [a[0]+((b?.[0]??a[0])-a[0])*f,a[1]+((b?.[1]??a[1])-a[1])*f];
   }
 
-  for(let from=0;from<totalKm;from+=SEARCH_STEP_KM){
-    const to=Math.min(totalKm,from+SEARCH_STEP_KM);
-    const pts=[];
-    const a=routePointAtKm(from),b=routePointAtKm(to);
-    if(a)pts.push(a); if(b)pts.push(b);
-    for(let i=0;i<route.length;i++)if(cum[i]>=from&&cum[i]<=to)pts.push(route[i]);
-    if(pts.length<2)continue;
-    const lats=pts.map(p=>Number(p[0])).filter(Number.isFinite);
-    const lons=pts.map(p=>Number(p[1])).filter(Number.isFinite);
-    if(!lats.length||!lons.length)continue;
-    boxes.push({
-      south:Math.max(-90,Math.min(...lats)-BUFFER_LAT_DEG),
-      north:Math.min(90,Math.max(...lats)+BUFFER_LAT_DEG),
-      west:Math.max(-180,Math.min(...lons)-BUFFER_LON_DEG),
-      east:Math.min(180,Math.max(...lons)+BUFFER_LON_DEG)
-    });
-  }
+  const samples=[];
+  const stepKm=40;
+  for(let km=0;km<=totalKm;km+=stepKm){const p=routePointAtKm(km);if(p)samples.push(p);}
+  const last=routePointAtKm(totalKm);
+  if(last && (!samples.length || Math.abs(totalKm-(samples.length-1)*stepKm)>1))samples.push(last);
+  if(samples.length<2){const a=routePointAtKm(0),b=routePointAtKm(totalKm);if(a)samples.push(a);if(b)samples.push(b);}
 
-  const queryForBox=b=>`[out:json][timeout:25];(
-    nwr["amenity"="charging_station"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
-    nwr["amenity"="fuel"]["fuel:electricity"~"^(yes|charging|available)$",i](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
-    nwr["amenity"="fuel"]["fuel:charging"~"^(yes|charging|available)$",i](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
-    nwr["amenity"="fuel"]["charging_station"="yes"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
-    nwr["amenity"="fuel"]["motor_vehicle:charging"="yes"](${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)});
-  );out center tags;`;
+  const makeQuery=(includeFuel=false)=>{
+    const clauses=[];
+    for(const p of samples){
+      const lat=Number(p[0]),lon=Number(p[1]);
+      if(!Number.isFinite(lat)||!Number.isFinite(lon))continue;
+      clauses.push(`nwr["amenity"="charging_station"](around:20000,${lat.toFixed(5)},${lon.toFixed(5)});`);
+      if(includeFuel){
+        clauses.push(`nwr["amenity"="fuel"]["fuel:electricity"](around:20000,${lat.toFixed(5)},${lon.toFixed(5)});`);
+        clauses.push(`nwr["amenity"="fuel"]["fuel:charging"](around:20000,${lat.toFixed(5)},${lon.toFixed(5)});`);
+        clauses.push(`nwr["amenity"="fuel"]["charging_station"](around:20000,${lat.toFixed(5)},${lon.toFixed(5)});`);
+        clauses.push(`nwr["amenity"="fuel"]["motor_vehicle:charging"](around:20000,${lat.toFixed(5)},${lon.toFixed(5)});`);
+      }
+    }
+    return `[out:json][timeout:30];(${clauses.join('')});out center tags;`;
+  };
 
-  const fetchBox=async box=>{
+  async function queryOverpass(query){
     let lastErr=null;
-    for(const endpoint of ROUTE_OVERPASS_URLS){
+    // Only one endpoint is contacted at a time. A 429 receives a short pause
+    // before the next endpoint, avoiding the request burst seen in V5.22.
+    for(let ei=0;ei<ROUTE_OVERPASS_URLS.length;ei++){
+      const endpoint=ROUTE_OVERPASS_URLS[ei];
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),9500);
+      const timer=setTimeout(()=>controller.abort(),12000);
       try{
-        const query=queryForBox(box);
         const url=`${endpoint}?data=${encodeURIComponent(query)}`;
-        const r=await fetch(url,{method:'GET',mode:'cors',signal:controller.signal,headers:{Accept:'application/json'}});
-        if(!r.ok)throw new Error(`Overpass ${r.status}`);
+        const r=await fetch(url,{method:'GET',mode:'cors',signal:controller.signal,cache:'no-store',headers:{Accept:'application/json'}});
+        if(r.status===429){lastErr=new Error('HTTP 429 Too Many Requests');await new Promise(res=>setTimeout(res,2500));continue;}
+        if(!r.ok){lastErr=new Error(`HTTP ${r.status}`);continue;}
         const data=await r.json();
-        const arr=(data.elements||[]).map(normalizeChargingStation).filter(Boolean);
-        addStations(arr);
         clearTimeout(timer);
-        return arr.length;
+        return data;
       }catch(e){
         clearTimeout(timer);lastErr=e;
         if(e?.name==='AbortError')continue;
       }
     }
-    if(lastErr)console.warn('[EV corridor]',lastErr);
-    return 0;
-  };
+    console.warn('[EV V5.22] Overpass unavailable:',lastErr?.message||lastErr);
+    return null;
+  }
 
-  let cursor=0,success=0;
-  const worker=async()=>{
-    while(true){
-      const i=cursor++;
-      if(i>=boxes.length)break;
-      const n=await fetchBox(boxes[i]);
-      if(n>0)success+=n;
-    }
-  };
-  await Promise.all(Array.from({length:Math.min(2,boxes.length)},worker));
-
-  /* Final fallback: one broad route bounding box.  This is used only when
-     corridor queries returned nothing, which protects against an Overpass
-     instance rejecting one or more corridor requests. */
-  if(!unique.size&&boxes.length){
-    const whole={
-      south:Math.max(-90,Math.min(...boxes.map(b=>b.south))),
-      north:Math.min(90,Math.max(...boxes.map(b=>b.north))),
-      west:Math.max(-180,Math.min(...boxes.map(b=>b.west))),
-      east:Math.min(180,Math.max(...boxes.map(b=>b.east)))
-    };
-    await fetchBox(whole);
+  let data=await queryOverpass(makeQuery(false));
+  if(data?.elements?.length){
+    addStations(data.elements.map(normalizeChargingStation).filter(Boolean));
+  }
+  // Only make the broader fuel-tag query when the standard charging_station
+  // query returned no usable records.
+  if(!unique.size){
+    data=await queryOverpass(makeQuery(true));
+    if(data?.elements?.length)addStations(data.elements.map(normalizeChargingStation).filter(Boolean));
   }
 
   const filtered=[];
   for(const st of unique.values()){
     const p=nearestRoutePositionKm(st.lat,st.lon,route,cum);
-    if(p.offsetKm<=EV_SEARCH_ROUTE_NEAR_KM){
-      filtered.push({...st,routeKm:p.km,routeOffsetKm:p.offsetKm});
-    }
+    // Keep a generous 20 km corridor around the actual road. This is only a
+    // geometric safety filter; it is NOT a WLTP/Safety filter.
+    if(p.offsetKm<=20)filtered.push({...st,routeKm:p.km,routeOffsetKm:p.offsetKm});
   }
   filtered.sort((a,b)=>a.routeKm-b.routeKm);
-  console.log(`[EV V5.21] boxes=${boxes.length}, raw=${unique.size}, nearRoute=${filtered.length}`);
+  console.log(`[EV V5.22] samples=${samples.length}, raw=${unique.size}, nearRoute=${filtered.length}`);
   return filtered;
 }
 function getEvReferencePosition(){
@@ -5352,9 +5346,9 @@ function calculateEvCandidates(){
 }
 function ensureEvChargingPoiLayer(){
   if(!map||!map._loaded)return null;
-  const source='ev-charging-poi-source-v515';
-  const circle='ev-charging-poi-circle-v515';
-  const label='ev-charging-poi-label-v515';
+  const source='ev-charging-poi-source-v522';
+  const circle='ev-charging-poi-circle-v522';
+  const label='ev-charging-poi-label-v522';
   try{
     if(!map.getSource(source)){
       map.addSource(source,{type:'geojson',data:{type:'FeatureCollection',features:[]}});
@@ -5394,7 +5388,7 @@ function clearEvChargingMarkers(){
   // V5.17 uses a MapLibre GeoJSON POI layer instead of many DOM markers.
   // This is substantially cheaper to render and keeps charging POIs attached to the map.
   if(map&&map._loaded){
-    try{map.getSource('ev-charging-poi-source-v515')?.setData({type:'FeatureCollection',features:[]});}catch(e){}
+    try{map.getSource('ev-charging-poi-source-v522')?.setData({type:'FeatureCollection',features:[]});}catch(e){}
   }
   evChargingMarkers.forEach(m=>{try{m.remove();}catch(e){}});evChargingMarkers=[];
 }
@@ -5547,7 +5541,7 @@ async function buildPlannedRoute(){
     routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan._rerouting=false;routePlan._lastRerouteAt=0;
     routePlan.chargingStations=[];routePlan.chargingRouteKey='';routePlan.chargingLastProgressKm=-1;routePlan.chargingLastProgressKey='';routePlan.chargingLastSearchPositionKm=-Infinity;
     clearEvChargingMarkers();
-    // V5.21: explicitly push the newly calculated route into the MapLibre
+    // V5.22: explicitly push the newly calculated route into the MapLibre
     // GeoJSON source. Previously the route source could remain empty when the
     // route was calculated after the map had already loaded.
     if(map&&map._loaded){ ensureRoutePlanLayer()?.set(result.coords); }
