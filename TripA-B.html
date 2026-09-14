@@ -1073,7 +1073,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.36-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.37-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1122,17 +1122,17 @@ span[id^="wltpSegment"] {
 		</div>
 		<div id="tripHistory"></div>
 	</div>
-	<!-- V5.36: NAV mode returns to its original position on the map -->
-                <div class="map-mode-control" aria-label="Map mode control">
-                  <span class="map-mode-label">MODE</span>
-                  <button id="navModeBtn" type="button" title="สลับ NAV / EXPLORE">🧭 NAV</button>
-                </div>
 	<div id="speedometer-top">
 		<div id="speedometer">
 		
 			<div id="map-container" style="position: relative; width: 100%; height: 370px; overflow: hidden;">
 			
 				<div id="map"></div>
+				<!-- NAV mode: original map position -->
+				<div class="map-mode-control" aria-label="Map mode control">
+				  <span class="map-mode-label">MODE</span>
+				  <button id="navModeBtn" type="button" title="สลับ NAV / EXPLORE">🧭 NAV</button>
+				</div>
 				<button id="gpsFollowBtn" class="map-gps-btn" title="ติดตามตำแหน่ง">
 				<span aria-hidden="true" style="font-size:20px;line-height:1">◎</span>
 				</button>
@@ -1525,7 +1525,7 @@ function tripRecorderRenderHistory() {
         <div class="history-line"><span class="field-name">เวลา</span><span class="field-value">${new Date(record.timestamp).toLocaleString()}</span></div>
         <div class="history-line"><span class="field-name">Start/km</span><span class="field-value">${Number(record.startWltp).toFixed(3)} km (WLTP)</span></div>
         <div class="history-battery-line"><span class="field-name">แบตเริ่มต้น</span>${tripRecorderBatteryHtml('Start',startSoc)}<span class="history-battery-wltp">${startSoc.toFixed(2)}%</span></div>
-        <div class="history-line"><span class="field-name">End/km</span><span class="field-value">${Number(record.endWltp).toFixed(3)} km (Real-time WLTP)</span></div>
+        <div class="history-line"><span class="field-name">End/km</span><span class="field-value">${Number(record.endWltp).toFixed(3)} km (WLTP)</span></div>
         <div class="history-battery-line"><span class="field-name">แบตสิ้นสุด</span>${tripRecorderBatteryHtml('End',endSoc)}<span class="history-battery-wltp">${endSoc.toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">SOC/Used</span><span class="field-value">${Number(record.usedSOC).toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">Distance(km)</span><span class="field-value">${Number(record.distance).toFixed(3)} km</span></div>
