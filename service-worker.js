@@ -1,85 +1,135 @@
-// ===============================
-// 🚀 TripA-B Service Worker (v19 Stable + Smart Auto-Update)
-// ===============================
+// ============================================================
+// TripA-B Service Worker — API SAFE / Stable Auto Update
+// V21
+//
+// IMPORTANT:
+// - Only same-origin TripA-B.html is handled by this SW.
+// - Cross-origin API/CDN/map requests are NOT intercepted at all.
+//   The browser handles them normally, eliminating SW Response-conversion
+//   errors and avoiding interference with CORS/API responses.
+// - Future normal app updates require uploading TripA-B.html only.
+// ============================================================
 
-//const CACHE_VERSION = 'v19';
-//const CACHE_NAME = `trip-ab-cache-${CACHE_VERSION}`;
-const CACHE_VERSION = 'trip-ab-shell-v20';
+const CACHE_VERSION = 'trip-ab-shell-v21';
 const CACHE_NAME = CACHE_VERSION;
-const urlsToCache = [
-  './TripA-B.html',
+const STATIC_ASSETS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
 ];
 
-// 📦 INSTALL
 self.addEventListener('install', event => {
-  console.log(`[SW] Installing ${CACHE_NAME}...`);
-  event.waitUntil(
-    (async () => {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.addAll(urlsToCache);
-
-      // แจ้ง client ว่ามี SW ใหม่
-      const clients = await self.clients.matchAll({ includeUncontrolled: true });
-      for (const client of clients) {
-        client.postMessage({ type: 'NEW_VERSION_AVAILABLE' });
-      }
-    })()
-  );
-  self.skipWaiting();
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await Promise.all(STATIC_ASSETS.map(async asset => {
+      try { await cache.add(asset); }
+      catch (err) { console.warn('[SW] Static asset cache skipped:', asset, err); }
+    }));
+    await self.skipWaiting();
+  })());
 });
 
-// ♻️ ACTIVATE
 self.addEventListener('activate', event => {
-  console.log(`[SW] Activating ${CACHE_NAME}...`);
-  event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => k !== CACHE_NAME && caches.delete(k)));
-      await self.clients.claim();
-    })()
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter(key => key.startsWith('trip-ab-') && key !== CACHE_NAME)
+        .map(key => caches.delete(key))
+    );
+    await self.clients.claim();
+  })());
 });
 
-// 🌐 FETCH (stale-while-revalidate + safe index)
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
+function isSameOrigin(url) {
+  return url.origin === self.location.origin;
+}
 
-  // 🚫 ข้าม request ที่ไม่ใช่ http/https
+function isAppHtml(url) {
+  return isSameOrigin(url) && (
+    url.pathname.endsWith('/TripA-B.html') ||
+    url.pathname.endsWith('/TripA-B.htm')
+  );
+}
+
+function isStaticAsset(url) {
+  return isSameOrigin(url) && (
+    url.pathname.endsWith('/manifest.json') ||
+    url.pathname.endsWith('/icon-192.png') ||
+    url.pathname.endsWith('/icon-512.png')
+  );
+}
+
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-  // ✅ โหลดสดสำหรับ index.html หรือ root path (เช่น /)
-  if (url.pathname === '/' || url.pathname.endsWith('index.html')) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('./TripA-B.html'))
-    );
+  // ==========================================================
+  // 1) Cross-origin requests: DO NOT intercept.
+  // ==========================================================
+  // This is deliberately a plain `return`, not `respondWith(fetch(...))`.
+  // That leaves MapTiler / OSRM / Overpass / Nominatim / Photon / CDN
+  // completely outside the service worker fetch pipeline.
+  if (!isSameOrigin(url)) return;
+
+  // ==========================================================
+  // 2) App HTML: network first, cached fallback.
+  // ==========================================================
+  if (isAppHtml(url)) {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(request, { cache: 'no-store' });
+        if (response && response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(request, response.clone());
+        }
+        return response;
+      } catch (err) {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        const fallback = await caches.match('./TripA-B.html');
+        if (fallback) return fallback;
+        return new Response('TripA-B ไม่สามารถโหลดได้ในขณะออฟไลน์', {
+          status: 503,
+          headers: {'Content-Type':'text/plain; charset=utf-8'}
+        });
+      }
+    })());
     return;
   }
 
-  // ✅ cache-first + update เบื้องหลัง
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      const fetchPromise = fetch(event.request)
-        .then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          }
-          return networkResponse;
-        })
-        .catch(() => cached);
-      return cached || fetchPromise;
-    })
-  );
+  // ==========================================================
+  // 3) Small local static assets: cache first.
+  // ==========================================================
+  if (isStaticAsset(url)) {
+    event.respondWith((async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
+      try {
+        const response = await fetch(request);
+        if (response && response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(request, response.clone());
+        }
+        return response;
+      } catch (err) {
+        return new Response('', {status:503});
+      }
+    })());
+    return;
+  }
+
+  // Everything else on the same origin is left to the browser.
+  // No catch-all respondWith, no fake Response, no API interception.
 });
 
-// 💬 MESSAGE
 self.addEventListener('message', event => {
-  if (event.data === 'SKIP_WAITING') {
-    console.log('[SW] 🚀 Forcing activation of new SW...');
-    self.skipWaiting();
+  const data = event.data;
+  if (data === 'SKIP_WAITING' || data?.action === 'SKIP_WAITING') {
+    event.waitUntil(self.skipWaiting());
   }
+  // Legacy manualSync is intentionally a no-op.
 });
