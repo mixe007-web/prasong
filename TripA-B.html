@@ -1049,7 +1049,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.16-EV-POI-NAV</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-65-V5.23-EV-POI-NAV</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1319,30 +1319,11 @@ function showUpdatePopup() {
 	}, 2000);
 }
 if ('serviceWorker' in navigator) {
-  // Stable SW: TripA-B.html is fetched Network-First, so future Trip updates
-  // normally require uploading TripA-B.html only.
-  navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
-    .then(async reg => {
-      console.log('[SW] Registered:', reg.scope);
-      try { await reg.update(); } catch (e) { console.warn('[SW] Update check failed:', e); }
-
-      reg.addEventListener('updatefound', () => {
-        const worker = reg.installing;
-        if (!worker) return;
-        worker.addEventListener('statechange', () => {
-          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[SW] New service worker ready');
-          }
-        });
-      });
-    })
-    .catch(err => console.error('[SW] Registration failed:', err));
-
-  navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
-      showUpdatePopup();
-    }
-  });
+	navigator.serviceWorker.addEventListener('message', event => {
+		if (event.data && event.data.type === 'NEW_VERSION_AVAILABLE') {
+			showUpdatePopup();
+		}
+	});
 }
 </script>
 <!-- 🚗 TripA-B App Logic -->
@@ -2858,7 +2839,7 @@ let pathCoordinatesRender = [];
 let lastRenderLat = null;
 let lastRenderLon = null;
 const MAP_CONFIG = Object.freeze({
-    apiKey: "",
+    apiKey: "m03QINzrXTHePj5nVcyn",
     maxZoom: 20,
     tileSize: 256
 });
@@ -5055,13 +5036,19 @@ async function showPlaceSearchResults(query,kind,index,inputEl){
   };
   try{
     const poi=detectRoutePoiSearch(query);
+    // Nominatim + MapTiler are the primary geocoders.
+    // Photon is fallback-only so a Photon network/CORS/rate-limit error
+    // cannot interfere with ordinary place search.
     const jobs=[
       run(sig=>fetchNominatimPlaces(query,sig),5000),
-      run(sig=>fetchPhotonPlaces(query,sig),5000),
       run(sig=>fetchMapTilerPlaces(query,sig),5000)
     ];
     const vals=await Promise.all(jobs);
-    let [nom,pho,mt]=vals;
+    let [nom,mt]=vals;
+    let pho=[];
+    if(nom.length+mt.length<6 && !signal.aborted){
+      try{pho=await run(sig=>fetchPhotonPlaces(query,sig),5000);}catch(e){}
+    }
     let over=[];
     if(poi && nom.length+pho.length+mt.length<5 && !signal.aborted){
       try{over=await run(sig=>fetchOverpassPlaces(query,sig),7000);}catch(e){}
