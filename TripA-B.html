@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.38 Auto Trip Recorder</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.39 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1080,8 +1080,23 @@ span[id^="wltpSegment"] {
 .trip-history-record .trip-rec-history-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .trip-history-record .trip-rec-history-actions button{flex:1 1 110px;margin-top:0}
 .trip-history-record .history-cost{color:var(--green)}
-#tripInfoSection{width:100%;max-width:none;box-sizing:border-box;overflow:auto;max-height:70vh}
+#tripInfoSection{width:100%;max-width:none;box-sizing:border-box;overflow:auto;max-height:72vh}
 #tripInfoSection .trip-grid{width:100%;min-width:0}
+#toggleTripInfoBtn,#toggleTripHistory{width:100%!important;box-sizing:border-box}
+#tripHistorySection .history-main-actions{display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+#tripHistorySection .history-main-actions button{min-width:110px}
+.trip-entry .history-actions{display:flex;gap:6px;flex-wrap:wrap}
+.trip-entry .history-actions button{margin-top:0}
+.trip-entry .history-battery-row{display:grid;grid-template-columns:150px minmax(100px,1fr) auto;gap:8px;align-items:center}
+.trip-entry .history-battery-row .battery-mini{display:flex;gap:2px;align-items:center;min-width:0}
+.trip-entry .history-battery-row .battery-mini span{height:12px;flex:1;min-width:4px;border-radius:2px;background:#ccc;opacity:.3}
+.trip-entry .history-battery-row .battery-mini span.filled{background:linear-gradient(to top,#0f0,#0c0);opacity:1}
+.trip-entry .history-data-grid{display:flex;flex-direction:column;gap:3px}
+.trip-entry .history-data-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:3px 0}
+.trip-entry .history-data-row .history-label{opacity:.72;flex:0 0 auto}
+.trip-entry .history-data-row .history-value{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.trip-entry .history-bottom-actions{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:9px}
+@media (max-width:560px){.trip-entry .history-battery-row{grid-template-columns:110px minmax(80px,1fr) auto}.trip-entry .history-data-row{flex-direction:column;gap:1px}.trip-entry .history-data-row .history-value{text-align:left}.trip-entry .history-bottom-actions{justify-content:center}}
 #tripInfoSection .trip-grid .item{min-width:0}
 @media (max-width:560px){#tripInfoSection{padding:10px 9px;max-height:72vh}#tripInfoSection .trip-grid .row{flex-direction:column;gap:5px}#tripInfoSection .trip-grid .item{width:100%}}
 @media (min-width:561px){#tripInfoSection .trip-grid .row{width:100%}#tripInfoSection .trip-grid .item{min-width:0}}
@@ -1090,7 +1105,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.38-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.39-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1214,7 +1229,7 @@ span[id^="wltpSegment"] {
 			</div>
 		</div>
 	</div>
-	<h3 style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+	<h3 style="display:flex; justify-content:stretch; align-items:center; margin-top:10px; width:100%;">
 	<button id="toggleTripInfoBtn" type="button" aria-expanded="false" aria-controls="tripInfoSection">Trip Information ▼</button>
 </h3>
 	<div id="tripInfoSection" style="display:none;">
@@ -1274,13 +1289,13 @@ span[id^="wltpSegment"] {
     </div>
   </div>
 </div>
-	<h3 style="display: flex; align-items: center; justify-content: space-between; margin-top:10px;">
+	<h3 style="display:flex; align-items:center; justify-content:stretch; margin-top:10px; width:100%;">
 		<button id="toggleTripHistory" style="background:rgba(0,200,255,0.08);border-color:rgba(0,200,255,0.3);color:var(--cyan);">
 			History ▼
 		</button>
 	</h3>
 	<div id="tripHistorySection" style="display: none;">
-		<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+		<div class="history-main-actions">
 			<button id="showLast2Btn">Recent</button>
 			<button id="showAllBtn">All History</button>
 			<button onclick="clearAllTrips()" style="border-color:rgba(255,61,90,0.3);color:var(--red);">Delete All</button>
@@ -1370,7 +1385,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 (() => {
-const APP_VERSION = "PRO-68-V5.38-AUTO-TRIP-RECORDER";
+const APP_VERSION = "PRO-68-V5.39-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -1591,18 +1606,9 @@ function tripRecorderRenderHistory() {
         <div class="history-battery-line"><span class="field-name">แบตสิ้นสุด</span>${tripRecorderBatteryHtml('End',endSoc)}<span class="history-battery-wltp">${endSoc.toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">SOC/Used</span><span class="field-value">${Number(record.usedSOC || 0).toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">Distance(km)</span><span class="field-value">${Number(record.distance || 0).toFixed(3)} km</span></div>
-        <div class="history-line"><span class="field-name">Energy/Trip</span><span class="field-value">${energyKWh.toFixed(2)} kWh</span></div>
-        <div class="history-line"><span class="field-name">SOC/Trip</span><span class="field-value">${Number(record.batterySOCUsedPercent ?? record.usedSOC ?? 0).toFixed(2)}%</span></div>
-        <div class="history-line"><span class="field-name">Regen</span><span class="field-value">${Number(record.totalRegenEnergy || 0).toFixed(2)} kWh</span></div>
-        <div class="history-line"><span class="field-name">เวลาเดินทาง</span><span class="field-value">${formatTime(record.elapsedTime || 0)}</span></div>
-        <div class="history-line"><span class="field-name">เวลารถจอด</span><span class="field-value">${formatTime(record.idleTimeSeconds || 0)}</span></div>
-        <div class="history-line"><span class="field-name">ความเร็วสูงสุด</span><span class="field-value">${Number(record.maxSpeed || 0).toFixed(1)} km/h</span></div>
-        <div class="history-line"><span class="field-name">ความเร็วเฉลี่ย</span><span class="field-value">${Number(record.avgSpeed || 0).toFixed(1)} km/h</span></div>
-        <div class="history-line"><span class="field-name">พลังงานเฉลี่ย</span><span class="field-value">${Number(record.energyPer100km || 0).toFixed(2)} kWh/100km</span></div>
         <div class="history-line history-cost"><span class="field-name">1 km/บาท</span><span class="field-value">${kmPerBaht > 0 ? kmPerBaht.toFixed(3) + ' km/บาท' : '-'}</span></div>
       </div>
       <div class="trip-rec-history-actions">
-        <button class="show-trip-rec-map-btn" data-id="${escapeHtml(record.id)}" type="button">แผนที่</button>
         <button class="deleteBtn trip-rec-delete" data-id="${escapeHtml(record.id)}" type="button">ลบช่วงนี้</button>
       </div>`;
     tripHistoryDiv.appendChild(div);
@@ -1632,7 +1638,8 @@ function tripRecorderBeginSegment() {
     logStartIndex: Array.isArray(tripLog) ? tripLog.length : 0,
     maxSpeed: 0,
     startCoord: Array.isArray(tripLog) && tripLog.length ? tripLog[tripLog.length - 1]?.coord || '' : '',
-    startTimestamp: Date.now()
+    startTimestamp: Date.now(),
+    startTime: Date.now()
   };
   tripRecorderState.sequence = Number(tripRecorderState.sequence || 0) + 1;
   saveTripRecorderState();
@@ -1728,17 +1735,6 @@ document.getElementById("backToMainBtn")?.addEventListener("click", () => {
   });
 });
 tripHistoryDiv?.addEventListener('click', e => {
-  const mapBtn = e.target.closest('.show-trip-rec-map-btn');
-  if (mapBtn) {
-    const id = String(mapBtn.dataset.id || '');
-    const record = tripRecorderHistory.find(r => String(r.id) === id);
-    if (record && Array.isArray(record.path) && record.path.length) {
-      showLeafletMapFromTrip(record);
-    } else {
-      alert('ช่วงนี้ไม่มีข้อมูลตำแหน่งสำหรับแสดงแผนที่ย้อนหลัง');
-    }
-    return;
-  }
   const btn = e.target.closest('.trip-rec-delete');
   if (!btn) return;
   const id = String(btn.dataset.id || '');
@@ -2756,45 +2752,58 @@ async function getAllHistoryRecords() {
 async function loadHistory(limit = null) {
   const requestId = ++historyLoadSeq;
   let allTrips = [];
-  try {
-    allTrips = await getAllHistoryRecords();
-  } catch (err) {
-    console.warn('[History] load failed', err);
-  }
+  try { allTrips = await getAllHistoryRecords(); }
+  catch (err) { console.warn('[History] load failed', err); }
   if (requestId !== historyLoadSeq) return;
-
   if (!allTrips.length) {
     historyContainer.innerHTML = '<p>ไม่มีประวัติ Trip</p>';
     return;
   }
 
   const shownTrips = limit != null ? allTrips.slice(0, limit) : allTrips.slice(0, 100);
+  const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('th-TH') : '-';
+  const fmtDateTime = ts => ts ? new Date(ts).toLocaleString('th-TH') : '-';
+  const batteryHtml = pct => {
+    const safe = Math.max(0, Math.min(100, Number(pct) || 0));
+    const bars = Array.from({length:10}, (_,i) => `<span class="${safe >= ((i+1)*10) ? 'filled' : ''}"></span>`).join('');
+    return `<div class="battery-mini" aria-label="${safe.toFixed(2)}%">${bars}</div>`;
+  };
+  const val = (n, d=2) => Number.isFinite(Number(n)) ? Number(n).toFixed(d) : (0).toFixed(d);
+
   let html = '';
-  shownTrips.forEach((trip) => {
+  shownTrips.forEach(trip => {
     const id = trip.id ?? '';
+    const distance = Number(trip.distance) || 0;
+    const energyKWh = Number(trip.energyConsumption ?? trip.energyUsed) || 0;
+    const rate = Number(trip.electricityRateBahtPerKWh ?? tripRecorderElectricityRate) || 0;
+    const kmPerBaht = Number(trip.kmPerBaht) || (energyKWh > 0 && distance > 0 && rate > 0 ? distance / (energyKWh * rate) : 0);
+    const startSoc = Number(trip.startSOC) || 0;
+    const endSoc = Number(trip.endSOC) || 0;
+    const usedSocTrip = Number(trip.batterySOCUsedPercent ?? ((energyKWh / VEHICLE_CONFIG.batteryKWh) * 100)) || 0;
+    const avgEfficiency = Number(trip.avgEfficiencyPerPercent) || (usedSocTrip > 0 ? distance / usedSocTrip : 0);
     html += `
       <div class="trip-entry" data-id="${escapeHtml(id)}">
         <div class="trip-header">
-          <strong>เดินทาง: ${escapeHtml(trip.plateNumber || trip.tripName || '-')}</strong>
-          <div class="history-actions">
-            <button class="show-map-btn" data-id="${escapeHtml(id)}">แผนที่</button>
-            <button class="clear-trip-btn" data-id="${escapeHtml(id)}">ล้างข้อมูล</button>
-          </div>
+          <strong>เดินทาง: ${escapeHtml(trip.plateNumber || trip.tripName || '-')} <span style="opacity:.72;font-weight:600;">${fmtDate(trip.startTime || trip.timestamp)}</span></strong>
         </div>
-        <p>ระยะทางทั้งหมด : ${parseFloat(trip.distance || 0).toFixed(3)} km</p>
-        <p>พลังงานรีเจน : ${(Number(trip.totalRegenEnergy) || 0).toFixed(2)} kWh</p>
-        <p>เวลาที่รถหยุด : ${formatTime(trip.idleTimeSeconds || 0)}</p>
-        <p>เวลาที่ใช้เดินทางทั้งหมด : ${formatTime(trip.elapsedTime || 0)}</p>
-        <p>ความเร็วสูงสุด : ${parseFloat(trip.maxSpeed || 0).toFixed(1)} km/h</p>
-        <p>ความเร็วเฉลี่ย : ${parseFloat(trip.avgSpeed || 0).toFixed(1)} km/h</p>
-        <p>Energy/Trip : ${(Number(trip.energyConsumption) || 0).toFixed(2)} kWh</p>
-        <p>SOC/Trip : ${(Number(trip.batterySOCUsedPercent) || 0).toFixed(2)}%</p>
-        <p>Start/km : ${(Number(trip.startWltp) || 0).toFixed(3)} km (WLTP) · แบตเริ่มต้น ${(Number(trip.startSOC) || 0).toFixed(2)}%</p>
-        <p>End/km : ${(Number(trip.endWltp) || 0).toFixed(3)} km (WLTP) · แบตสิ้นสุด ${(Number(trip.endSOC) || 0).toFixed(2)}%</p>
-        <p>1 km/บาท : ${(Number(trip.kmPerBaht) || 0).toFixed(3)} km/บาท</p>
-        <p>พลังงานใช้เฉลี่ย : ${(Number(trip.energyPer100km) || 0).toFixed(2)} kWh/100km : ${(Number(trip.avgEfficiencyPerPercent) || 0).toFixed(3)} km/1%</p>
-        <p>เริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'} , ${escapeHtml(trip.startCoord || '-')}</p>
-        <p>สิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : '-'} , ${escapeHtml(trip.endCoord || '-')}</p>
+        <div class="history-data-grid">
+          <div class="history-data-row"><span class="history-label">ค่าไฟ</span><span class="history-value">${val(rate,2)} บาท/kWh</span></div>
+          <div class="history-data-row"><span class="history-label">ระยะทางทั้งหมด</span><span class="history-value">${val(distance,3)} km &nbsp;&nbsp; <span class="history-cost">1 km/บาท : ${kmPerBaht > 0 ? val(kmPerBaht,3) + ' km/บาท' : '-'}</span></span></div>
+          <div class="history-data-row"><span class="history-label">Energy/Trip</span><span class="history-value">${val(energyKWh,2)} kWh &nbsp;&nbsp;&nbsp; SOC/Trip : ${val(usedSocTrip,2)}%</span></div>
+          <div class="history-data-row"><span class="history-label">พลังงานใช้เฉลี่ย</span><span class="history-value">${val(trip.energyPer100km,2)} kWh/100km : ${val(avgEfficiency,3)} km/1%</span></div>
+          <div class="history-data-row"><span class="history-label">Start/km</span><span class="history-value">${val(trip.startWltp,3)} km (WLTP)</span></div>
+          <div class="history-battery-row"><span class="history-label">แบตเริ่มต้น</span>${batteryHtml(startSoc)}<strong>${val(startSoc,2)}%</strong></div>
+          <div class="history-data-row"><span class="history-label">End/km</span><span class="history-value">${val(trip.endWltp,3)} km (WLTP)</span></div>
+          <div class="history-battery-row"><span class="history-label">แบตสิ้นสุด</span>${batteryHtml(endSoc)}<strong>${val(endSoc,2)}%</strong></div>
+          <div class="history-data-row"><span class="history-label">ความเร็วสูงสุด</span><span class="history-value">${val(trip.maxSpeed,1)} km/h &nbsp;&nbsp;&nbsp; ความเร็วเฉลี่ย : ${val(trip.avgSpeed,1)} km/h</span></div>
+          <div class="history-data-row"><span class="history-label">เวลาที่ใช้เดินทางทั้งหมด</span><span class="history-value">${formatTime(trip.elapsedTime || 0)} &nbsp;&nbsp;&nbsp; เวลาที่รถหยุด : ${formatTime(trip.idleTimeSeconds || 0)}</span></div>
+          <div class="history-data-row"><span class="history-label">เริ่มต้น</span><span class="history-value">${fmtDateTime(trip.startTime)} ${escapeHtml(trip.startCoord || '')}</span></div>
+          <div class="history-data-row"><span class="history-label">สิ้นสุด</span><span class="history-value">${fmtDateTime(trip.endTime)} ${escapeHtml(trip.endCoord || '')}</span></div>
+        </div>
+        <div class="history-bottom-actions">
+          <button class="show-map-btn" data-id="${escapeHtml(id)}" type="button">แผนที่ย้อนหลัง</button>
+          <button class="clear-trip-btn" data-id="${escapeHtml(id)}" type="button">ลบข้อมูล</button>
+        </div>
       </div>`;
   });
   historyContainer.innerHTML = html;
@@ -2805,9 +2814,7 @@ async function loadHistory(limit = null) {
       const trip = shownTrips.find(t => String(t.id) === String(id));
       if (!trip || !confirm('ลบ Trip นี้ใช่หรือไม่?')) return;
       try {
-        if (typeof trip.id === 'number') {
-          try { await deleteTripFromIndexedDB(trip.id); } catch (_) {}
-        }
+        if (typeof trip.id === 'number') { try { await deleteTripFromIndexedDB(trip.id); } catch (_) {} }
         let legacy = [];
         try { legacy = JSON.parse(localStorage.getItem('tripHistory') || '[]'); } catch (_) {}
         const fp = historyFingerprint(trip);
@@ -2820,7 +2827,6 @@ async function loadHistory(limit = null) {
       }
     };
   });
-
   historyContainer.querySelectorAll('.show-map-btn').forEach(btn => {
     btn.onclick = (e) => {
       const id = e.currentTarget.dataset.id;
@@ -4608,8 +4614,8 @@ function renderCompletedTripOnMap(validCoords) {
             map.resize();
         } catch(e){ console.error('[Trip Stop] completed map render failed',e); }
     };
-    if (map.loaded?.() || map.isStyleLoaded?.()) draw();
-    else map.once('load', draw);
+    if (map && (map.loaded?.() || map.isStyleLoaded?.())) draw();
+    else if (map) map.once('load', draw);
 }
 
 async function stopTracking() {
@@ -5452,7 +5458,7 @@ initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{ }catch(
 	if (window._uiBoundOnce) return;
 	window._uiBoundOnce = true;
 	startBtn.onclick = startTracking;
-	stopBtn.onclick = () => { try { stopTracking(); } catch(e) { console.error("Stop failed",e); } };
+	stopBtn.onclick = () => { try { Promise.resolve(stopTracking()).catch(e => console.error("Stop failed",e)); } catch(e) { console.error("Stop failed",e); } };
 	document.getElementById("showLast2Btn").onclick = () => loadHistory(2);
 	document.getElementById("showAllBtn").onclick = () => loadHistory();
   loadHistory();
