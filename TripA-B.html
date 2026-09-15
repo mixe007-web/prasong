@@ -1000,7 +1000,7 @@ span[id^="wltpSegment"] {
 #map { position: relative; }
 #map .maplibregl-canvas { outline: none; }
 .maplibre-vehicle-marker {
-  width: 46px; height: 46px;
+  width: 54px; height: 54px;
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
   transform: translate(-50%, -50%);
@@ -1112,7 +1112,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.43-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.44-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1392,6 +1392,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 // V5.43 FIX: IndexedDB constants must be initialized before the application IIFE runs.
+// V5.44: vehicle visual upgraded; small curve yaw added in NAV mode.
 // openTripDB() is outside the IIFE, while loadHistory() can be called synchronously
 // from bindUIOnce() inside it. Keep these constants in the global script scope.
 const TRIP_DB_NAME = 'tripDataDB';
@@ -1399,7 +1400,7 @@ const TRIP_DB_VERSION = 3;
 const TRIP_STORE = 'trips';
 
 (() => {
-const APP_VERSION = "PRO-68-V5.43-AUTO-TRIP-RECORDER";
+const APP_VERSION = "PRO-68-V5.44-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -1411,23 +1412,62 @@ const VEHICLE_CONFIG = Object.freeze({
 // Embedded vector vehicle image: self-contained, no external image host or expiry.
 const VEHICLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180">
   <defs>
-    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#dff8ff"/><stop offset=".45" stop-color="#49d9ff"/><stop offset="1" stop-color="#007ea8"/>
+    <linearGradient id="carPaint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4fbff"/>
+      <stop offset="0.28" stop-color="#b9e8f5"/>
+      <stop offset="0.62" stop-color="#4aaec9"/>
+      <stop offset="1" stop-color="#17657d"/>
     </linearGradient>
-    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#071522"/><stop offset="1" stop-color="#163b52"/>
+    <linearGradient id="glass2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#102735"/>
+      <stop offset="0.5" stop-color="#284d60"/>
+      <stop offset="1" stop-color="#0a1822"/>
     </linearGradient>
-    <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="tire" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#26323a"/>
+      <stop offset="1" stop-color="#05080b"/>
+    </linearGradient>
+    <filter id="carShadow" x="-35%" y="-20%" width="170%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3.2" flood-color="#000" flood-opacity=".55"/>
+    </filter>
   </defs>
-  <g filter="url(#glow)">
-    <rect x="17" y="8" width="86" height="164" rx="38" fill="#06111b" stroke="#00d8ff" stroke-width="3"/>
-    <path d="M30 49 Q32 18 60 16 Q88 18 90 49 L84 132 Q81 157 60 164 Q39 157 36 132Z" fill="url(#body)" stroke="#aaf3ff" stroke-width="2"/>
-    <path d="M38 53 Q40 27 60 24 Q80 27 82 53 L76 79 Q60 86 44 79Z" fill="url(#glass)" stroke="#6ee9ff" stroke-width="1.5"/>
-    <path d="M44 86 Q60 93 76 86 L79 119 Q60 129 41 119Z" fill="#0a2433" opacity=".9"/>
-    <path d="M41 120 Q60 130 79 120 L75 139 Q60 151 45 139Z" fill="#b7f7ff" opacity=".75"/>
-    <path d="M20 57 h13 M20 123 h13 M87 57 h13 M87 123 h13" stroke="#00ff9a" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="60" cy="12" r="3" fill="#fff"/>
-    <circle cx="60" cy="168" r="3" fill="#00ff9a"/>
+  <g filter="url(#carShadow)">
+    <!-- wheels -->
+    <rect x="8" y="43" width="18" height="43" rx="8" fill="url(#tire)" stroke="#111820" stroke-width="2"/>
+    <rect x="94" y="43" width="18" height="43" rx="8" fill="url(#tire)" stroke="#111820" stroke-width="2"/>
+    <rect x="9" y="113" width="17" height="40" rx="8" fill="url(#tire)" stroke="#111820" stroke-width="2"/>
+    <rect x="94" y="113" width="17" height="40" rx="8" fill="url(#tire)" stroke="#111820" stroke-width="2"/>
+
+    <!-- main body -->
+    <path d="M28 25 Q31 10 46 7 Q60 4 74 7 Q89 10 92 25 L99 58 L98 132 Q96 155 79 168 Q69 175 60 175 Q51 175 41 168 Q24 155 22 132 L21 58Z"
+          fill="url(#carPaint)" stroke="#d9f8ff" stroke-width="2.4"/>
+
+    <!-- roof / cabin -->
+    <path d="M35 54 Q38 25 60 20 Q82 25 85 54 L80 91 Q60 101 40 91Z"
+          fill="url(#glass2)" stroke="#8ed7e8" stroke-width="1.6"/>
+    <path d="M60 22 L60 94" stroke="#7daab8" stroke-width="1.2" opacity=".7"/>
+    <path d="M37 55 Q60 63 83 55" fill="none" stroke="#78c9da" stroke-width="1.1" opacity=".65"/>
+
+    <!-- mirrors -->
+    <path d="M29 57 Q20 54 17 60 Q19 67 29 64Z" fill="#163845" stroke="#8ddceb" stroke-width="1.2"/>
+    <path d="M91 57 Q100 54 103 60 Q101 67 91 64Z" fill="#163845" stroke="#8ddceb" stroke-width="1.2"/>
+
+    <!-- side character lines -->
+    <path d="M25 98 Q60 108 95 98" fill="none" stroke="#d7f8ff" stroke-width="1.5" opacity=".75"/>
+    <path d="M26 123 Q60 132 94 123" fill="none" stroke="#1b7188" stroke-width="1.5" opacity=".8"/>
+
+    <!-- front lighting / grille -->
+    <path d="M39 17 Q60 10 81 17" fill="none" stroke="#ffffff" stroke-width="2" opacity=".9"/>
+    <path d="M37 25 Q43 18 51 17 L47 31 Q40 33 35 37Z" fill="#eaffff" stroke="#79e5f5" stroke-width="1"/>
+    <path d="M83 25 Q77 18 69 17 L73 31 Q80 33 85 37Z" fill="#eaffff" stroke="#79e5f5" stroke-width="1"/>
+    <path d="M45 151 Q60 158 75 151 L72 164 Q60 171 48 164Z" fill="#173541" opacity=".95"/>
+    <path d="M50 159 Q60 163 70 159" fill="none" stroke="#69d7e8" stroke-width="1.4"/>
+
+    <!-- EV light accents -->
+    <path d="M22 76 H31" stroke="#55ffd0" stroke-width="4" stroke-linecap="round"/>
+    <path d="M89 76 H98" stroke="#55ffd0" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="60" cy="12" r="2.6" fill="#fff"/>
+    <circle cx="60" cy="169" r="2.8" fill="#55ffd0"/>
   </g>
 </svg>`;
 const VEHICLE_ICON_URL = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(VEHICLE_SVG);
@@ -3176,6 +3216,8 @@ let smoothedLon = null;
 let lastMarkerAngle = 0;
 let lastHeading = null;
 let curveMomentum = 0;
+let curveVisualAngle = 0;
+let curveVisualTarget = 0;
 let lastReliableHeading = null;
 let appliedMapLat = null;
 let appliedMapLon = null;
@@ -3243,6 +3285,8 @@ function applyMapTransform(wrapper, rotationDeg, panX = 0, panY = 0, offsetRatio
 // ===== helpers (local) =====
 function resetFollowRotationState(full = false) {
 	curveMomentum = 0;
+	curveVisualAngle = 0;
+	curveVisualTarget = 0;
 	lastAppliedTransform = "";
 	appliedMapLat = null;
 	appliedMapLon = null;
@@ -3680,6 +3724,15 @@ function smoothTransformStep(now) {
 			? lockedHeading
 			: normalizeAngle(computedHeading ?? rotationController.current ?? 0);
 		finalTargetHeading = normalizeAngle(finalTargetHeading);
+		// Small visual yaw in NAV mode: the map still rotates to the road heading,
+		// while the car turns a few degrees into the curve so the bend is visible.
+		if (movementState === "moving" && autoFollow && autoRotate && motionOk && motion.turnRate > 4) {
+			const signedCurve = normalizeAngleDifference(finalTargetHeading, rotationController.current);
+			curveVisualTarget = clamp(signedCurve * 0.55, -12, 12);
+		} else {
+			curveVisualTarget = 0;
+		}
+		curveVisualAngle = lerp(curveVisualAngle, curveVisualTarget, clamp(dtSec * 8, 0, 1));
 		let diff = normalizeAngleDifference(
 			finalTargetHeading,
 			rotationController.current
@@ -3729,7 +3782,8 @@ function smoothTransformStep(now) {
 			const markerFollow = targetSpeed < 10 ? 0.45 : targetSpeed < 40 ? 0.60 : 0.72;
 			const markerFollowRate = markerFollow * clamp(dtSec * 60, 0, 1);
 			lastMarkerAngle = normalizeAngle(lastMarkerAngle + markerDiff * markerFollowRate);
-			vehicleMarker.setRotationAngle(lastMarkerAngle);
+			const visualYaw = (map3DNavigationEnabled && autoFollow) ? curveVisualAngle : 0;
+			vehicleMarker.setRotationAngle(map3DNavigationEnabled && autoFollow ? visualYaw : lastMarkerAngle);
 		}
 	} else if (rotWrapper && !autoRotate) {
 		rotationController.current = 0;
@@ -3917,7 +3971,7 @@ function createVehicleMarker(lat, lon) {
     marker.setRotationAngle=function(angle){
         this._rotationAngle=angle;
         const inner=this._icon?.querySelector('.vehicle-inner');
-        if(inner) inner.style.setProperty('--marker-rotate', map3DNavigationEnabled && autoFollow ? '0deg' : `${angle}deg`);
+        if(inner) inner.style.setProperty('--marker-rotate', `${angle}deg`);
         return this;
     };
     return marker;
