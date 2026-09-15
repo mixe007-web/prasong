@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.39 Auto Trip Recorder</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.45 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1002,7 +1002,8 @@ span[id^="wltpSegment"] {
 .maplibre-vehicle-marker {
   width: 54px; height: 54px;
   display: flex; align-items: center; justify-content: center;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   transform: translate(-50%, -50%);
   filter: drop-shadow(0 4px 7px rgba(0,0,0,.55));
   z-index: 20;
@@ -1044,6 +1045,17 @@ span[id^="wltpSegment"] {
 .route-plan-marker{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7));cursor:grab}.route-plan-marker:active{cursor:grabbing}
 .route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}
 @media (max-width:560px){.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
+
+/* V5.45 cumulative Trip distance */
+.trip-distance-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0 12px;padding:8px;border:1px solid rgba(0,220,255,.16);border-radius:12px;background:rgba(0,0,0,.12)}
+.trip-distance-card{position:relative;min-width:0;padding:9px 8px 8px;border:1px solid rgba(0,220,255,.12);border-radius:10px;text-align:center;background:rgba(0,200,255,.025)}
+.trip-distance-card-total{border-color:rgba(0,220,255,.28);background:rgba(0,200,255,.055)}
+.trip-distance-label{font-size:11px;font-weight:800;color:var(--cyan);letter-spacing:.03em}
+.trip-distance-value{margin-top:3px;font:800 20px/1.15 var(--font-hud);font-variant-numeric:tabular-nums;white-space:nowrap}
+.trip-distance-value small{font:700 10px var(--font-body);opacity:.72}
+.trip-distance-sub{margin-top:3px;font-size:9px;opacity:.58}
+.trip-distance-reset{margin-top:7px!important;min-width:64px!important;padding:4px 8px!important;font-size:9px!important}
+@media (max-width:560px){.trip-distance-totals{grid-template-columns:1fr;gap:6px}.trip-distance-card{display:grid;grid-template-columns:78px 1fr auto;grid-template-rows:auto auto;align-items:center;text-align:left;column-gap:7px;padding:7px}.trip-distance-label{grid-row:1/3}.trip-distance-value{margin:0;text-align:right}.trip-distance-sub{text-align:right;margin:1px 0 0}.trip-distance-reset{grid-column:3;grid-row:1/3;margin:0!important}}
 
 /* V5.36 AUTO Trip Recorder */
 .trip-rec-active{border-color:rgba(0,220,255,.32)!important}
@@ -1112,7 +1124,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.44-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.45-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1154,6 +1166,26 @@ span[id^="wltpSegment"] {
 			<button id="backToMainBtn">← Trip A-B</button>
 		</div>
 		<div class="trips-container" id="trips"></div>
+		<!-- V5.45: automatic cumulative distance counters -->
+		<div id="tripDistanceTotals" class="trip-distance-totals" aria-label="Total distance">
+			<div class="trip-distance-card">
+				<div class="trip-distance-label">Trip A</div>
+				<div class="trip-distance-value"><span id="tripDistanceA">0.000</span> <small>km</small></div>
+				<div class="trip-distance-sub">Total distance</div>
+				<button id="tripDistanceResetA" type="button" class="trip-distance-reset">Reset</button>
+			</div>
+			<div class="trip-distance-card">
+				<div class="trip-distance-label">Trip B</div>
+				<div class="trip-distance-value"><span id="tripDistanceB">0.000</span> <small>km</small></div>
+				<div class="trip-distance-sub">Total distance</div>
+				<button id="tripDistanceResetB" type="button" class="trip-distance-reset">Reset</button>
+			</div>
+			<div class="trip-distance-card trip-distance-card-total">
+				<div class="trip-distance-label">Total</div>
+				<div class="trip-distance-value"><span id="tripDistanceTotal">0.000</span> <small>km</small></div>
+				<div class="trip-distance-sub">Total distance</div>
+			</div>
+		</div>
 		<h3 style="display:flex;align-items:center;gap:6px;">
 			<span>History</span>
 			<button id="tripCostSettingsBtn" class="trip-cost-settings-btn" type="button" title="ตั้งค่าค่าไฟ">⚙</button>
@@ -1392,7 +1424,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 // V5.43 FIX: IndexedDB constants must be initialized before the application IIFE runs.
-// V5.44: vehicle visual upgraded; small curve yaw added in NAV mode.
+// V5.45: Trip distance counters + scalable/clickable vehicle marker.
 // openTripDB() is outside the IIFE, while loadHistory() can be called synchronously
 // from bindUIOnce() inside it. Keep these constants in the global script scope.
 const TRIP_DB_NAME = 'tripDataDB';
@@ -1400,7 +1432,7 @@ const TRIP_DB_VERSION = 3;
 const TRIP_STORE = 'trips';
 
 (() => {
-const APP_VERSION = "PRO-68-V5.44-AUTO-TRIP-RECORDER";
+const APP_VERSION = "PRO-68-V5.45-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -1629,6 +1661,41 @@ function tripRecorderRenderCurrent() {
       <div class="trip-rec-status">● AUTO RECORDING · Part ${cur.part}</div>
     </div>`;
 }
+const TRIP_DISTANCE_RESET_KEY = 'tripRecorderDistanceResetV545';
+let tripRecorderDistanceReset = { A: 0, B: 0 };
+try {
+  const saved = JSON.parse(localStorage.getItem(TRIP_DISTANCE_RESET_KEY) || '{}');
+  if (saved && typeof saved === 'object') {
+    tripRecorderDistanceReset.A = Math.max(0, Number(saved.A) || 0);
+    tripRecorderDistanceReset.B = Math.max(0, Number(saved.B) || 0);
+  }
+} catch (_) {}
+function saveTripRecorderDistanceReset() {
+  try { localStorage.setItem(TRIP_DISTANCE_RESET_KEY, JSON.stringify(tripRecorderDistanceReset)); } catch (_) {}
+}
+function tripRecorderDistanceBuckets(records) {
+  let a = 0, b = 0, total = 0;
+  for (const r of records || []) {
+    const d = Math.max(0, Number(r.distance) || 0);
+    total += d;
+    // Part 1 is treated as Trip A; Parts 2/3 are treated as Trip B.
+    if (Number(r.part) === 1) a += d; else b += d;
+  }
+  return { a: Math.max(0, a), b: Math.max(0, b), total: Math.max(0, total) };
+}
+function tripRecorderUpdateDistanceTotals(records = tripRecorderHistory) {
+  const bucket = tripRecorderDistanceBuckets(records);
+  const a = Math.max(0, bucket.a - tripRecorderDistanceReset.A);
+  const b = Math.max(0, bucket.b - tripRecorderDistanceReset.B);
+  const total = bucket.total;
+  const aEl = document.getElementById('tripDistanceA');
+  const bEl = document.getElementById('tripDistanceB');
+  const tEl = document.getElementById('tripDistanceTotal');
+  if (aEl) aEl.textContent = a.toFixed(3);
+  if (bEl) bEl.textContent = b.toFixed(3);
+  if (tEl) tEl.textContent = total.toFixed(3);
+}
+
 function tripRecorderRenderHistory() {
   if (!tripHistoryDiv) return;
   const sorted = [...tripRecorderHistory].sort((a,b) => Number(b.timestamp || b.endTime || 0) - Number(a.timestamp || a.endTime || 0));
@@ -1638,11 +1705,9 @@ function tripRecorderRenderHistory() {
     tripHistoryDiv.innerHTML = '<div class="trip-rec-empty">ยังไม่มีประวัติช่วงการเดินทาง</div>';
     return;
   }
-  const summary = document.createElement('div');
-  summary.className = 'history-summary';
-  const totalKm = sorted.reduce((n,r) => n + (Number(r.distance) || 0), 0);
-  summary.innerHTML = `<div class="history-stat"><b>${sorted.length}</b><span>Segments</span></div><div class="history-stat"><b>${totalKm.toFixed(1)} km</b><span>Total distance</span></div><div class="history-stat"><b>${new Set(sorted.map(r=>r.tripName)).size}</b><span>Trips</span></div>`;
-  tripHistoryDiv.appendChild(summary);
+  // V5.45: Total distance is shown in the dedicated panel below Auto Recording.
+  // Keep History itself focused on the individual recorded segments.
+  tripRecorderUpdateDistanceTotals(sorted);
   display.forEach(record => {
     const div = document.createElement('div');
     div.className = 'trip-history-record';
@@ -1796,6 +1861,22 @@ tripHistoryDiv?.addEventListener('click', e => {
   tripRecorderHistory = tripRecorderHistory.filter(r => String(r.id) !== id);
   saveTripRecorderHistory();
   tripRecorderRenderHistory();
+  tripRecorderUpdateDistanceTotals(tripRecorderHistory);
+});
+
+document.getElementById('tripDistanceResetA')?.addEventListener('click', () => {
+  const bucket = tripRecorderDistanceBuckets(tripRecorderHistory);
+  if (!confirm('รีเซ็ต Total distance ของ Trip A หรือไม่? ประวัติ Trip จะไม่ถูกลบ')) return;
+  tripRecorderDistanceReset.A = bucket.a;
+  saveTripRecorderDistanceReset();
+  tripRecorderUpdateDistanceTotals(tripRecorderHistory);
+});
+document.getElementById('tripDistanceResetB')?.addEventListener('click', () => {
+  const bucket = tripRecorderDistanceBuckets(tripRecorderHistory);
+  if (!confirm('รีเซ็ต Total distance ของ Trip B หรือไม่? ประวัติ Trip จะไม่ถูกลบ')) return;
+  tripRecorderDistanceReset.B = bucket.b;
+  saveTripRecorderDistanceReset();
+  tripRecorderUpdateDistanceTotals(tripRecorderHistory);
 });
 tripToggleBtn?.addEventListener('click', () => {
   tripRecorderShowAll = !tripRecorderShowAll;
@@ -1805,8 +1886,11 @@ tripToggleBtn?.addEventListener('click', () => {
 tripDeleteAllBtn?.addEventListener('click', () => {
   if (!confirm('ต้องการลบประวัติช่วงทั้งหมดหรือไม่?')) return;
   tripRecorderHistory = [];
+  tripRecorderDistanceReset = { A: 0, B: 0 };
   saveTripRecorderHistory();
+  saveTripRecorderDistanceReset();
   tripRecorderRenderHistory();
+  tripRecorderUpdateDistanceTotals([]);
 });
 
 // Part 2 / Part 3 are activated by their existing checkboxes.
@@ -1830,6 +1914,7 @@ tripDeleteAllBtn?.addEventListener('click', () => {
   });
 });
 tripRecorderRender();
+tripRecorderUpdateDistanceTotals(tripRecorderHistory);
 
 //Trip real time 
   let updateEndTimeInterval = null;
@@ -3819,6 +3904,7 @@ function smoothTransformStep(now) {
             const scale = appliedIconSize / BASE_ICON_SIZE;
             inner.style.setProperty("--marker-scale", scale);
         }
+        updateVehicleScaleFromMapZoom();
     }
 	// 11. DWG line
 	lastRenderLat = appliedMapLat;
@@ -3967,6 +4053,17 @@ function createVehicleMarker(lat, lon) {
     el.innerHTML=`<div class="vehicle-inner" aria-hidden="true"><img src="${VEHICLE_ICON_URL}" alt="" /></div>`;
     const marker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lon,lat]).addTo(map);
     marker._icon=el;
+    let vehicleStyleIndex = 0;
+    el.title = 'กดเพื่อเปลี่ยนรูปรถ';
+    el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        vehicleStyleIndex = (vehicleStyleIndex + 1) % 3;
+        const inner = el.querySelector('.vehicle-inner');
+        if (inner) {
+            inner.dataset.vehicleStyle = String(vehicleStyleIndex);
+            inner.style.filter = vehicleStyleIndex === 0 ? 'none' : vehicleStyleIndex === 1 ? 'saturate(1.18) brightness(1.04)' : 'saturate(.82) brightness(.94)';
+        }
+    });
     marker.setLatLng=function(pos){ this.setLngLat([pos[1],pos[0]]); return this; };
     marker.setRotationAngle=function(angle){
         this._rotationAngle=angle;
@@ -3976,6 +4073,18 @@ function createVehicleMarker(lat, lon) {
     };
     return marker;
 }
+function updateVehicleScaleFromMapZoom() {
+    if (!map || !vehicleMarker || typeof map.getZoom !== 'function') return;
+    const zoom = Number(map.getZoom());
+    if (!Number.isFinite(zoom)) return;
+    const scale = clamp(Math.pow(2, (zoom - 17) * 0.22), 0.72, 1.28);
+    const inner = vehicleMarker._icon?.querySelector('.vehicle-inner');
+    if (inner) {
+        const speedScale = Number.isFinite(appliedIconSize) ? appliedIconSize / BASE_ICON_SIZE : 1;
+        inner.style.setProperty('--marker-scale', String(clamp(speedScale * scale, 0.58, 1.35)));
+    }
+}
+
 function applyThaiMapLabels(targetMap){
   if(!targetMap?.getStyle)return;
   try{
@@ -4064,6 +4173,7 @@ function initMap(lat, lon) {
         });
     }
     vehicleMarker=createVehicleMarker(lat,lon);
+    try { map.on('zoom', updateVehicleScaleFromMapZoom); } catch (_) {}
     map.on('styledata',()=>{ if(map._loaded){ applyThaiMapLabels(map); addMapLibreTerrain(map); add3DBuildings(map); }});
 }
 // PATCH: flyTo animation unlock (SAFE + removable)
