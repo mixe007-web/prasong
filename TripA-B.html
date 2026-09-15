@@ -1112,7 +1112,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.42-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.43-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1391,8 +1391,15 @@ if ('serviceWorker' in navigator) {
 </script>
 <!-- 🚗 TripA-B App Logic -->
 <script>
+// V5.43 FIX: IndexedDB constants must be initialized before the application IIFE runs.
+// openTripDB() is outside the IIFE, while loadHistory() can be called synchronously
+// from bindUIOnce() inside it. Keep these constants in the global script scope.
+const TRIP_DB_NAME = 'tripDataDB';
+const TRIP_DB_VERSION = 3;
+const TRIP_STORE = 'trips';
+
 (() => {
-const APP_VERSION = "PRO-68-V5.40-AUTO-TRIP-RECORDER";
+const APP_VERSION = "PRO-68-V5.43-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -5486,11 +5493,6 @@ function bindRouteMapEvents(targetMap){if(!targetMap||targetMap._routePlannerCli
 const _initMapV54=initMap;
 initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{ }catch(e){}}return result;};
 
-// IndexedDB constants must be in global script scope because openTripDB()
-// is declared outside the UI IIFE below. Keep these before any runtime calls.
-const TRIP_DB_NAME = 'tripDataDB';
-const TRIP_DB_VERSION = 3;
-const TRIP_STORE = 'trips';
 (function bindUIOnce() {
 	if (window._uiBoundOnce) return;
 	window._uiBoundOnce = true;
