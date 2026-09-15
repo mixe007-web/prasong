@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.45 Auto Trip Recorder</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.46 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1124,7 +1124,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.45-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.46-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1424,7 +1424,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 // V5.43 FIX: IndexedDB constants must be initialized before the application IIFE runs.
-// V5.45: Trip distance counters + scalable/clickable vehicle marker.
+// V5.46: Trip A/B cumulative counters + true multi-vehicle marker.
 // openTripDB() is outside the IIFE, while loadHistory() can be called synchronously
 // from bindUIOnce() inside it. Keep these constants in the global script scope.
 const TRIP_DB_NAME = 'tripDataDB';
@@ -1432,7 +1432,7 @@ const TRIP_DB_VERSION = 3;
 const TRIP_STORE = 'trips';
 
 (() => {
-const APP_VERSION = "PRO-68-V5.45-AUTO-TRIP-RECORDER";
+const APP_VERSION = "PRO-68-V5.46-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -1502,7 +1502,45 @@ const VEHICLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 18
     <circle cx="60" cy="169" r="2.8" fill="#55ffd0"/>
   </g>
 </svg>`;
-const VEHICLE_ICON_URL = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(VEHICLE_SVG);
+const VEHICLE_SVG_2 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180">
+<defs>
+ <linearGradient id="v2body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff7d6"/><stop offset=".32" stop-color="#f2c85b"/><stop offset=".72" stop-color="#c47719"/><stop offset="1" stop-color="#713b0b"/></linearGradient>
+ <linearGradient id="v2glass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#17324a"/><stop offset=".55" stop-color="#35667b"/><stop offset="1" stop-color="#0b1720"/></linearGradient>
+ <filter id="v2shadow" x="-35%" y="-20%" width="170%" height="150%"><feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#000" flood-opacity=".55"/></filter>
+</defs>
+<g filter="url(#v2shadow)">
+ <rect x="7" y="47" width="19" height="40" rx="8" fill="#15191d"/><rect x="94" y="47" width="19" height="40" rx="8" fill="#15191d"/>
+ <rect x="9" y="116" width="18" height="38" rx="8" fill="#15191d"/><rect x="93" y="116" width="18" height="38" rx="8" fill="#15191d"/>
+ <path d="M31 18 Q40 6 60 5 Q80 6 89 18 Q96 29 98 54 L101 128 Q99 151 84 165 Q72 176 60 176 Q48 176 36 165 Q21 151 19 128 L22 54 Q24 29 31 18Z" fill="url(#v2body)" stroke="#fff0b0" stroke-width="2.4"/>
+ <path d="M33 54 Q35 28 49 19 Q60 14 71 19 Q85 28 87 54 L83 88 Q60 97 37 88Z" fill="url(#v2glass)" stroke="#b9e2ed" stroke-width="1.6"/>
+ <path d="M60 17 V91" stroke="#9fc1cc" stroke-width="1.2" opacity=".7"/>
+ <path d="M29 57 Q19 55 17 62 Q20 68 30 65Z" fill="#243b45" stroke="#e7d08a" stroke-width="1.2"/><path d="M91 57 Q101 55 103 62 Q100 68 90 65Z" fill="#243b45" stroke="#e7d08a" stroke-width="1.2"/>
+ <path d="M27 99 Q60 108 93 99" fill="none" stroke="#fff3bd" stroke-width="1.7" opacity=".8"/>
+ <path d="M26 122 Q60 132 94 122" fill="none" stroke="#8b4e12" stroke-width="2"/>
+ <path d="M38 25 Q46 15 55 14 L50 31 Q42 34 35 39Z" fill="#fffde8" stroke="#ffe39a"/><path d="M82 25 Q74 15 65 14 L70 31 Q78 34 85 39Z" fill="#fffde8" stroke="#ffe39a"/>
+ <path d="M44 151 Q60 158 76 151 L72 164 Q60 170 48 164Z" fill="#3a2610"/><path d="M50 159 Q60 163 70 159" fill="none" stroke="#ffd75e" stroke-width="1.5"/>
+ <path d="M23 76 H32 M88 76 H97" stroke="#ffe36b" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="11" r="2.8" fill="#fff8cc"/><circle cx="60" cy="170" r="3" fill="#ffd75e"/>
+</g></svg>`;
+const VEHICLE_SVG_3 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180">
+<defs>
+ <linearGradient id="v3body" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f0f3f7"/><stop offset=".3" stop-color="#aeb7c2"/><stop offset=".7" stop-color="#59636e"/><stop offset="1" stop-color="#252c33"/></linearGradient>
+ <linearGradient id="v3glass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#17222e"/><stop offset=".5" stop-color="#405466"/><stop offset="1" stop-color="#0b1117"/></linearGradient>
+ <filter id="v3shadow" x="-35%" y="-20%" width="170%" height="150%"><feDropShadow dx="0" dy="5" stdDeviation="3.4" flood-color="#000" flood-opacity=".6"/></filter>
+</defs>
+<g filter="url(#v3shadow)">
+ <rect x="5" y="40" width="20" height="45" rx="9" fill="#101419" stroke="#303840" stroke-width="2"/><rect x="95" y="40" width="20" height="45" rx="9" fill="#101419" stroke="#303840" stroke-width="2"/>
+ <rect x="6" y="114" width="20" height="43" rx="9" fill="#101419" stroke="#303840" stroke-width="2"/><rect x="94" y="114" width="20" height="43" rx="9" fill="#101419" stroke="#303840" stroke-width="2"/>
+ <path d="M25 22 Q30 7 45 5 Q60 2 75 5 Q90 7 95 22 L102 57 V132 Q99 154 84 169 Q72 178 60 178 Q48 178 36 169 Q21 154 18 132 V57Z" fill="url(#v3body)" stroke="#e7edf2" stroke-width="2.5"/>
+ <path d="M30 56 Q31 25 45 17 Q60 9 75 17 Q89 25 90 56 L86 94 Q60 103 34 94Z" fill="url(#v3glass)" stroke="#c2d0da" stroke-width="1.7"/>
+ <path d="M60 14 V98" stroke="#a7b7c2" stroke-width="1.3" opacity=".75"/><path d="M34 58 Q60 67 86 58" fill="none" stroke="#90a4b1" stroke-width="1.2"/>
+ <path d="M28 57 Q17 54 15 62 Q18 70 29 66Z" fill="#1b252d" stroke="#cfd9df" stroke-width="1.2"/><path d="M92 57 Q103 54 105 62 Q102 70 91 66Z" fill="#1b252d" stroke="#cfd9df" stroke-width="1.2"/>
+ <path d="M23 102 Q60 113 97 102" fill="none" stroke="#f6f8fa" stroke-width="1.5" opacity=".75"/><path d="M23 127 Q60 137 97 127" fill="none" stroke="#303a43" stroke-width="2"/>
+ <path d="M36 27 Q42 15 53 12 L49 35 Q41 37 34 42Z" fill="#ffffff" stroke="#c9d4dc"/><path d="M84 27 Q78 15 67 12 L71 35 Q79 37 86 42Z" fill="#ffffff" stroke="#c9d4dc"/>
+ <path d="M40 150 Q60 160 80 150 L75 167 Q60 175 45 167Z" fill="#161d23"/><path d="M49 160 Q60 165 71 160" fill="none" stroke="#75e5ff" stroke-width="1.8"/>
+ <path d="M21 78 H34 M86 78 H99" stroke="#75e5ff" stroke-width="4.5" stroke-linecap="round"/><path d="M44 16 H76" stroke="#fff" stroke-width="2" opacity=".8"/><circle cx="60" cy="172" r="3" fill="#75e5ff"/>
+</g></svg>`;
+const VEHICLE_ICON_URLS = [VEHICLE_SVG, VEHICLE_SVG_2, VEHICLE_SVG_3].map(svg => "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg));
+const VEHICLE_ICON_URL = VEHICLE_ICON_URLS[0];
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({
     "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
@@ -1661,7 +1699,7 @@ function tripRecorderRenderCurrent() {
       <div class="trip-rec-status">● AUTO RECORDING · Part ${cur.part}</div>
     </div>`;
 }
-const TRIP_DISTANCE_RESET_KEY = 'tripRecorderDistanceResetV545';
+const TRIP_DISTANCE_RESET_KEY = 'tripRecorderDistanceResetV546';
 let tripRecorderDistanceReset = { A: 0, B: 0 };
 try {
   const saved = JSON.parse(localStorage.getItem(TRIP_DISTANCE_RESET_KEY) || '{}');
@@ -1674,14 +1712,14 @@ function saveTripRecorderDistanceReset() {
   try { localStorage.setItem(TRIP_DISTANCE_RESET_KEY, JSON.stringify(tripRecorderDistanceReset)); } catch (_) {}
 }
 function tripRecorderDistanceBuckets(records) {
-  let a = 0, b = 0, total = 0;
+  // Trip A and Trip B are independent cumulative trip counters.
+  // Both accumulate EVERY recorded Part. Reset A/B only changes that counter's baseline.
+  let total = 0;
   for (const r of records || []) {
-    const d = Math.max(0, Number(r.distance) || 0);
-    total += d;
-    // Part 1 is treated as Trip A; Parts 2/3 are treated as Trip B.
-    if (Number(r.part) === 1) a += d; else b += d;
+    total += Math.max(0, Number(r.distance) || 0);
   }
-  return { a: Math.max(0, a), b: Math.max(0, b), total: Math.max(0, total) };
+  total = Math.max(0, total);
+  return { a: total, b: total, total };
 }
 function tripRecorderUpdateDistanceTotals(records = tripRecorderHistory) {
   const bucket = tripRecorderDistanceBuckets(records);
@@ -4050,18 +4088,22 @@ function makeMapLibreMarker(lat, lon, html, className='maplibre-marker', popupTe
 function createVehicleMarker(lat, lon) {
     const el=document.createElement('div');
     el.className='maplibre-vehicle-marker';
-    el.innerHTML=`<div class="vehicle-inner" aria-hidden="true"><img src="${VEHICLE_ICON_URL}" alt="" /></div>`;
+    el.innerHTML=`<div class="vehicle-inner" aria-hidden="true"><img src="${VEHICLE_ICON_URLS[0]}" alt="" /></div>`;
     const marker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lon,lat]).addTo(map);
     marker._icon=el;
     let vehicleStyleIndex = 0;
     el.title = 'กดเพื่อเปลี่ยนรูปรถ';
+    el.setAttribute('role','button');
+    el.setAttribute('aria-label','เปลี่ยนรูปรถ');
     el.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        vehicleStyleIndex = (vehicleStyleIndex + 1) % 3;
+        vehicleStyleIndex = (vehicleStyleIndex + 1) % VEHICLE_ICON_URLS.length;
         const inner = el.querySelector('.vehicle-inner');
+        const img = inner?.querySelector('img');
+        if (img) img.src = VEHICLE_ICON_URLS[vehicleStyleIndex];
         if (inner) {
             inner.dataset.vehicleStyle = String(vehicleStyleIndex);
-            inner.style.filter = vehicleStyleIndex === 0 ? 'none' : vehicleStyleIndex === 1 ? 'saturate(1.18) brightness(1.04)' : 'saturate(.82) brightness(.94)';
+            inner.style.filter = 'none';
         }
     });
     marker.setLatLng=function(pos){ this.setLngLat([pos[1],pos[0]]); return this; };
@@ -4071,6 +4113,7 @@ function createVehicleMarker(lat, lon) {
         if(inner) inner.style.setProperty('--marker-rotate', `${angle}deg`);
         return this;
     };
+    marker.getVehicleStyleIndex=function(){ return vehicleStyleIndex; };
     return marker;
 }
 function updateVehicleScaleFromMapZoom() {
