@@ -1112,7 +1112,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.40-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.41-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -5486,11 +5486,8 @@ function bindRouteMapEvents(targetMap){if(!targetMap||targetMap._routePlannerCli
 const _initMapV54=initMap;
 initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{ }catch(e){}}return result;};
 
-// IndexedDB constants are declared before History initialization to avoid TDZ errors.
-const TRIP_DB_NAME = 'tripDataDB';
-const TRIP_DB_VERSION = 3;
-const TRIP_STORE = 'trips';
-
+// IndexedDB constants must be in global script scope because openTripDB()
+// is declared outside the UI IIFE below. Keep these before any runtime calls.
 (function bindUIOnce() {
 	if (window._uiBoundOnce) return;
 	window._uiBoundOnce = true;
@@ -5527,6 +5524,13 @@ window.addEventListener("beforeunload", () => {
 	}
 });
 })();
+
+// V5.41 FIX: expose IndexedDB constants in the same (global) scope as
+// openTripDB()/saveTripToIndexedDB()/getTripDataFromIndexedDB().
+const TRIP_DB_NAME = 'tripDataDB';
+const TRIP_DB_VERSION = 3;
+const TRIP_STORE = 'trips';
+
 function openTripDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(TRIP_DB_NAME, TRIP_DB_VERSION);
