@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.36 Auto Trip Recorder</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.38 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1068,12 +1068,29 @@ span[id^="wltpSegment"] {
 .trip-history-record .history-battery-line .trip-rec-battery{width:100%;height:15px}
 .trip-history-record .history-battery-line .trip-rec-battery-cell{height:15px}
 .trip-history-record .history-battery-wltp{font-size:10px;opacity:.78;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+.trip-cost-settings-btn{width:25px!important;height:25px!important;min-width:25px!important;padding:0!important;border-radius:50%!important;font-size:13px!important;line-height:1!important;display:inline-flex;align-items:center;justify-content:center;margin:0!important}
+.trip-cost-settings{margin:-2px 0 10px;padding:9px 10px;border:1px solid rgba(0,220,255,.18);border-radius:9px;background:rgba(0,0,0,.16)}
+.trip-cost-settings[hidden]{display:none!important}
+.trip-cost-settings>label{display:block;font-size:10px;opacity:.78;margin-bottom:5px}
+.trip-cost-settings-row{display:flex;align-items:center;gap:7px}
+.trip-cost-settings-row input{width:105px;padding:7px 8px;border-radius:7px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.28);color:var(--text-hi);font:600 11px var(--font-hud)}
+.trip-cost-settings-row span{font-size:10px;color:var(--cyan);opacity:.8}
+.trip-cost-settings-hint{margin-top:5px;font-size:9px;line-height:1.35;opacity:.58}
+.trip-history-record .trip-rec-history-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.trip-history-record .trip-rec-history-actions button{flex:1 1 110px;margin-top:0}
+.trip-history-record .history-cost{color:var(--green)}
+#tripInfoSection{width:100%;max-width:none;box-sizing:border-box;overflow:auto;max-height:70vh}
+#tripInfoSection .trip-grid{width:100%;min-width:0}
+#tripInfoSection .trip-grid .item{min-width:0}
+@media (max-width:560px){#tripInfoSection{padding:10px 9px;max-height:72vh}#tripInfoSection .trip-grid .row{flex-direction:column;gap:5px}#tripInfoSection .trip-grid .item{width:100%}}
+@media (min-width:561px){#tripInfoSection .trip-grid .row{width:100%}#tripInfoSection .trip-grid .item{min-width:0}}
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.37-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.38-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1115,7 +1132,18 @@ span[id^="wltpSegment"] {
 			<button id="backToMainBtn">← Trip A-B</button>
 		</div>
 		<div class="trips-container" id="trips"></div>
-		<h3>History</h3>
+		<h3 style="display:flex;align-items:center;gap:6px;">
+			<span>History</span>
+			<button id="tripCostSettingsBtn" class="trip-cost-settings-btn" type="button" title="ตั้งค่าค่าไฟ">⚙</button>
+		</h3>
+		<div id="tripCostSettings" class="trip-cost-settings" hidden>
+			<label for="tripElectricityRate">ค่าไฟ (บาท/kWh)</label>
+			<div class="trip-cost-settings-row">
+				<input id="tripElectricityRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="4.00">
+				<span>คำนวณเป็น km/บาท</span>
+			</div>
+			<div class="trip-cost-settings-hint">ใช้ Energy/Trip ของแต่ละช่วงในการคำนวณ และบันทึกค่าลง History อัตโนมัติ</div>
+		</div>
 		<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
 			<button id="tripToggleBtn">History All</button>
 			<button id="tripDeleteAllBtn" style="border-color:rgba(255,61,90,0.3);color:var(--red);">Delete All</button>
@@ -1342,7 +1370,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 (() => {
-const APP_VERSION = "PRO-68-V5.34-AUTO-TRIP-RECORDER";
+const APP_VERSION = "PRO-68-V5.38-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -1414,6 +1442,37 @@ if (!Array.isArray(tripRecorderState.completedParts)) tripRecorderState.complete
 
 let tripRecorderShowAll = false;
 let tripRecorderUiTimer = null;
+const TRIP_RECORDER_COST_KEY = "tripRecorderElectricityRate";
+let tripRecorderElectricityRate = 4;
+try {
+  const savedRate = Number(localStorage.getItem(TRIP_RECORDER_COST_KEY));
+  if (Number.isFinite(savedRate) && savedRate >= 0) tripRecorderElectricityRate = savedRate;
+} catch (_) {}
+const tripCostSettingsBtn = document.getElementById("tripCostSettingsBtn");
+const tripCostSettings = document.getElementById("tripCostSettings");
+const tripElectricityRateInput = document.getElementById("tripElectricityRate");
+if (tripElectricityRateInput) tripElectricityRateInput.value = tripRecorderElectricityRate.toFixed(2);
+function saveTripRecorderCostSetting() {
+  try { localStorage.setItem(TRIP_RECORDER_COST_KEY, String(tripRecorderElectricityRate)); } catch (_) {}
+}
+function tripRecorderKmPerBaht(energyUsedKWh, distanceKm) {
+  const e = Number(energyUsedKWh), d = Number(distanceKm), r = Number(tripRecorderElectricityRate);
+  if (!(e > 0) || !(d > 0) || !(r > 0)) return 0;
+  const baht = e * r;
+  return baht > 0 ? d / baht : 0;
+}
+tripCostSettingsBtn?.addEventListener("click", () => {
+  if (!tripCostSettings) return;
+  tripCostSettings.hidden = !tripCostSettings.hidden;
+  if (!tripCostSettings.hidden) tripElectricityRateInput?.focus();
+});
+tripElectricityRateInput?.addEventListener("change", () => {
+  const value = Number(tripElectricityRateInput.value);
+  if (!Number.isFinite(value) || value < 0) return;
+  tripRecorderElectricityRate = value;
+  saveTripRecorderCostSetting();
+  tripRecorderRenderHistory();
+});
 
 function saveTripRecorderState() {
   try { localStorage.setItem(TRIP_RECORDER_STATE_KEY, JSON.stringify(tripRecorderState)); } catch (_) {}
@@ -1497,6 +1556,7 @@ function tripRecorderRenderCurrent() {
       <div class="trip-rec-battery-row"><span></span>${tripRecorderBatteryHtml('End',endSoc)}<strong>${endSoc.toFixed(2)}%</strong></div>
       <div class="trip-rec-row"><span>SOC/Used:</span><strong>${usedSoc.toFixed(2)}%</strong></div>
       <div class="trip-rec-row"><span>Distance(km):</span><strong>${distance.toFixed(3)} km</strong></div>
+      <div class="trip-rec-row history-cost"><span>1 km/บาท:</span><strong>${tripRecorderKmPerBaht((Number(totalEnergyWh||0)-Number(cur.energyBaseWh||0))/1000,distance)>0?tripRecorderKmPerBaht((Number(totalEnergyWh||0)-Number(cur.energyBaseWh||0))/1000,distance).toFixed(3)+' km/บาท':'-'}</strong></div>
       <div class="trip-rec-status">● AUTO RECORDING · Part ${cur.part}</div>
     </div>`;
 }
@@ -1519,21 +1579,36 @@ function tripRecorderRenderHistory() {
     div.className = 'trip-history-record';
     const startSoc = Number(record.startSOC) || tripRecorderSocFromWltp(Number(record.startWltp) || 0);
     const endSoc = Number(record.endSOC) || tripRecorderSocFromWltp(Number(record.endWltp) || 0);
+    const energyKWh = Number(record.energyConsumption) || (Number(record.energyUsedWh) || 0) / 1000;
+    const kmPerBaht = Number(record.kmPerBaht) || tripRecorderKmPerBaht(energyKWh, record.distance);
     div.innerHTML = `
       <div class="record-header">${escapeHtml(record.tripName)} · Part ${record.part}</div>
       <div class="record-details">
-        <div class="history-line"><span class="field-name">เวลา</span><span class="field-value">${new Date(record.timestamp).toLocaleString()}</span></div>
-        <div class="history-line"><span class="field-name">Start/km</span><span class="field-value">${Number(record.startWltp).toFixed(3)} km (WLTP)</span></div>
+        <div class="history-line"><span class="field-name">เวลา</span><span class="field-value">${new Date(record.timestamp || record.endTime || Date.now()).toLocaleString()}</span></div>
+        <div class="history-line"><span class="field-name">Start/km</span><span class="field-value">${Number(record.startWltp || 0).toFixed(3)} km (WLTP)</span></div>
         <div class="history-battery-line"><span class="field-name">แบตเริ่มต้น</span>${tripRecorderBatteryHtml('Start',startSoc)}<span class="history-battery-wltp">${startSoc.toFixed(2)}%</span></div>
-        <div class="history-line"><span class="field-name">End/km</span><span class="field-value">${Number(record.endWltp).toFixed(3)} km (WLTP)</span></div>
+        <div class="history-line"><span class="field-name">End/km</span><span class="field-value">${Number(record.endWltp || 0).toFixed(3)} km (WLTP)</span></div>
         <div class="history-battery-line"><span class="field-name">แบตสิ้นสุด</span>${tripRecorderBatteryHtml('End',endSoc)}<span class="history-battery-wltp">${endSoc.toFixed(2)}%</span></div>
-        <div class="history-line"><span class="field-name">SOC/Used</span><span class="field-value">${Number(record.usedSOC).toFixed(2)}%</span></div>
-        <div class="history-line"><span class="field-name">Distance(km)</span><span class="field-value">${Number(record.distance).toFixed(3)} km</span></div>
+        <div class="history-line"><span class="field-name">SOC/Used</span><span class="field-value">${Number(record.usedSOC || 0).toFixed(2)}%</span></div>
+        <div class="history-line"><span class="field-name">Distance(km)</span><span class="field-value">${Number(record.distance || 0).toFixed(3)} km</span></div>
+        <div class="history-line"><span class="field-name">Energy/Trip</span><span class="field-value">${energyKWh.toFixed(2)} kWh</span></div>
+        <div class="history-line"><span class="field-name">SOC/Trip</span><span class="field-value">${Number(record.batterySOCUsedPercent ?? record.usedSOC ?? 0).toFixed(2)}%</span></div>
+        <div class="history-line"><span class="field-name">Regen</span><span class="field-value">${Number(record.totalRegenEnergy || 0).toFixed(2)} kWh</span></div>
+        <div class="history-line"><span class="field-name">เวลาเดินทาง</span><span class="field-value">${formatTime(record.elapsedTime || 0)}</span></div>
+        <div class="history-line"><span class="field-name">เวลารถจอด</span><span class="field-value">${formatTime(record.idleTimeSeconds || 0)}</span></div>
+        <div class="history-line"><span class="field-name">ความเร็วสูงสุด</span><span class="field-value">${Number(record.maxSpeed || 0).toFixed(1)} km/h</span></div>
+        <div class="history-line"><span class="field-name">ความเร็วเฉลี่ย</span><span class="field-value">${Number(record.avgSpeed || 0).toFixed(1)} km/h</span></div>
+        <div class="history-line"><span class="field-name">พลังงานเฉลี่ย</span><span class="field-value">${Number(record.energyPer100km || 0).toFixed(2)} kWh/100km</span></div>
+        <div class="history-line history-cost"><span class="field-name">1 km/บาท</span><span class="field-value">${kmPerBaht > 0 ? kmPerBaht.toFixed(3) + ' km/บาท' : '-'}</span></div>
       </div>
-      <button class="deleteBtn trip-rec-delete" data-id="${escapeHtml(record.id)}">ลบช่วงนี้</button>`;
+      <div class="trip-rec-history-actions">
+        <button class="show-trip-rec-map-btn" data-id="${escapeHtml(record.id)}" type="button">แผนที่</button>
+        <button class="deleteBtn trip-rec-delete" data-id="${escapeHtml(record.id)}" type="button">ลบช่วงนี้</button>
+      </div>`;
     tripHistoryDiv.appendChild(div);
   });
 }
+
 function tripRecorderRender() {
   tripRecorderRenderCurrent();
   tripRecorderRenderHistory();
@@ -1550,7 +1625,14 @@ function tripRecorderBeginSegment() {
     startWltp,
     startSOC: tripRecorderSocFromWltp(startWltp),
     distanceBase: tripRecorderCurrentDistance(),
-    startTime: Date.now()
+    energyBaseWh: Number(totalEnergyWh) || 0,
+    regenBaseWh: Number(totalRegenEnergyWh) || 0,
+    idleEnergyBaseWh: Number(idleEnergyWhTotal) || 0,
+    idleTimeBaseSec: Number(idleTimeTotal) || 0,
+    logStartIndex: Array.isArray(tripLog) ? tripLog.length : 0,
+    maxSpeed: 0,
+    startCoord: Array.isArray(tripLog) && tripLog.length ? tripLog[tripLog.length - 1]?.coord || '' : '',
+    startTimestamp: Date.now()
   };
   tripRecorderState.sequence = Number(tripRecorderState.sequence || 0) + 1;
   saveTripRecorderState();
@@ -1568,19 +1650,52 @@ function tripRecorderFinalizeSegment(endTime = Date.now()) {
   const endWltp = tripRecorderRealtimeWltp();
   const endSOC = tripRecorderSocFromWltp(endWltp);
   const distance = Math.max(0, tripRecorderCurrentDistance() - (Number(cur.distanceBase) || 0));
+  const segmentPathRaw = Array.isArray(tripLog) ? tripLog.slice(Math.max(0, Number(cur.logStartIndex) || 0)) : [];
+  const segmentPath = compressPath(segmentPathRaw);
+  const energyUsedWh = Math.max(0, (Number(totalEnergyWh) || 0) - (Number(cur.energyBaseWh) || 0));
+  const regenEnergyWh = Math.max(0, (Number(totalRegenEnergyWh) || 0) - (Number(cur.regenBaseWh) || 0));
+  const idleEnergyWh = Math.max(0, (Number(idleEnergyWhTotal) || 0) - (Number(cur.idleEnergyBaseWh) || 0));
+  const idleSeconds = Math.max(0, (Number(idleTimeTotal) || 0) - (Number(cur.idleTimeBaseSec) || 0));
+  const elapsedSeconds = Math.max(0, (Number(endTime) || Date.now()) - (Number(cur.startTime) || endTime)) / 1000;
+  const avgSpeed = elapsedSeconds > 0 ? distance / (elapsedSeconds / 3600) : 0;
+  const maxSegSpeed = Math.max(Number(cur.maxSpeed) || 0, ...segmentPathRaw.map(p => Number(p?.speed) || 0));
+  const energyKWh = energyUsedWh / 1000;
+  const kmPerBaht = tripRecorderKmPerBaht(energyKWh, distance);
+  const startCoord = cur.startCoord || segmentPath[0]?.coord || (segmentPath[0] ? `${segmentPath[0].lat.toFixed(6)},${segmentPath[0].lon.toFixed(6)}` : '');
+  const endCoord = segmentPath[segmentPath.length - 1]?.coord || (segmentPath[segmentPath.length - 1] ? `${segmentPath[segmentPath.length - 1].lat.toFixed(6)},${segmentPath[segmentPath.length - 1].lon.toFixed(6)}` : '');
   const record = {
     id: cur.id,
     tripName: cur.tripName,
+    plateNumber: cur.tripName,
     part: cur.part,
     startWltp: Number(cur.startWltp) || 0,
     endWltp: Number(endWltp) || 0,
     startSOC: Number(cur.startSOC) || 0,
     endSOC: Number(endSOC) || 0,
     usedSOC: Math.max(0, (Number(cur.startSOC) || 0) - (Number(endSOC) || 0)),
+    batterySOCUsedPercent: Math.max(0, (Number(cur.startSOC) || 0) - (Number(endSOC) || 0)),
     distance,
+    maxSpeed: maxSegSpeed,
+    avgSpeed,
+    elapsedTime: Math.round(elapsedSeconds),
+    energyUsedWh,
+    energyUsed: energyKWh,
+    energyConsumption: energyKWh,
+    avgEnergyPerKm: distance > 0 ? energyUsedWh / distance : 0,
+    energyPer100km: distance > 0 ? energyKWh / distance * 100 : 0,
+    idleEnergyUsedWh: idleEnergyWh,
+    idleTimeSeconds: Math.floor(idleSeconds),
+    idleTimeFormatted: formatTime(Math.floor(idleSeconds)),
+    totalRegenEnergy: regenEnergyWh / 1000,
+    avgEfficiencyPerPercent: endSOC < 100 && distance > 0 ? distance / Math.max(0.001, Number(cur.startSOC) - endSOC) : 0,
+    kmPerBaht,
+    electricityRateBahtPerKWh: Number(tripRecorderElectricityRate) || 0,
     startTime: Number(cur.startTime) || endTime,
     endTime,
-    timestamp: endTime
+    startCoord,
+    endCoord,
+    timestamp: endTime,
+    path: segmentPath
   };
   tripRecorderHistory.push(record);
   if (tripRecorderHistory.length > 300) tripRecorderHistory.splice(0, tripRecorderHistory.length - 300);
@@ -1613,6 +1728,17 @@ document.getElementById("backToMainBtn")?.addEventListener("click", () => {
   });
 });
 tripHistoryDiv?.addEventListener('click', e => {
+  const mapBtn = e.target.closest('.show-trip-rec-map-btn');
+  if (mapBtn) {
+    const id = String(mapBtn.dataset.id || '');
+    const record = tripRecorderHistory.find(r => String(r.id) === id);
+    if (record && Array.isArray(record.path) && record.path.length) {
+      showLeafletMapFromTrip(record);
+    } else {
+      alert('ช่วงนี้ไม่มีข้อมูลตำแหน่งสำหรับแสดงแผนที่ย้อนหลัง');
+    }
+    return;
+  }
   const btn = e.target.closest('.trip-rec-delete');
   if (!btn) return;
   const id = String(btn.dataset.id || '');
@@ -2663,6 +2789,9 @@ async function loadHistory(limit = null) {
         <p>ความเร็วเฉลี่ย : ${parseFloat(trip.avgSpeed || 0).toFixed(1)} km/h</p>
         <p>Energy/Trip : ${(Number(trip.energyConsumption) || 0).toFixed(2)} kWh</p>
         <p>SOC/Trip : ${(Number(trip.batterySOCUsedPercent) || 0).toFixed(2)}%</p>
+        <p>Start/km : ${(Number(trip.startWltp) || 0).toFixed(3)} km (WLTP) · แบตเริ่มต้น ${(Number(trip.startSOC) || 0).toFixed(2)}%</p>
+        <p>End/km : ${(Number(trip.endWltp) || 0).toFixed(3)} km (WLTP) · แบตสิ้นสุด ${(Number(trip.endSOC) || 0).toFixed(2)}%</p>
+        <p>1 km/บาท : ${(Number(trip.kmPerBaht) || 0).toFixed(3)} km/บาท</p>
         <p>พลังงานใช้เฉลี่ย : ${(Number(trip.energyPer100km) || 0).toFixed(2)} kWh/100km : ${(Number(trip.avgEfficiencyPerPercent) || 0).toFixed(3)} km/1%</p>
         <p>เริ่มต้น: ${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'} , ${escapeHtml(trip.startCoord || '-')}</p>
         <p>สิ้นสุด: ${trip.endTime ? new Date(trip.endTime).toLocaleString() : '-'} , ${escapeHtml(trip.endCoord || '-')}</p>
@@ -2789,7 +2918,7 @@ function showLeafletMapFromTrip(trip) {
       .addTo(historyReplayMap);
 
     if (latlngs.length >= 2) {
-      historyReplayMap.fitBounds(latlngs, { padding: [40,40], maxZoom: BASE_ZOOM });
+      historyReplayMap.fitBounds(L.latLngBounds(latlngs), { padding: [40,40], maxZoom: BASE_ZOOM });
     } else {
       historyReplayMap.setView(latlngs[0], BASE_ZOOM);
     }
@@ -2801,9 +2930,13 @@ function showLeafletMapFromTrip(trip) {
       <strong>ความเร็วสูงสุด:</strong> ${Number(trip.maxSpeed || 0).toFixed(1)} km/h<br/>
       <strong>ความเร็วเฉลี่ย:</strong> ${Number(trip.avgSpeed || 0).toFixed(1)} km/h<br/>
       <strong>พลังงานใช้เฉลี่ย:</strong> ${Number(trip.energyPer100km || 0).toFixed(2)} kWh/100km<br/>
+      <strong>ประสิทธิภาพ:</strong> ${Number(trip.avgEfficiencyPerPercent || 0).toFixed(3)} km/1%<br/>
       <strong>Energy/Trip:</strong> ${Number(trip.energyConsumption || 0).toFixed(2)} kWh<br/>
       <strong>SOC/Trip:</strong> ${Number(trip.batterySOCUsedPercent || 0).toFixed(2)} %<br/>
       <strong>พลังงานรีเจน:</strong> ${Number(trip.totalRegenEnergy || 0).toFixed(2)} kWh<br/>
+      <strong>Start/km:</strong> ${Number(trip.startWltp || 0).toFixed(3)} km (WLTP) · แบตเริ่มต้น ${Number(trip.startSOC || 0).toFixed(2)}%<br/>
+      <strong>End/km:</strong> ${Number(trip.endWltp || 0).toFixed(3)} km (WLTP) · แบตสิ้นสุด ${Number(trip.endSOC || 0).toFixed(2)}%<br/>
+      <strong>1 km/บาท:</strong> ${Number(trip.kmPerBaht || 0).toFixed(3)} km/บาท<br/>
       <strong>เริ่มต้น:</strong> ${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'} , ${escapeHtml(trip.startCoord || `${start.lat.toFixed(6)}, ${start.lon.toFixed(6)}`)}<br/>
       <strong>สิ้นสุด:</strong> ${trip.endTime ? new Date(trip.endTime).toLocaleString() : '-'} , ${escapeHtml(trip.endCoord || `${end.lat.toFixed(6)}, ${end.lon.toFixed(6)}`)}
     `;
@@ -4287,7 +4420,7 @@ function startTracking() {
     if(!plateInput.value.trim()){alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม');plateInput.focus();return;}
     if(!navigator.geolocation){alert('อุปกรณ์ของคุณไม่รองรับการระบุตำแหน่ง');return;}
     try{
-        resetTrackingVisualState();clearTrackingMapObjects();stopcallback=false;isFinalizing=false;isPeriodicSaving=false;tripInitialized=false;clearWatchId();
+        resetTrackingVisualState();clearTrackingMapObjects();try{if(map?.getSource('trip-completed-history-source'))map.getSource('trip-completed-history-source').setData({type:'FeatureCollection',features:[]});if(map?._completedHistoryMarkers){map._completedHistoryMarkers.forEach(m=>{try{m.remove();}catch(e){}});map._completedHistoryMarkers=[];}}catch(e){}stopcallback=false;isFinalizing=false;isPeriodicSaving=false;tripInitialized=false;clearWatchId();
         lastRouteLat=null;lastRouteLon=null;lastRawGpsLat=null;lastRawGpsLon=null;lastInputGpsLat=null;lastInputGpsLon=null;lastInputTimestamp=null;kf=structuredClone(KF_DEFAULT);filteredMotionHeading=null;autoFollow=true;autoRotate=true;lastZoomLevel=calculateTargetZoom(0);lastAppliedZoom=lastZoomLevel;disableMapInteraction();lastGpsUpdateTime=performance.now();prevTimestamp=null;
         totalEnergyWh=0;cumulativeEnergyWh=0;driveEnergyWh=0;driveDistanceKm=0;prevAlt=null;prevSpeed=0;lastRegenTime=0;lastAccuracy=null;document.getElementById("energyConsumption").textContent="0.00 kWh";totalRegenEnergyWh=0;document.getElementById("totalRegenEnergy").textContent="0.00";maxSpeed=0;displayVelocity=0;lastTimestamp=null;tripLog.length=0;idleStartTime=null;belowStopLockSince=Date.now();filteredSpeedKmh=0;sensorSpeedKmh=0;rawSpeedKmh=0;displayedSpeed=0;avgGpsIntervalMs=1000;lastSpeedSlopeTimestamp=0;lastGpsSpeed=0;speedSlope=0;shownSpeed=0;gpsLossTime=0;lastGpsTimestamp=null;gpsIntervalSec=1;lastStorageUpdate=0;prevPos=null;
         tripStartTime=Date.now();socBonusPercent=0;lastSOCUsed=0;cumulativeDistance=0;idleEnergyWhTotal=0;idleTimeTotal=0;elapsedTime=0;totalDistance=0;positions.length=0;lastGpsFixWallClock=0;gpsWatchdogLastState="";headingConfidencePercent=0;lastHeadingConfidence=0;
@@ -4311,7 +4444,7 @@ function startTracking() {
                         const skeletonTrip={plateNumber:plateInput.value.trim(),startTime:tripStartTime,endTime:tripStartTime,startCoord:coordText,endCoord:coordText,distance:0,maxSpeed:0,avgSpeed:0,elapsedTime:0,energyUsedWh:0,energyUsed:0,avgEnergyPerKm:0,energyConsumption:0,batterySOCUsedPercent:0,idleEnergyUsedWh:0,energyPer100km:0,idleTimeFormatted:"00:00:00",idleTimeSeconds:0,totalRegenEnergy:0,avgEfficiencyPerPercent:0,path:[]};Promise.resolve().then(()=>enqueueSave(()=>saveTripToStorage(skeletonTrip))).catch(e=>console.warn("Initial skeleton save failed; tracking continues",e));saveActiveTripDraft();setTrackingStatus("TRACKING — GPS LOCKED","good",autoFollow?"NAV FOLLOW":"EXPLORE");
                     }
                     const gps=normalizeGps(pos);if(!gps)return;const {latitude,longitude,speedKmh,heading,altitude,accuracy,timestamp}=gps;lastGpsFixWallClock=Date.now();lastGpsLat=latitude;lastGpsLng=longitude;if(heading!=null)lastGpsHeading=heading;if(lastGpsTimestamp!==null&&timestamp>lastGpsTimestamp)gpsIntervalSec=clamp((timestamp-lastGpsTimestamp)/1000,.1,2);lastGpsTimestamp=timestamp;const rawAcc=gps.accuracy??5;const smoothAcc=smoothAccuracy(rawAcc);lastAccuracy=smoothAcc;headingConfidencePercent=calculateHeadingConfidence(speedKmh,smoothAcc,heading!=null);lastHeadingConfidence=headingConfidencePercent;updateGpsUi(classifyGpsState(0,smoothAcc),smoothAcc);
-                    const accClamped=Math.min(Math.max(smoothAcc,1),150),accFactor=Math.log10(accClamped+1),intervalFactor=Math.min(Math.max(gpsIntervalSec,.5),2),dynamicThreshold=accFactor*9+speedKmh*.035+intervalFactor*1.8;routeThreshold=Math.min(Math.max(dynamicThreshold,.8),smoothAcc>35?30:8);const physicallyStopped=speedKmh<STOP_LOCK_SPEED&&checkIfStopped(latitude,longitude);if(physicallyStopped)routeThreshold=Math.min(routeThreshold,2);updateSpeedSlope(speedKmh,timestamp);updatePosition(latitude,longitude,altitude,speedKmh);rawSpeedKmh=speedKmh;updateSpeed(speedKmh);
+                    const accClamped=Math.min(Math.max(smoothAcc,1),150),accFactor=Math.log10(accClamped+1),intervalFactor=Math.min(Math.max(gpsIntervalSec,.5),2),dynamicThreshold=accFactor*9+speedKmh*.035+intervalFactor*1.8;routeThreshold=Math.min(Math.max(dynamicThreshold,.8),smoothAcc>35?30:8);const physicallyStopped=speedKmh<STOP_LOCK_SPEED&&checkIfStopped(latitude,longitude);if(physicallyStopped)routeThreshold=Math.min(routeThreshold,2);updateSpeedSlope(speedKmh,timestamp);updatePosition(latitude,longitude,altitude,speedKmh);rawSpeedKmh=speedKmh;updateSpeed(speedKmh);if(tripRecorderState.current)tripRecorderState.current.maxSpeed=Math.max(Number(tripRecorderState.current.maxSpeed)||0,Number(speedKmh)||0);
                     const forceUpdate=!physicallyStopped&&(speedKmh>1.2||(heading!=null&&Math.abs(speedSlope)>8)),forcePosition=gpsIntervalSec>1.5||smoothAcc>25;if(lastRouteLat===null||forceUpdate||forcePosition||haversineMeters(lastRouteLat,lastRouteLon,latitude,longitude)>routeThreshold){try{if(map&&map._loaded)updateRoute(latitude,longitude,speedKmh,heading);}catch(e){console.warn("Map route update failed",e);}}if(routePlan.navigating)updatePlannedNavigationProgress(latitude,longitude);
                     const ctext=`${latitude.toFixed(6)},${longitude.toFixed(6)}`;endCoordSpan.textContent=ctext;const lastLog=tripLog[tripLog.length-1],roundedSpeed=Math.round(speedKmh*10)/10;if(!lastLog||lastLog.coord!==ctext||lastLog.speed!==roundedSpeed){tripLog.push({time:timestamp,coord:ctext,speed:roundedSpeed});if(tripLog.length>100000)tripLog.splice(1,1000);}
                     if(prevPos){if(!prevTimestamp){prevTimestamp=timestamp;prevPos={latitude,longitude};return;}const dist=getDistanceFromLatLonInKm(prevPos.latitude,prevPos.longitude,latitude,longitude);let deltaTimeSec=clamp((timestamp-prevTimestamp)/1000,.05,2.5);const speedBasedDist=speedKmh*deltaTimeSec/3600;let finalDist=dist;if(speedBasedDist>0&&dist>speedBasedDist*4.5&&dist>.08)finalDist=speedBasedDist;if(speedKmh<STOP_LOCK_SPEED)finalDist=0;if(!physicallyStopped&&finalDist>=getDynamicMinDist(speedKmh,deltaTimeSec)){totalDistance+=finalDist;cumulativeDistance+=finalDist;updateEnergyConsumptionRealTime(finalDist,speedKmh);}prevPos={latitude,longitude};prevTimestamp=timestamp;}
@@ -4439,34 +4572,46 @@ function enqueueSave(fn) {
     return saveQueue;
 }
 function renderCompletedTripOnMap(validCoords) {
-    if (!map || !map._loaded || !Array.isArray(validCoords) || !validCoords.length) return;
-    try {
-        if (!routeLayer) routeLayer = createMapLibreRouteManager(map);
-        routeLayer.clearLayers();
-        if (validCoords.length >= 2) routeLayer.setHistory(validCoords);
-
-        const start = validCoords[0];
-        const end = validCoords[validCoords.length - 1];
-        const startMarker = makeMapLibreMarker(start[0], start[1], '<div style="font-size:24px;line-height:1">🚗</div>', 'maplibre-history-marker', 'จุดเริ่มต้น');
-        routeLayer.addMarker(startMarker);
-        if (validCoords.length >= 2) {
-            const endMarker = makeMapLibreMarker(end[0], end[1], '<div style="font-size:24px;line-height:1">🏁</div>', 'maplibre-history-marker', 'จุดสิ้นสุด');
-            routeLayer.addMarker(endMarker);
-        }
-
-        const coords = validCoords.map(p => [p[1], p[0]]);
-        if (coords.length >= 2) {
-            map.fitBounds(coords, { padding: { top: 55, right: 45, bottom: 65, left: 45 }, maxZoom: 15, animate: false });
-        } else {
-            map.jumpTo({ center: coords[0], zoom: 17, bearing: 0, pitch: 0, padding: {top:0,right:0,bottom:0,left:0} });
-        }
-        map.resize();
-        requestAnimationFrame(()=>{try{map.fitBounds(coords, { padding: { top: 55, right: 45, bottom: 65, left: 45 }, maxZoom: 15, animate: false });map.resize();}catch(e){}});
-        enableMapInteraction();
-    } catch (e) {
-        console.error('[Trip Stop] final map render failed', e);
-    }
+    if (!map || !Array.isArray(validCoords) || !validCoords.length) return;
+    const draw = () => {
+        try {
+            map.resize();
+            if (!map.getSource('trip-completed-history-source')) {
+                map.addSource('trip-completed-history-source', { type:'geojson', data:{type:'FeatureCollection',features:[]} });
+            }
+            if (!map.getLayer('trip-completed-history-layer')) {
+                map.addLayer({
+                    id:'trip-completed-history-layer', type:'line', source:'trip-completed-history-source',
+                    layout:{'line-cap':'round','line-join':'round'},
+                    paint:{'line-color':['coalesce',['get','color'],'#00e5ff'],'line-width':5,'line-opacity':0.98}
+                });
+            }
+            const features=[];
+            for(let i=1;i<validCoords.length;i++){
+                const a=validCoords[i-1],b=validCoords[i];
+                features.push({type:'Feature',properties:{color:String(getSpeedColor(Number(b[2])||0))},geometry:{type:'LineString',coordinates:[[a[1],a[0]],[b[1],b[0]]]}});
+            }
+            map.getSource('trip-completed-history-source').setData({type:'FeatureCollection',features});
+            if (!map._completedHistoryMarkers) map._completedHistoryMarkers=[];
+            map._completedHistoryMarkers.forEach(m=>{try{m.remove();}catch(e){}});
+            map._completedHistoryMarkers=[];
+            const start=validCoords[0], end=validCoords[validCoords.length-1];
+            map._completedHistoryMarkers.push(makeMapLibreMarker(start[0],start[1],'<div style="width:30px;height:30px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px">🚗</div>','maplibre-history-marker','จุดเริ่มต้น'));
+            if(validCoords.length>1) map._completedHistoryMarkers.push(makeMapLibreMarker(end[0],end[1],'<div style="width:30px;height:30px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px">🏁</div>','maplibre-history-marker','จุดสิ้นสุด'));
+            const coords=validCoords.map(p=>[p[1],p[0]]);
+            if(coords.length>=2){
+                const bounds=coords.reduce((b,c)=>b.extend(c),new maplibregl.LngLatBounds(coords[0],coords[0]));
+                map._nativeFitBounds(bounds,{padding:{top:45,right:45,bottom:65,left:45},maxZoom:15,animate:false});
+            }else{
+                map.jumpTo({center:coords[0],zoom:17,bearing:0,pitch:0,padding:{top:0,right:0,bottom:0,left:0}});
+            }
+            map.resize();
+        } catch(e){ console.error('[Trip Stop] completed map render failed',e); }
+    };
+    if (map.loaded?.() || map.isStyleLoaded?.()) draw();
+    else map.once('load', draw);
 }
+
 async function stopTracking() {
 	if (!isTracking || isFinalizing) return;
 	// If GPS has not produced the first fix yet, Stop means cancel acquisition —
@@ -4572,6 +4717,10 @@ async function stopTracking() {
 		calculateIdlePower(timeIdleSeconds);
 		idleStartTime = null;
 	}
+	// Snapshot Trip Recorder data BEFORE finalizing the segment, because finalize clears current.
+	const recorderSnapshot = tripRecorderState.current ? structuredClone(tripRecorderState.current) : null;
+	const recorderEndWltp = tripRecorderRealtimeWltp();
+	const recorderEndSOC = tripRecorderSocFromWltp(recorderEndWltp);
 	const snapshot_totalEnergyWh = totalEnergyWh;
 	const snapshot_totalRegenEnergyWh = totalRegenEnergyWh;
 	const snapshot_idleEnergyWhTotal = idleEnergyWhTotal;
@@ -4619,6 +4768,13 @@ async function stopTracking() {
 	try { tripRecorderFinalizeSegment(lastPoint?.time || Date.now()); } catch (e) { console.warn("[Trip Recorder] segment finalize failed", e); }
 	const finalTrip = {
 		plateNumber: plateInput.value.trim(),
+		tripName: plateInput.value.trim(),
+		startWltp: recorderSnapshot?.startWltp || 0,
+		endWltp: recorderEndWltp,
+		startSOC: recorderSnapshot?.startSOC || 0,
+		endSOC: recorderEndSOC,
+		electricityRateBahtPerKWh: Number(tripRecorderElectricityRate) || 0,	
+
 		startTime: tripStartTime,
 		endTime: lastPoint?.time || Date.now(),
 		startCoord: frozenTripLog[0]?.coord || "-",
@@ -4636,6 +4792,7 @@ async function stopTracking() {
 		batterySOCUsedPercent: batterySOCUsed,
 		idleEnergyUsedWh: snapshot_idleEnergyWhTotal,
 		energyPer100km: snapshot_distance > 0 ? (snapshot_totalEnergyWh / 1000) / snapshot_distance * 100 : 0,
+		kmPerBaht: tripRecorderKmPerBaht(snapshot_totalEnergyWh / 1000, snapshot_distance),
 		idleTimeFormatted: formatTime(Math.floor(snapshot_idleTimeTotal)),
 		idleTimeSeconds: Math.floor(snapshot_idleTimeTotal),
 		totalRegenEnergy: snapshot_totalRegenEnergyWh ? snapshot_totalRegenEnergyWh / 1000 : 0,
