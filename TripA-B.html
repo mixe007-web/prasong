@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.48 Auto Trip Recorder</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.49 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -522,49 +522,6 @@ button:disabled {
 }
 
 /* ============================================================
-   TRIP INFO SECTION
-   ============================================================ */
-#tripInfoSection {
-  background: rgba(0,200,255,0.03);
-  border: 1px solid var(--border-dim);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  margin-top: 8px;
-}
-#tripInfoSection p {
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--text-mid);
-  padding: 4px 0;
-  border-bottom: 1px solid rgba(0,200,255,0.05);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  letter-spacing: 0.02em;
-}
-#tripInfoSection p:last-child { border-bottom: none; }
-#tripInfoSection span[id] {
-  font-family: var(--font-hud);
-  font-size: 12px;
-  color: var(--cyan);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-/* Trip info toggle button */
-#toggleTripInfoBtn {
-  background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,200,255,0.06)) !important;
-  border-color: rgba(0,255,136,0.3) !important;
-  color: var(--green) !important;
-  font-size: 10px !important;
-}
-#toggleTripInfoBtn:hover:not(:disabled) {
-  border-color: var(--green) !important;
-  box-shadow: 0 0 14px rgba(0,255,136,0.2) !important;
-  color: #fff !important;
-}
-
-/* ============================================================
    HISTORY SECTION
    ============================================================ */
 .scrollable {
@@ -938,8 +895,6 @@ span[id^="wltpSegment"] {
   .trip-card button { flex: 1 0 100%; }
 }
 @media(max-width: 500px){
-  #tripInfoSection p { font-size: 11px; flex-direction: column; align-items: flex-start; gap: 1px; }
-  #tripInfoSection span[id] { font-size: 11px; }
 }
 .gps-accuracy {
     position: absolute;
@@ -1092,9 +1047,6 @@ span[id^="wltpSegment"] {
 .trip-history-record .trip-rec-history-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .trip-history-record .trip-rec-history-actions button{flex:1 1 110px;margin-top:0}
 .trip-history-record .history-cost{color:var(--green)}
-#tripInfoSection{width:100%;max-width:none;box-sizing:border-box;overflow:auto;max-height:72vh}
-#tripInfoSection .trip-grid{width:100%;min-width:0}
-#toggleTripInfoBtn,#toggleTripHistory{width:100%!important;box-sizing:border-box}
 #tripHistorySection .history-main-actions{display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 #tripHistorySection .history-main-actions button{min-width:110px}
 .trip-entry .history-actions{display:flex;gap:6px;flex-wrap:wrap}
@@ -1116,24 +1068,12 @@ span[id^="wltpSegment"] {
 .trip-entry .history-data-row .history-value{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 .trip-entry .history-bottom-actions{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:9px}
 @media (max-width:560px){.trip-entry .history-battery-row{grid-template-columns:110px minmax(80px,1fr) auto}.trip-entry .history-data-row{flex-direction:column;gap:1px}.trip-entry .history-data-row .history-value{text-align:left}.trip-entry .history-bottom-actions{justify-content:center}}
-#tripInfoSection .trip-grid .item{min-width:0}
-@media (max-width:560px){#tripInfoSection{padding:10px 9px;max-height:72vh}#tripInfoSection .trip-grid .row{flex-direction:column;gap:5px}#tripInfoSection .trip-grid .item{width:100%}}
-@media (min-width:561px){#tripInfoSection .trip-grid .row{width:100%}#tripInfoSection .trip-grid .item{min-width:0}}
 
 /* ============================================================
-   V5.48 UI REFINEMENT — Trip Information + History
+   V5.49 UI REFINEMENT — History
    ============================================================ */
 .trip-history-heading{display:flex!important;justify-content:center!important;align-items:center!important;margin:10px 0 6px!important;width:100%!important}
 .trip-history-heading #toggleTripHistory{width:100%!important;max-width:420px!important;background:rgba(0,200,255,.08)!important;border-color:rgba(0,200,255,.30)!important;color:var(--cyan)!important;font-size:11px!important;text-align:center!important}
-#tripInfoSection{display:block!important;width:100%;box-sizing:border-box;background:rgba(0,200,255,.025);border:1px solid var(--border-dim);border-radius:12px;padding:8px 10px;margin-top:8px}
-#tripInfoSection .trip-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px!important;width:100%!important}
-#tripInfoSection .trip-grid .row{display:contents!important}
-#tripInfoSection .trip-grid .row.full{display:contents!important}
-#tripInfoSection .trip-grid .item{width:auto!important;min-width:0!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;gap:2px!important;padding:7px 4px!important;border-bottom:1px solid rgba(0,200,255,.07)!important}
-#tripInfoSection .trip-grid .label{font-size:10.5px!important;line-height:1.25!important;color:var(--text-mid)!important;white-space:nowrap}
-#tripInfoSection .trip-grid .value{font-size:14px!important;line-height:1.3!important;color:var(--cyan)!important;font-weight:800!important;font-variant-numeric:tabular-nums!important;max-width:100%!important;overflow-wrap:anywhere!important}
-#tripInfoSection .trip-grid .row.full .item{grid-column:auto!important}
-#tripInfoSection .trip-grid .row.full .item .value{font-size:11px!important;font-weight:700!important;line-height:1.35!important}
 #tripHistorySection{width:100%;box-sizing:border-box;margin-top:4px}
 #tripHistorySection .history-main-actions{justify-content:center!important;gap:6px!important}
 #tripHistorySection .history-main-actions button{min-width:110px!important}
@@ -1153,12 +1093,6 @@ span[id^="wltpSegment"] {
 .history-map-info-item span{display:block;font-size:9.5px;line-height:1.2;opacity:.68;margin-bottom:2px}
 .history-map-info-item b{display:block;font:700 10.5px/1.3 var(--font-hud);overflow-wrap:anywhere;word-break:break-word}
 @media(max-width:560px){
-  #tripInfoSection{padding:6px 5px}
-  #tripInfoSection .trip-grid{gap:0 5px!important}
-  #tripInfoSection .trip-grid .item{padding:6px 2px!important}
-  #tripInfoSection .trip-grid .label{font-size:9.5px!important}
-  #tripInfoSection .trip-grid .value{font-size:12px!important}
-  #tripInfoSection .trip-grid .row.full .item .value{font-size:9.5px!important}
   .trip-entry .history-pair-row{gap:5px!important}
   .trip-entry .history-pair .history-label{font-size:9px!important}
   .trip-entry .history-pair .history-value{font-size:10px!important}
@@ -1173,7 +1107,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.4-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.49-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1317,10 +1251,8 @@ span[id^="wltpSegment"] {
 			</div>
 		</div>
 	</div>
-	<h3 style="display:flex; justify-content:stretch; align-items:center; margin-top:10px; width:100%;">
-	<button id="toggleTripInfoBtn" type="button" aria-expanded="false" aria-controls="tripInfoSection">Trip Information ▼</button>
-</h3>
-	<div id="tripInfoSection" style="display:none;">
+
+	<div id="tripInfoSection">
 <div class="trip-grid">
   <div class="row">
     <div class="item">
@@ -1377,6 +1309,7 @@ span[id^="wltpSegment"] {
     </div>
   </div>
 </div>
+
 	<h3 class="trip-history-heading">
 		<button id="toggleTripHistory" type="button" aria-expanded="false">History ▼</button>
 	</h3>
@@ -1471,7 +1404,7 @@ if ('serviceWorker' in navigator) {
 <!-- 🚗 TripA-B App Logic -->
 <script>
 // V5.43 FIX: IndexedDB constants must be initialized before the application IIFE runs.
-// V5.48: Trip A/B cumulative counters + true multi-vehicle marker.
+// V5.49: Trip A/B cumulative counters + true multi-vehicle marker.
 // openTripDB() is outside the IIFE, while loadHistory() can be called synchronously
 // from bindUIOnce() inside it. Keep these constants in the global script scope.
 const TRIP_DB_NAME = 'tripDataDB';
@@ -1479,7 +1412,7 @@ const TRIP_DB_VERSION = 3;
 const TRIP_STORE = 'trips';
 
 (() => {
-const APP_VERSION = "PRO-68-V5.48-AUTO-TRIP-RECORDER";
+const APP_VERSION = "PRO-68-V5.49-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -2026,13 +1959,13 @@ tripRecorderUpdateDistanceTotals(tripRecorderHistory);
   const plateInput = document.getElementById("plateNumber");
   const startBtn = document.getElementById("startBtn");
   const stopBtn = document.getElementById("stopBtn");
-  const distanceSpan = document.getElementById("distance");
-  const maxSpeedSpan = document.getElementById("maxSpeed");
-  const avgSpeedSpan = document.getElementById("avgSpeed");
-  const startCoordSpan = document.getElementById("startCoord");
-  const endCoordSpan = document.getElementById("endCoord");
-  const startTimeSpan = document.getElementById("startTime");
-  const endTimeSpan = document.getElementById("endTime");
+  const distanceSpan = null;
+  const maxSpeedSpan = null;
+  const avgSpeedSpan = null;
+  const startCoordSpan = null;
+  const endCoordSpan = null;
+  const startTimeSpan = null;
+  const endTimeSpan = null;
   const energyScalingFactorspeed = 1;
 	function getEnergyPerKmFromSpeed(speedKmh) {
 	const table = [
@@ -2381,7 +2314,7 @@ function updateSpeed(newSpeed) {
     rawSpeedKmh = newSpeed;
     if (rawSpeedKmh > maxSpeed) {
         maxSpeed = rawSpeedKmh;
-        maxSpeedSpan.textContent = maxSpeed.toFixed(1);
+        if (maxSpeedSpan) maxSpeedSpan.textContent = maxSpeed.toFixed(1);
     }
     updateEfficiency();
     try { updateAvgEfficiencyPerPercent(); } catch(e){}
@@ -2428,7 +2361,7 @@ updateBatterySOCUsedDisplay();
 }
 function updateIdleDisplay() {
 	const idleTimeSpan = document.getElementById("idleTimeDisplay");
-	idleTimeSpan.textContent = formatTime(Math.floor(idleTimeTotal));
+	if (idleTimeSpan) idleTimeSpan.textContent = formatTime(Math.floor(idleTimeTotal));
 }
 function updateTripTime() {
 	if (!tripStartTime) return; 
@@ -2438,11 +2371,11 @@ function updateTripTime() {
 	const elapsedTimeMinutes = Math.floor((elapsedTime % 3600) / 60).toString().padStart(2, '0');
 	const elapsedTimeSeconds = (elapsedTime % 60).toString().padStart(2, '0');
 	const elapsedTimeSpan = document.getElementById("elapsedTime");
-	elapsedTimeSpan.textContent = `${elapsedTimeHours}:${elapsedTimeMinutes}:${elapsedTimeSeconds}`;
+	if (elapsedTimeSpan) elapsedTimeSpan.textContent = `${elapsedTimeHours}:${elapsedTimeMinutes}:${elapsedTimeSeconds}`;
 	if (elapsedTime > 0) {
 		if (filteredSpeedKmh >= 3) {
 			const avgSpeed = cumulativeDistance / (elapsedTime / 3600);
-			avgSpeedSpan.textContent = avgSpeed.toFixed(1);
+			if (avgSpeedSpan) avgSpeedSpan.textContent = avgSpeed.toFixed(1);
 		}
 	}
 }
@@ -4745,7 +4678,7 @@ function smoothAccuracy(acc) {
 let lastStorageUpdate = 0;
 let isPeriodicSaving = false;													  
 function startTracking() {
-    // V5.48: every new Trip starts without a previous History record id.
+    // V5.49: every new Trip starts without a previous History record id.
     activeTripId = null;
     if(isTracking){alert('Trip กำลังทำงานอยู่แล้ว');return;}
     if(!plateInput.value.trim()){alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม');plateInput.focus();return;}
@@ -4760,7 +4693,7 @@ function startTracking() {
             console.warn("[Trip Recorder] No valid Part distance found; recorder will remain idle.");
         }
         if(!speedAnimFrame)speedAnimFrame=requestAnimationFrame(animateDigitalSpeed);startAvgEfficiencyTracking();
-        startTimeSpan.textContent=new Date(tripStartTime).toLocaleString();endTimeSpan.textContent="-";distanceSpan.textContent="0.000";maxSpeedSpan.textContent="0.0";avgSpeedSpan.textContent="0.0";startCoordSpan.textContent="-";endCoordSpan.textContent="-";lastRenderedSpeedText="";lastSpeedClass="";
+        if (startTimeSpan) startTimeSpan.textContent=new Date(tripStartTime).toLocaleString();if (endTimeSpan) endTimeSpan.textContent="-";if (distanceSpan) distanceSpan.textContent="0.000";if (maxSpeedSpan) maxSpeedSpan.textContent="0.0";if (avgSpeedSpan) avgSpeedSpan.textContent="0.0";if (startCoordSpan) startCoordSpan.textContent="-";if (endCoordSpan) endCoordSpan.textContent="-";lastRenderedSpeedText="";lastSpeedClass="";
         if(elapsedTimeInterval)clearInterval(elapsedTimeInterval);if(updateEndTimeInterval)clearInterval(updateEndTimeInterval);elapsedTimeInterval=setInterval(()=>{try{checkIdleStatus();updateTripTime();updateIdleDisplay();}catch(e){console.warn("Trip timer update failed",e);}},1000);
         isTracking=true;startBtn.disabled=true;stopBtn.disabled=false;setTrackingStatus("กำลังค้นหา GPS...","info","Watch started — กด Stop ได้ทันที");updateGpsUi("acquiring",null);if(gpsWatchdogInterval)clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=setInterval(updateGpsWatchdog,1000);requestWakeLock();
         if(firstFixTimer)clearTimeout(firstFixTimer);firstFixTimer=setTimeout(()=>{if(isTracking&&!tripInitialized)setTrackingStatus("GPS ยังไม่พบตำแหน่ง","warn","ยังทำงานอยู่ — รอสัญญาณหรือกด Stop");},FIRST_FIX_UI_TIMEOUT_MS);
@@ -4770,9 +4703,9 @@ function startTracking() {
                 try{
                     if(!isTracking||stopcallback||isFinalizing)return;const c=pos?.coords;if(!c||!Number.isFinite(c.latitude)||!Number.isFinite(c.longitude))return;const rawHeading=(typeof c.heading==='number'&&isFinite(c.heading)&&c.heading>=0)?c.heading:0;const coordText=`${c.latitude.toFixed(6)},${c.longitude.toFixed(6)}`;
                     if(!tripInitialized){
-                        tripInitialized=true;if(firstFixTimer){clearTimeout(firstFixTimer);firstFixTimer=null;}lastGpsFixWallClock=Date.now();lastGpsLat=c.latitude;lastGpsLng=c.longitude;lastGpsHeading=rawHeading;lastGpsSpeedKmh=0;smoothedLat=c.latitude;smoothedLon=c.longitude;prevPos={latitude:c.latitude,longitude:c.longitude};prevTimestamp=pos.timestamp;tripLog.push({time:pos.timestamp,coord:coordText,speed:0});startCoordSpan.textContent=coordText;startTimeSpan.textContent=new Date(pos.timestamp).toLocaleString();tripStartTime=pos.timestamp;lastAccuracy=smoothAccuracy(c.accuracy??99);headingConfidencePercent=calculateHeadingConfidence(0,lastAccuracy,typeof c.heading==='number'&&c.heading>=0);lastHeadingConfidence=headingConfidencePercent;updateGpsUi(classifyGpsState(0,lastAccuracy),lastAccuracy);
+                        tripInitialized=true;if(firstFixTimer){clearTimeout(firstFixTimer);firstFixTimer=null;}lastGpsFixWallClock=Date.now();lastGpsLat=c.latitude;lastGpsLng=c.longitude;lastGpsHeading=rawHeading;lastGpsSpeedKmh=0;smoothedLat=c.latitude;smoothedLon=c.longitude;prevPos={latitude:c.latitude,longitude:c.longitude};prevTimestamp=pos.timestamp;tripLog.push({time:pos.timestamp,coord:coordText,speed:0});if (startCoordSpan) startCoordSpan.textContent=coordText;if (startTimeSpan) startTimeSpan.textContent=new Date(pos.timestamp).toLocaleString();tripStartTime=pos.timestamp;lastAccuracy=smoothAccuracy(c.accuracy??99);headingConfidencePercent=calculateHeadingConfidence(0,lastAccuracy,typeof c.heading==='number'&&c.heading>=0);lastHeadingConfidence=headingConfidencePercent;updateGpsUi(classifyGpsState(0,lastAccuracy),lastAccuracy);
                         if(!map){try{if(window.maplibregl&&typeof maplibregl.Map==='function'){const mm=initMap(c.latitude,c.longitude);if(mm!==null)requestAnimationFrame(()=>{try{bindRouteMapEvents(map);if(routePlan.route.length>1){routePlan.plannedProgressIndex=0;routePlan._lastLat=c.latitude;routePlan._lastLon=c.longitude;ensureRoutePlanLayer()?.set(routePlan.route);renderRoutePlanMarkers();}forceRecenterToVehicle();}catch(e){}});}else setTrackingStatus("TRACKING — MAP UNAVAILABLE","warn","GPS/analysis ยังทำงาน");}catch(e){console.error("Map initialization failed",e);setTrackingStatus("TRACKING — MAP ERROR","warn","GPS/analysis ยังทำงาน");}}
-                        // V5.48: do not write an incomplete skeleton into History.
+                        // V5.49: do not write an incomplete skeleton into History.
                          // The active draft is sufficient for crash/recovery; Stop writes exactly one complete record.
                          activeTripId = null;
                          saveActiveTripDraft();setTrackingStatus("TRACKING — GPS LOCKED","good",autoFollow?"NAV FOLLOW":"EXPLORE");
@@ -4780,10 +4713,10 @@ function startTracking() {
                     const gps=normalizeGps(pos);if(!gps)return;const {latitude,longitude,speedKmh,heading,altitude,accuracy,timestamp}=gps;lastGpsFixWallClock=Date.now();lastGpsLat=latitude;lastGpsLng=longitude;if(heading!=null)lastGpsHeading=heading;if(lastGpsTimestamp!==null&&timestamp>lastGpsTimestamp)gpsIntervalSec=clamp((timestamp-lastGpsTimestamp)/1000,.1,2);lastGpsTimestamp=timestamp;const rawAcc=gps.accuracy??5;const smoothAcc=smoothAccuracy(rawAcc);lastAccuracy=smoothAcc;headingConfidencePercent=calculateHeadingConfidence(speedKmh,smoothAcc,heading!=null);lastHeadingConfidence=headingConfidencePercent;updateGpsUi(classifyGpsState(0,smoothAcc),smoothAcc);
                     const accClamped=Math.min(Math.max(smoothAcc,1),150),accFactor=Math.log10(accClamped+1),intervalFactor=Math.min(Math.max(gpsIntervalSec,.5),2),dynamicThreshold=accFactor*9+speedKmh*.035+intervalFactor*1.8;routeThreshold=Math.min(Math.max(dynamicThreshold,.8),smoothAcc>35?30:8);const physicallyStopped=speedKmh<STOP_LOCK_SPEED&&checkIfStopped(latitude,longitude);if(physicallyStopped)routeThreshold=Math.min(routeThreshold,2);updateSpeedSlope(speedKmh,timestamp);updatePosition(latitude,longitude,altitude,speedKmh);rawSpeedKmh=speedKmh;updateSpeed(speedKmh);if(tripRecorderState.current)tripRecorderState.current.maxSpeed=Math.max(Number(tripRecorderState.current.maxSpeed)||0,Number(speedKmh)||0);
                     const forceUpdate=!physicallyStopped&&(speedKmh>1.2||(heading!=null&&Math.abs(speedSlope)>8)),forcePosition=gpsIntervalSec>1.5||smoothAcc>25;if(lastRouteLat===null||forceUpdate||forcePosition||haversineMeters(lastRouteLat,lastRouteLon,latitude,longitude)>routeThreshold){try{if(map&&map._loaded)updateRoute(latitude,longitude,speedKmh,heading);}catch(e){console.warn("Map route update failed",e);}}if(routePlan.navigating)updatePlannedNavigationProgress(latitude,longitude);
-                    const ctext=`${latitude.toFixed(6)},${longitude.toFixed(6)}`;endCoordSpan.textContent=ctext;const lastLog=tripLog[tripLog.length-1],roundedSpeed=Math.round(speedKmh*10)/10;if(!lastLog||lastLog.coord!==ctext||lastLog.speed!==roundedSpeed){tripLog.push({time:timestamp,coord:ctext,speed:roundedSpeed});if(tripLog.length>100000)tripLog.splice(1,1000);}
+                    const ctext=`${latitude.toFixed(6)},${longitude.toFixed(6)}`;if (endCoordSpan) endCoordSpan.textContent=ctext;const lastLog=tripLog[tripLog.length-1],roundedSpeed=Math.round(speedKmh*10)/10;if(!lastLog||lastLog.coord!==ctext||lastLog.speed!==roundedSpeed){tripLog.push({time:timestamp,coord:ctext,speed:roundedSpeed});if(tripLog.length>100000)tripLog.splice(1,1000);}
                     if(prevPos){if(!prevTimestamp){prevTimestamp=timestamp;prevPos={latitude,longitude};return;}const dist=getDistanceFromLatLonInKm(prevPos.latitude,prevPos.longitude,latitude,longitude);let deltaTimeSec=clamp((timestamp-prevTimestamp)/1000,.05,2.5);const speedBasedDist=speedKmh*deltaTimeSec/3600;let finalDist=dist;if(speedBasedDist>0&&dist>speedBasedDist*4.5&&dist>.08)finalDist=speedBasedDist;if(speedKmh<STOP_LOCK_SPEED)finalDist=0;if(!physicallyStopped&&finalDist>=getDynamicMinDist(speedKmh,deltaTimeSec)){totalDistance+=finalDist;cumulativeDistance+=finalDist;updateEnergyConsumptionRealTime(finalDist,speedKmh);}prevPos={latitude,longitude};prevTimestamp=timestamp;}
-                    distanceSpan.textContent=cumulativeDistance.toFixed(3);startCoordSpan.textContent=tripLog[0]?.coord||"-";endCoordSpan.textContent=tripLog[tripLog.length-1]?.coord||"-";const now=Date.now();
-                     // V5.48: keep an active draft during tracking, but do not create/update partial History records.
+                    if (distanceSpan) distanceSpan.textContent=cumulativeDistance.toFixed(3);if (startCoordSpan) startCoordSpan.textContent=tripLog[0]?.coord||"-";if (endCoordSpan) endCoordSpan.textContent=tripLog[tripLog.length-1]?.coord||"-";const now=Date.now();
+                     // V5.49: keep an active draft during tracking, but do not create/update partial History records.
                      // History receives one complete record only when Stop finishes.
                      if(now-lastStorageUpdate>5000){lastStorageUpdate=now;saveActiveTripDraft();}
                 }catch(e){console.error("GPS callback error",e);setTrackingStatus("GPS PROCESS ERROR","bad",e?.message||"tracking continues");}
@@ -5193,16 +5126,16 @@ async function stopTracking() {
         setTrackingStatus("SAVE FAILED — Draft ยังอยู่","bad","ลอง Stop อีกครั้ง");
 		return;
 	}
-	distanceSpan.textContent = cumulativeDistance.toFixed(3);
-	maxSpeedSpan.textContent = maxSpeed.toFixed(1);
+	if (distanceSpan) distanceSpan.textContent = cumulativeDistance.toFixed(3);
+	if (maxSpeedSpan) maxSpeedSpan.textContent = maxSpeed.toFixed(1);
 	const finalAvgSpeed = (elapsedTime > 0 && cumulativeDistance > 0)
 		? cumulativeDistance / (elapsedTime / 3600)
 		: 0;
-	avgSpeedSpan.textContent = finalAvgSpeed.toFixed(1);
-	startCoordSpan.textContent = frozenTripLog[0]?.coord || "-";
-	endCoordSpan.textContent = finalCoord;
-	startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
-	endTimeSpan.textContent = new Date(finalTrip.endTime).toLocaleString();
+	if (avgSpeedSpan) avgSpeedSpan.textContent = finalAvgSpeed.toFixed(1);
+	if (startCoordSpan) startCoordSpan.textContent = frozenTripLog[0]?.coord || "-";
+	if (endCoordSpan) endCoordSpan.textContent = finalCoord;
+	if (startTimeSpan) startTimeSpan.textContent = new Date(tripStartTime).toLocaleString();
+	if (endTimeSpan) endTimeSpan.textContent = new Date(finalTrip.endTime).toLocaleString();
 	lastMarkerAngle = 0;
 	prevPos = null;
 	tripStartTime = null;
