@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.49 Auto Trip Recorder</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.51 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1069,8 +1069,18 @@ span[id^="wltpSegment"] {
 .trip-entry .history-bottom-actions{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:9px}
 @media (max-width:560px){.trip-entry .history-battery-row{grid-template-columns:110px minmax(80px,1fr) auto}.trip-entry .history-data-row{flex-direction:column;gap:1px}.trip-entry .history-data-row .history-value{text-align:left}.trip-entry .history-bottom-actions{justify-content:center}}
 
+/* V5.51 History visual hierarchy */
+.trip-entry .history-regen .history-label,.trip-entry .history-regen .history-value{color:#67f5b4!important}
+.trip-entry .history-cost .history-label,.trip-entry .history-cost .history-value{color:#8dff6a!important}
+.trip-entry .history-rate .history-label,.trip-entry .history-rate .history-value{color:#ffd166!important}
+.trip-entry .history-pair-row{border-top-color:rgba(0,220,255,.10)!important}
+.trip-entry .history-pair .history-value{text-shadow:0 0 8px rgba(0,200,255,.08)}
+.trip-history-heading #toggleTripHistory{letter-spacing:.04em!important}
+.trip-grid .label{letter-spacing:.03em}.trip-grid .value{letter-spacing:.02em}
+@media(max-width:560px){.trip-entry .history-pair-row{gap:6px!important;padding:4px 0!important}.trip-entry .history-pair .history-label{font-size:9px!important}.trip-entry .history-pair .history-value{font-size:10px!important}}
+
 /* ============================================================
-   V5.49 UI REFINEMENT — History
+   V5.51 UI REFINEMENT — History
    ============================================================ */
 .trip-history-heading{display:flex!important;justify-content:center!important;align-items:center!important;margin:10px 0 6px!important;width:100%!important}
 .trip-history-heading #toggleTripHistory{width:100%!important;max-width:420px!important;background:rgba(0,200,255,.08)!important;border-color:rgba(0,200,255,.30)!important;color:var(--cyan)!important;font-size:11px!important;text-align:center!important}
@@ -1107,7 +1117,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.50-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.51-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1138,9 +1148,9 @@ span[id^="wltpSegment"] {
 		</div>
 	</div>
 <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px;">
-		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 		<button id="startBtn">▶ Trip Start</button>
 		<button id="stopBtn" disabled>■ Stop Trip</button>
+		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 	</div>
 <!-- ================= Trip Recorder Panel ================= -->
 	<div id="tripRecorderPanel">
@@ -1171,13 +1181,13 @@ span[id^="wltpSegment"] {
 		</div>
 		<h3 style="display:flex;align-items:center;gap:6px;">
 			<span>History</span>
-			<button id="tripCostSettingsBtn" class="trip-cost-settings-btn" type="button" title="ตั้งค่าค่าไฟ">⚙</button>
+			<button id="tripCostSettingsBtn" class="trip-cost-settings-btn" type="button" title="Electricity Rate Settings">⚙</button>
 		</h3>
 		<div id="tripCostSettings" class="trip-cost-settings" hidden>
-			<label for="tripElectricityRate">ค่าไฟ (บาท/kWh)</label>
+			<label for="tripElectricityRate">Electricity Rate (THB/kWh)</label>
 			<div class="trip-cost-settings-row">
 				<input id="tripElectricityRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="4.00">
-				<span>คำนวณเป็น km/บาท</span>
+				<span>Calculated as km/THB</span>
 			</div>
 			<div class="trip-cost-settings-hint">ใช้ Energy/Trip ของแต่ละช่วงในการคำนวณ และบันทึกค่าลง History อัตโนมัติ</div>
 		</div>
@@ -1206,16 +1216,16 @@ span[id^="wltpSegment"] {
 			<div style="padding:10px 14px 0;">
 				<div class="label">Speed</div>
 				<div id="digitalSpeed">0 km/h</div>
-				<div class="label">Average Energy</div>
+				<div class="label">Average Energy(km)</div>
 				<div id="energyPer100km">0.00 kWh/100km</div>
-				<div id="avgEfficiencyPerPercent">Avg: 0.000 km/1%</div>
+				<div id="avgEfficiencyPerPercent">Average Energy(%): 0.000 km/1%</div>
 				<div id="energySOCGroup" style="display: flex; justify-content: space-between; align-items: center; margin-top:8px;">
 					<div class="info-box small-box">
 						<div class="label">Energy/Trip</div>
 						<div class="value" id="energyConsumption">0kWh</div>
 					</div>
 					<div class="info-box small-box" style="flex:1.4;margin:0 6px;">
-						<div class="label">Efficiency</div>
+						<div class="label">Average Energy(%)</div>
 						<div id="efficiencyContainer">
 							<div id="efficiencyPerPercentBar"></div>
 						</div>
@@ -1256,36 +1266,36 @@ span[id^="wltpSegment"] {
 <div class="trip-grid">
   <div class="row">
     <div class="item">
-      <span class="label">ระยะทาง</span>
+      <span class="label">Distance</span>
       <span class="value"><span id="distance">0.000</span> km</span>
     </div>
 
     <div class="item">
-      <span class="label">พลังงานรีเจน</span>
+      <span class="label">Regen Energy</span>
       <span class="value"><span id="totalRegenEnergy">0.00</span> kWh</span>
     </div>
   </div>
 
   <div class="row">
     <div class="item">
-      <span class="label">เวลารถจอดนิ่ง</span>
+      <span class="label">Idle Time</span>
       <span class="value" id="idleTimeDisplay">00:00:00</span>
     </div>
 
     <div class="item">
-      <span class="label">เวลาเดินทางทั้งหมด</span>
+      <span class="label">Total Travel Time</span>
       <span class="value" id="elapsedTime">00:00:00</span>
     </div>
   </div>
 
   <div class="row">
     <div class="item">
-      <span class="label">ความเร็วสูงสุด</span>
+      <span class="label">Max Speed</span>
       <span class="value"><span id="maxSpeed">0.0</span> km/h</span>
     </div>
 
     <div class="item">
-      <span class="label">ความเร็วเฉลี่ย</span>
+      <span class="label">Average Speed</span>
       <span class="value"><span id="avgSpeed">0.0</span> km/h</span>
     </div>
   </div>
@@ -1293,7 +1303,7 @@ span[id^="wltpSegment"] {
   <!-- เต็มบรรทัด -->
   <div class="row full">
     <div class="item">
-      <span class="label">เริ่มเดินทาง</span>
+      <span class="label">Start</span>
       <span class="value">
         <span id="startTime">-</span> · <span id="startCoord">-</span>
       </span>
@@ -1302,7 +1312,7 @@ span[id^="wltpSegment"] {
 
   <div class="row full">
     <div class="item">
-      <span class="label">สิ้นสุดการเดินทาง</span>
+      <span class="label">End</span>
       <span class="value">
         <span id="endTime">-</span> · <span id="endCoord">-</span>
       </span>
@@ -1659,7 +1669,7 @@ function tripRecorderRenderCurrent() {
   if (!el) return;
   const cur = tripRecorderState.current;
   if (!cur) {
-    el.innerHTML = `<div class="trip-card trip-rec-empty">ยังไม่มีช่วงที่กำลังบันทึก — กด Trip Start เพื่อเริ่มบันทึกอัตโนมัติ</div>`;
+    el.innerHTML = `<div class="trip-card trip-rec-empty">ยังไม่มีช่วงที่กำลังบันทึก — press Trip Start to begin automatic recording</div>`;
     return;
   }
   const endWltp = tripRecorderRealtimeWltp();
@@ -1675,7 +1685,7 @@ function tripRecorderRenderCurrent() {
       <div class="trip-rec-battery-row"><span></span>${tripRecorderBatteryHtml('End',endSoc)}<strong>${endSoc.toFixed(2)}%</strong></div>
       <div class="trip-rec-row"><span>SOC/Used:</span><strong>${usedSoc.toFixed(2)}%</strong></div>
       <div class="trip-rec-row"><span>Distance(km):</span><strong>${distance.toFixed(3)} km</strong></div>
-      <div class="trip-rec-row history-cost"><span>1 km/บาท:</span><strong>${tripRecorderKmPerBaht((Number(totalEnergyWh||0)-Number(cur.energyBaseWh||0))/1000,distance)>0?tripRecorderKmPerBaht((Number(totalEnergyWh||0)-Number(cur.energyBaseWh||0))/1000,distance).toFixed(3)+' km/บาท':'-'}</strong></div>
+      <div class="trip-rec-row history-cost"><span>1 km/THB:</span><strong>${tripRecorderKmPerBaht((Number(totalEnergyWh||0)-Number(cur.energyBaseWh||0))/1000,distance)>0?tripRecorderKmPerBaht((Number(totalEnergyWh||0)-Number(cur.energyBaseWh||0))/1000,distance).toFixed(3)+' km/THB':'-'}</strong></div>
       <div class="trip-rec-status">● AUTO RECORDING · Part ${cur.part}</div>
     </div>`;
 }
@@ -1720,7 +1730,7 @@ function tripRecorderRenderHistory() {
   const display = tripRecorderShowAll ? sorted : sorted.slice(0, 1);
   tripHistoryDiv.innerHTML = '';
   if (!sorted.length) {
-    tripHistoryDiv.innerHTML = '<div class="trip-rec-empty">ยังไม่มีประวัติช่วงการเดินทาง</div>';
+    tripHistoryDiv.innerHTML = '<div class="trip-rec-empty">No segment history yet</div>';
     return;
   }
   // V5.45: Total distance is shown in the dedicated panel below Auto Recording.
@@ -1736,17 +1746,19 @@ function tripRecorderRenderHistory() {
     div.innerHTML = `
       <div class="record-header">${escapeHtml(record.tripName)} · Part ${record.part}</div>
       <div class="record-details">
-        <div class="history-line"><span class="field-name">เวลา</span><span class="field-value">${new Date(record.timestamp || record.endTime || Date.now()).toLocaleString()}</span></div>
+        <div class="history-line"><span class="field-name">Time</span><span class="field-value">${new Date(record.timestamp || record.endTime || Date.now()).toLocaleString()}</span></div>
         <div class="history-line"><span class="field-name">Start/km</span><span class="field-value">${Number(record.startWltp || 0).toFixed(3)} km (WLTP)</span></div>
-        <div class="history-battery-line"><span class="field-name">แบตเริ่มต้น</span>${tripRecorderBatteryHtml('Start',startSoc)}<span class="history-battery-wltp">${startSoc.toFixed(2)}%</span></div>
+        <div class="history-battery-line"><span class="field-name">Start Battery</span>${tripRecorderBatteryHtml('Start',startSoc)}<span class="history-battery-wltp">${startSoc.toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">End/km</span><span class="field-value">${Number(record.endWltp || 0).toFixed(3)} km (WLTP)</span></div>
-        <div class="history-battery-line"><span class="field-name">แบตสิ้นสุด</span>${tripRecorderBatteryHtml('End',endSoc)}<span class="history-battery-wltp">${endSoc.toFixed(2)}%</span></div>
+        <div class="history-battery-line"><span class="field-name">End Battery</span>${tripRecorderBatteryHtml('End',endSoc)}<span class="history-battery-wltp">${endSoc.toFixed(2)}%</span></div>
         <div class="history-line"><span class="field-name">SOC/Used</span><span class="field-value">${Number(record.usedSOC || 0).toFixed(2)}%</span></div>
-        <div class="history-line"><span class="field-name">Distance(km)</span><span class="field-value">${Number(record.distance || 0).toFixed(3)} km</span></div>
-        <div class="history-line history-cost"><span class="field-name">1 km/บาท</span><span class="field-value">${kmPerBaht > 0 ? kmPerBaht.toFixed(3) + ' km/บาท' : '-'}</span></div>
+        <div class="history-line"><span class="field-name">Distance</span><span class="field-value">${Number(record.distance || 0).toFixed(3)} km</span></div>
+        <div class="history-line history-regen"><span class="field-name">Regen Energy</span><span class="field-value">${Number(record.totalRegenEnergy || 0).toFixed(2)} kWh</span></div>
+        <div class="history-line history-cost"><span class="field-name">1 km/THB</span><span class="field-value">${kmPerBaht > 0 ? kmPerBaht.toFixed(3) + ' km/THB' : '-'}</span></div>
+        <div class="history-line history-rate"><span class="field-name">Electricity Rate</span><span class="field-value">${Number(record.electricityRateBahtPerKWh || 0).toFixed(2)} THB/kWh</span></div>
       </div>
       <div class="trip-rec-history-actions">
-        <button class="deleteBtn trip-rec-delete" data-id="${escapeHtml(record.id)}" type="button">ลบช่วงนี้</button>
+        <button class="deleteBtn trip-rec-delete" data-id="${escapeHtml(record.id)}" type="button">Delete Segment</button>
       </div>`;
     tripHistoryDiv.appendChild(div);
   });
@@ -1875,7 +1887,7 @@ tripHistoryDiv?.addEventListener('click', e => {
   const btn = e.target.closest('.trip-rec-delete');
   if (!btn) return;
   const id = String(btn.dataset.id || '');
-  if (!confirm('ต้องการลบช่วงนี้หรือไม่?')) return;
+  if (!confirm('ต้องการDelete Segmentหรือไม่?')) return;
   tripRecorderHistory = tripRecorderHistory.filter(r => String(r.id) !== id);
   saveTripRecorderHistory();
   tripRecorderRenderHistory();
@@ -2522,7 +2534,7 @@ function updateWLTPDisplay() {
 				const wltp = km / VEHICLE_CONFIG.wltpFactor;
 				output.textContent = ` WLTP : ${wltp.toFixed(3)} km`;
 			} else {
-				output.textContent = `= กรุณากรอกระยะทาง`;
+				output.textContent = `= Enter distance`;
 			}
 		} else {
 			output.textContent = '';
@@ -2963,14 +2975,17 @@ async function loadHistory(limit = null) {
     html += `
       <div class="trip-entry" data-id="${safeText(id)}">
         <div class="trip-header">
-          <strong>เดินทาง: ${safeText(trip.plateNumber || trip.tripName || '-')} <span style="opacity:.72;font-weight:600;">${fmtDate(trip.startTime || trip.timestamp)}</span></strong>
+          <strong>Trip: ${safeText(trip.plateNumber || trip.tripName || '-')} <span style="opacity:.72;font-weight:600;">${fmtDate(trip.startTime || trip.timestamp)}</span></strong>
         </div>
         <div class="history-data-grid">
-          <div class="history-data-row single"><span class="history-label">ค่าไฟ</span><span class="history-value">${val(rate,2)} บาท/kWh</span></div>
+          <div class="history-pair-row">
+            <div class="history-pair"><span class="history-label">Total Distance</span><span class="history-value">${val(distance,3)} km</span></div>
+            <div class="history-pair history-regen"><span class="history-label">Regen Energy</span><span class="history-value">${val(trip.totalRegenEnergy,2)} kWh</span></div>
+          </div>
 
           <div class="history-pair-row">
-            <div class="history-pair"><span class="history-label">ระยะทางทั้งหมด</span><span class="history-value">${val(distance,3)} km</span></div>
-            <div class="history-pair"><span class="history-label">1 km/บาท</span><span class="history-value history-cost">${kmPerBaht > 0 ? val(kmPerBaht,3) + ' km/บาท' : '-'}</span></div>
+            <div class="history-pair history-cost"><span class="history-label">1 km/THB</span><span class="history-value history-cost">${kmPerBaht > 0 ? val(kmPerBaht,3) + ' km/THB' : '-'}</span></div>
+            <div class="history-pair history-rate"><span class="history-label">Electricity Rate</span><span class="history-value">${val(rate,2)} THB/kWh</span></div>
           </div>
 
           <div class="history-pair-row">
@@ -2979,38 +2994,38 @@ async function loadHistory(limit = null) {
           </div>
 
           <div class="history-pair-row">
-            <div class="history-pair"><span class="history-label">พลังงานใช้เฉลี่ย</span><span class="history-value">${val(trip.energyPer100km,2)} kWh/100km</span></div>
-            <div class="history-pair"><span class="history-label">ประสิทธิภาพ</span><span class="history-value">${val(avgEfficiency,3)} km/1%</span></div>
+            <div class="history-pair"><span class="history-label">Average Energy(km)</span><span class="history-value">${val(trip.energyPer100km,2)} kWh/100km</span></div>
+            <div class="history-pair"><span class="history-label">Average Energy(%)</span><span class="history-value">${val(avgEfficiency,3)} km/1%</span></div>
           </div>
 
           <div class="history-pair-row">
             <div class="history-pair"><span class="history-label">Start/km</span><span class="history-value">${val(trip.startWltp,3)} km (WLTP)</span></div>
-            <div class="history-pair"><span class="history-label">แบตเริ่มต้น</span><span class="history-value">${val(startSoc,2)}%</span></div>
+            <div class="history-pair"><span class="history-label">Start Battery</span><span class="history-value">${val(startSoc,2)}%</span></div>
           </div>
 
           <div class="history-pair-row">
             <div class="history-pair"><span class="history-label">End/km</span><span class="history-value">${val(trip.endWltp,3)} km (WLTP)</span></div>
-            <div class="history-pair"><span class="history-label">แบตสิ้นสุด</span><span class="history-value">${val(endSoc,2)}%</span></div>
+            <div class="history-pair"><span class="history-label">End Battery</span><span class="history-value">${val(endSoc,2)}%</span></div>
           </div>
 
           <div class="history-pair-row">
-            <div class="history-pair"><span class="history-label">ความเร็วสูงสุด</span><span class="history-value">${val(trip.maxSpeed,1)} km/h</span></div>
-            <div class="history-pair"><span class="history-label">ความเร็วเฉลี่ย</span><span class="history-value">${val(trip.avgSpeed,1)} km/h</span></div>
+            <div class="history-pair"><span class="history-label">Max Speed</span><span class="history-value">${val(trip.maxSpeed,1)} km/h</span></div>
+            <div class="history-pair"><span class="history-label">Average Speed</span><span class="history-value">${val(trip.avgSpeed,1)} km/h</span></div>
           </div>
 
           <div class="history-pair-row">
-            <div class="history-pair"><span class="history-label">เวลาที่ใช้เดินทางทั้งหมด</span><span class="history-value">${formatTime(trip.elapsedTime || 0)}</span></div>
-            <div class="history-pair"><span class="history-label">เวลาที่รถหยุด</span><span class="history-value">${formatTime(trip.idleTimeSeconds || 0)}</span></div>
+            <div class="history-pair"><span class="history-label">Total Travel Time</span><span class="history-value">${formatTime(trip.elapsedTime || 0)}</span></div>
+            <div class="history-pair"><span class="history-label">Idle Time</span><span class="history-value">${formatTime(trip.idleTimeSeconds || 0)}</span></div>
           </div>
 
           <div class="history-pair-row">
-            <div class="history-pair"><span class="history-label">เริ่มต้น</span><span class="history-value">${fmtDateTime(trip.startTime)}</span></div>
-            <div class="history-pair"><span class="history-label">สิ้นสุด</span><span class="history-value">${fmtDateTime(trip.endTime)}</span></div>
+            <div class="history-pair"><span class="history-label">Start</span><span class="history-value">${fmtDateTime(trip.startTime)}</span></div>
+            <div class="history-pair"><span class="history-label">End</span><span class="history-value">${fmtDateTime(trip.endTime)}</span></div>
           </div>
         </div>
         <div class="history-bottom-actions">
-          <button class="show-map-btn" data-id="${safeText(id)}" type="button">แผนที่ย้อนหลัง</button>
-          <button class="clear-trip-btn" data-id="${safeText(id)}" type="button">ลบข้อมูล</button>
+          <button class="show-map-btn" data-id="${safeText(id)}" type="button">History Map</button>
+          <button class="clear-trip-btn" data-id="${safeText(id)}" type="button">Delete</button>
         </div>
       </div>`;
   });
@@ -3020,7 +3035,7 @@ async function loadHistory(limit = null) {
     btn.onclick = async (e) => {
       const id = e.currentTarget.dataset.id;
       const trip = shownTrips.find(t => String(t.id) === String(id));
-      if (!trip || !confirm('ลบ Trip นี้ใช่หรือไม่?')) return;
+      if (!trip || !confirm('Delete this trip?')) return;
       try {
         if (typeof trip.id === 'number') { try { await deleteTripFromIndexedDB(trip.id); } catch (_) {} }
         let legacy = [];
@@ -3072,7 +3087,7 @@ function closeHistoryMapModal() {
 function showLeafletMapFromTrip(trip) {
   const entries = normalizeHistoryPath(trip?.path);
   if (!entries.length) {
-    alert('Trip นี้ไม่มีข้อมูลตำแหน่งสำหรับแสดงแผนที่ย้อนหลัง');
+    alert('Trip นี้ไม่มีข้อมูลตำแหน่งสำหรับแสดงHistory Map');
     return;
   }
 
@@ -3084,7 +3099,7 @@ function showLeafletMapFromTrip(trip) {
     return;
   }
   if (!window.L || typeof L.map !== 'function') {
-    alert('ไม่สามารถเปิดแผนที่ย้อนหลังได้: Leaflet ไม่พร้อมใช้งาน');
+    alert('ไม่สามารถเปิดHistory Mapได้: Leaflet ไม่พร้อมใช้งาน');
     return;
   }
 
@@ -3147,31 +3162,31 @@ function showLeafletMapFromTrip(trip) {
 
     const safeCoord=(v,fallback)=>escapeHtml(v || fallback);
     const rows=[
-      ['ระยะทาง', `${Number(trip.distance || 0).toFixed(3)} km`],
-      ['พลังงานรีเจน', `${Number(trip.totalRegenEnergy || 0).toFixed(2)} kWh`],
+      ['Distance', `${Number(trip.distance || 0).toFixed(3)} km`],
+      ['Regen Energy', `${Number(trip.totalRegenEnergy || 0).toFixed(2)} kWh`],
       ['Energy/Trip', `${Number(trip.energyConsumption || trip.energyUsed || 0).toFixed(2)} kWh`],
       ['SOC/Trip', `${Number(trip.batterySOCUsedPercent || 0).toFixed(2)} %`],
-      ['พลังงานใช้เฉลี่ย', `${Number(trip.energyPer100km || 0).toFixed(2)} kWh/100km`],
-      ['ประสิทธิภาพ', `${Number(trip.avgEfficiencyPerPercent || 0).toFixed(3)} km/1%`],
-      ['1 km/บาท', `${Number(trip.kmPerBaht || 0).toFixed(3)} km/บาท`],
-      ['ค่าไฟ', `${Number(trip.electricityRateBahtPerKWh || 0).toFixed(2)} บาท/kWh`],
+      ['Average Energy(km)', `${Number(trip.energyPer100km || 0).toFixed(2)} kWh/100km`],
+      ['Average Energy(%)', `${Number(trip.avgEfficiencyPerPercent || 0).toFixed(3)} km/1%`],
+      ['1 km/THB', `${Number(trip.kmPerBaht || 0).toFixed(3)} km/THB`],
+      ['Electricity Rate', `${Number(trip.electricityRateBahtPerKWh || 0).toFixed(2)} THB/kWh`],
       ['Start/km', `${Number(trip.startWltp || 0).toFixed(3)} km (WLTP)`],
-      ['แบตเริ่มต้น', `${Number(trip.startSOC || 0).toFixed(2)}%`],
+      ['Start Battery', `${Number(trip.startSOC || 0).toFixed(2)}%`],
       ['End/km', `${Number(trip.endWltp || 0).toFixed(3)} km (WLTP)`],
-      ['แบตสิ้นสุด', `${Number(trip.endSOC || 0).toFixed(2)}%`],
-      ['ความเร็วสูงสุด', `${Number(trip.maxSpeed || 0).toFixed(1)} km/h`],
-      ['ความเร็วเฉลี่ย', `${Number(trip.avgSpeed || 0).toFixed(1)} km/h`],
-      ['เวลารถจอดนิ่ง', formatTime(trip.idleTimeSeconds || 0)],
-      ['เวลาเดินทางทั้งหมด', formatTime(trip.elapsedTime || 0)],
-      ['เริ่มต้น', `${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'} · ${safeCoord(trip.startCoord, `${start.lat.toFixed(6)}, ${start.lon.toFixed(6)}`)}`],
-      ['สิ้นสุด', `${trip.endTime ? new Date(trip.endTime).toLocaleString() : '-'} · ${safeCoord(trip.endCoord, `${end.lat.toFixed(6)}, ${end.lon.toFixed(6)}`)}`]
+      ['End Battery', `${Number(trip.endSOC || 0).toFixed(2)}%`],
+      ['Max Speed', `${Number(trip.maxSpeed || 0).toFixed(1)} km/h`],
+      ['Average Speed', `${Number(trip.avgSpeed || 0).toFixed(1)} km/h`],
+      ['Idle Time', formatTime(trip.idleTimeSeconds || 0)],
+      ['Total Travel Time', formatTime(trip.elapsedTime || 0)],
+      ['Start', `${trip.startTime ? new Date(trip.startTime).toLocaleString() : '-'} · ${safeCoord(trip.startCoord, `${start.lat.toFixed(6)}, ${start.lon.toFixed(6)}`)}`],
+      ['End', `${trip.endTime ? new Date(trip.endTime).toLocaleString() : '-'} · ${safeCoord(trip.endCoord, `${end.lat.toFixed(6)}, ${end.lon.toFixed(6)}`)}`]
     ];
-    tripInfo.innerHTML = `<div class="history-map-title"><strong>เดินทาง: ${escapeHtml(trip.plateNumber || trip.tripName || '-')}</strong></div><div class="history-map-info-grid">${rows.map(([label,value])=>`<div class="history-map-info-item"><span>${label}</span><b>${value}</b></div>`).join('')}</div>`;
+    tripInfo.innerHTML = `<div class="history-map-title"><strong>Trip: ${escapeHtml(trip.plateNumber || trip.tripName || '-')}</strong></div><div class="history-map-info-grid">${rows.map(([label,value])=>`<div class="history-map-info-item"><span>${label}</span><b>${value}</b></div>`).join('')}</div>`;
 
     setTimeout(fitHistoryRoute,1100);
   } catch (e) {
     console.error('[History Map] render failed', e);
-    alert('ไม่สามารถแสดงแผนที่ย้อนหลังได้');
+    alert('ไม่สามารถแสดงHistory Mapได้');
     closeHistoryMapModal();
   }
 }
@@ -5326,7 +5341,7 @@ function setRouteSelectMode(mode,index=null){
 }
 async function ensurePlannerMap(){
   if(map&&map._loaded)return true;
-  if(!navigator.geolocation){routePlannerHint('อุปกรณ์ไม่รองรับ GPS — สามารถเปิดแผนที่จากตำแหน่งเริ่มต้นได้เมื่อมีแผนที่');return false;}
+  if(!navigator.geolocation){routePlannerHint('อุปกรณ์ไม่รองรับ GPS — สามารถเปิดแผนที่จากตำแหน่งStartได้เมื่อมีแผนที่');return false;}
   routePlannerHint('กำลังเปิดแผนที่...');
   return new Promise(resolve=>navigator.geolocation.getCurrentPosition(pos=>{
     try{if(!map)initMap(pos.coords.latitude,pos.coords.longitude);let tries=0;const wait=()=>{if(map&&map._loaded){map.jumpTo({center:[pos.coords.longitude,pos.coords.latitude],zoom:BASE_ZOOM,pitch:0,bearing:0});resolve(true);}else if(++tries<20)setTimeout(wait,150);else{routePlannerHint('แผนที่ยังโหลดไม่เสร็จ');resolve(false);}};wait();}catch(e){console.warn(e);resolve(false)}
