@@ -1128,7 +1128,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.53-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.54-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1162,10 +1162,9 @@ span[id^="wltpSegment"] {
 		<button id="startBtn">▶ Trip Start</button>
 		<button id="stopBtn" disabled>■ Stop Trip</button>
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
-		<button id="routePlannerBtn" type="button" disabled title="Open route planner">🗺️ Find Route</button>
 	</div>
-	<!-- V5.52: isolated Route Planner. It does not replace Trip Recorder/GPS/History. -->
-	<details id="routePlanner" class="route-planner" disabled>
+	<!-- V5.54: isolated Route Planner. It does not replace Trip Recorder/GPS/History. -->
+	<details id="routePlanner" class="route-planner">
 		<summary>🗺️ Find Route</summary>
 		<div class="planner-note">Route planning is available after Trip Start. Existing GPS, NAV, Trip Recorder and History remain unchanged.</div>
 		<div class="planner-row">
@@ -1189,7 +1188,7 @@ span[id^="wltpSegment"] {
 		</div>
 		<div id="routeStopsRows"></div>
 		<div class="planner-actions">
-			<button id="routeNavigateBtn" type="button" disabled>🧭 NAV</button>
+			<button id="routeNavigateBtn" type="button" disabled>🔎 Find Route</button>
 			<button id="routeClearBtn" type="button">Clear</button>
 			<button id="routeSettingsBtn" type="button" class="route-settings-icon" title="Route settings" aria-label="Route settings">⚙</button>
 		</div>
@@ -1474,7 +1473,7 @@ const TRIP_DB_VERSION = 3;
 const TRIP_STORE = 'trips';
 
 (() => {
-const APP_VERSION = "PRO-68-V5.52-AUTO-TRIP-RECORDER";
+const APP_VERSION = "PRO-68-V5.54-AUTO-TRIP-RECORDER";
 const VEHICLE_CONFIG = Object.freeze({
   batteryKWh: 75.3,
   nedcKm: 602,
@@ -1703,7 +1702,8 @@ function tripRecorderSocFromWltp(wltpKm) {
   return full > 0 ? Math.min(Math.max((Number(wltpKm) / full) * 100, 0), 100) : 0;
 }
 function tripRecorderCurrentDistance() {
-  return Math.max(0, Number(cumulativeDistance) || 0);
+  const d = (typeof cumulativeDistance === 'number') ? cumulativeDistance : 0;
+  return Math.max(0, Number(d) || 0);
 }
 function tripRecorderFormatKm(value) {
   return `${Math.max(0, Number(value) || 0).toFixed(3)} km`;
@@ -1998,7 +1998,8 @@ tripDeleteAllBtn?.addEventListener('click', () => {
 tripRecorderRender();
 tripRecorderUpdateDistanceTotals(tripRecorderHistory);
 
-//Trip real time 
+// Trip real time state (declared before Trip Recorder initial render to avoid TDZ)
+  let cumulativeDistance = 0;
   let updateEndTimeInterval = null;
   let tripStartTime = null;
   let tripLog = [];
@@ -2008,7 +2009,6 @@ tripRecorderUpdateDistanceTotals(tripRecorderHistory);
   let prevTimestamp = null;
   let elapsedTimeInterval = null;
   let elapsedTime = 0; 
-  let cumulativeDistance = 0; 
   let cumulativeEnergyWh = 0;
   let totalEnergyWh = 0;
   let idleStartTime = null;
@@ -4427,7 +4427,9 @@ panVelocityLon = 0;
 // 🔹 UNIFIED MAP MODE CONTROL
 function syncMapModeUi(){
     const navBtn=document.getElementById('navModeBtn'), followBtn=document.getElementById('gpsFollowBtn');
-    if(navBtn){navBtn.textContent=autoFollow?'🧭 NAV':'🖐 EXPLORE';navBtn.setAttribute('aria-pressed',String(autoFollow));navBtn.title=autoFollow?'NAV: ติดตามรถ + 3D':'EXPLORE: เลื่อน/ซูมแผนที่เอง';}
+    // This button is intentionally a route-preview/search action only.
+    // Actual live navigation is started by Trip Start when a route already exists.
+    if(navBtn){navBtn.textContent='🔎 Find Route';navBtn.setAttribute('aria-pressed','false');navBtn.title='Find and view the complete route';}
     if(followBtn){followBtn.classList.toggle('active',autoFollow);followBtn.innerHTML='◎';followBtn.title=autoFollow?'NAV: จัดรถกลับตำแหน่งติดตาม':'กลับสู่ NAV และติดตามตำแหน่งรถ';}
     map3DSetActive(autoFollow);
 }
@@ -4439,14 +4441,10 @@ function setMapModeNavigation(enabled,recenter=true){
 }
 const navModeBtn=document.getElementById('navModeBtn');
 if(navModeBtn)navModeBtn.addEventListener('click',()=>{
-  if(routePointsReady()){
-    const planner=document.getElementById('routePlanner');
-    if(planner && !planner.open) planner.open=true;
-    if(!routePlan.route.length){ buildPlannedRoute(); }
-    else { startPlannedNavigation(); }
-    return;
-  }
-  setMapModeNavigation(!autoFollow,true);
+  const planner=document.getElementById('routePlanner');
+  if(planner && !planner.open) planner.open=true;
+  if(routePointsReady()) buildPlannedRoute();
+  else routePlannerHint('กำหนด Start และ Destination ก่อน แล้วกด Find Route');
 });
 const gpsFollowBtn=document.getElementById('gpsFollowBtn'); if(gpsFollowBtn)gpsFollowBtn.addEventListener('click',()=>{if(!map||!vehicleMarker)return;setMapModeNavigation(true,true);});
 function resetTrackingVisualState() {
@@ -4772,7 +4770,7 @@ function startTracking() {
         if(!speedAnimFrame)speedAnimFrame=requestAnimationFrame(animateDigitalSpeed);startAvgEfficiencyTracking();
         if (startTimeSpan) startTimeSpan.textContent=new Date(tripStartTime).toLocaleString();if (endTimeSpan) endTimeSpan.textContent="-";if (distanceSpan) distanceSpan.textContent="0.000";if (maxSpeedSpan) maxSpeedSpan.textContent="0.0";if (avgSpeedSpan) avgSpeedSpan.textContent="0.0";if (startCoordSpan) startCoordSpan.textContent="-";if (endCoordSpan) endCoordSpan.textContent="-";lastRenderedSpeedText="";lastSpeedClass="";
         if(elapsedTimeInterval)clearInterval(elapsedTimeInterval);if(updateEndTimeInterval)clearInterval(updateEndTimeInterval);elapsedTimeInterval=setInterval(()=>{try{checkIdleStatus();updateTripTime();updateIdleDisplay();}catch(e){console.warn("Trip timer update failed",e);}},1000);
-        isTracking=true; if(window.setRoutePlannerEnabled)window.setRoutePlannerEnabled(true);startBtn.disabled=true;stopBtn.disabled=false;setTrackingStatus("กำลังค้นหา GPS...","info","Watch started — กด Stop ได้ทันที");updateGpsUi("acquiring",null);if(gpsWatchdogInterval)clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=setInterval(updateGpsWatchdog,1000);requestWakeLock();
+        isTracking=true; if(window.setRoutePlannerEnabled)window.setRoutePlannerEnabled(true); if(routePlan.route.length>1 && !routePlan.navigating){ try{ startPlannedNavigation(); }catch(e){ console.warn("[Route Planner] Trip Start navigation trigger failed",e); } } startBtn.disabled=true;stopBtn.disabled=false;setTrackingStatus("กำลังค้นหา GPS...","info","Watch started — กด Stop ได้ทันที");updateGpsUi("acquiring",null);if(gpsWatchdogInterval)clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=setInterval(updateGpsWatchdog,1000);requestWakeLock();
         if(firstFixTimer)clearTimeout(firstFixTimer);firstFixTimer=setTimeout(()=>{if(isTracking&&!tripInitialized)setTrackingStatus("GPS ยังไม่พบตำแหน่ง","warn","ยังทำงานอยู่ — รอสัญญาณหรือกด Stop");},FIRST_FIX_UI_TIMEOUT_MS);
         let newWatchId;
         try{
@@ -5251,7 +5249,7 @@ const routePlan = {
   durationSec: 0,
   navigating: false,
   plannedProgressIndex: 0,
-  settings: { avoidMotorway: false, roadPreference: 'fastest' }
+  settings: { avoidMotorway: false, preferMain: false, preferSecondary: false, preferLocal: false, roadPreference: 'fastest' }
 };
 let routePlanMarkers = [];
 let routePlanLayer = null;
@@ -5284,7 +5282,7 @@ function routePlannerHint(t){ const el=document.getElementById('routePlannerHint
 function routeNum(v,d=1){ const n=Number(v); return Number.isFinite(n)?n.toFixed(d):(0).toFixed(d); }
 function routePointSafe(p){ const lat=Number(p?.lat),lon=Number(p?.lon); return Number.isFinite(lat)&&Number.isFinite(lon)?{lat,lon}:null; }
 function routePointsReady(){ return !!routePointSafe(routePlan.start)&&!!routePointSafe(routePlan.destination); }
-function updateMainNavRouteButton(){ const b=document.getElementById('navModeBtn'); if(!b)return; const ready=routePointsReady(); const active=!!routePlan.route?.length; b.textContent=(ready&&!active)?'🔎 Find Route':'🧭 NAV'; b.title=(ready&&!active)?'Find and view the complete route':'NAV / Explore'; }
+function updateMainNavRouteButton(){ const b=document.getElementById('navModeBtn'); if(!b)return; b.textContent='🔎 Find Route'; b.title='Find and view the complete route'; }
 function routeSummaryHtml(result){
   const distance=Number(result?.distanceKm); const duration=Number(result?.durationSec);
   const km=Number.isFinite(distance)?distance:0; const sec=Number.isFinite(duration)?duration:0;
@@ -5315,6 +5313,8 @@ function setRoutePoint(kind,index,p,name=''){
   
   const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}
   updateMainNavRouteButton();
+  const buildBtn=document.getElementById('routeNavigateBtn');
+  if(buildBtn) buildBtn.disabled=!routePointsReady();
 }
 function pointObject(x){ return x?.point ? x.point : x; }
 function stopObject(x){ return x?.point ? x : {point:x,name:''}; }
@@ -5329,6 +5329,8 @@ function syncRoutePlannerInputs(){
   if(sm)sm.textContent=routePlan.startName||'ยังไม่ได้กำหนด'; if(dm)dm.textContent=routePlan.destinationName||'ยังไม่ได้กำหนด';
   const sc=document.getElementById('routeStartCoord'),dc=document.getElementById('routeDestCoord');
   if(sc)sc.textContent=routeCoordText(routePlan.start); if(dc)dc.textContent=routeCoordText(routePlan.destination);
+  const buildBtn=document.getElementById('routeNavigateBtn');
+  if(buildBtn) buildBtn.disabled=!routePointsReady();
   refreshRoutePlannerRows();
 }
 function refreshRoutePlannerRows(){
@@ -5680,17 +5682,27 @@ async function fetchOsrmRoute(points){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),6500);
   try{
-    const r=await fetch(url,{mode:'cors',signal:controller.signal,headers:{Accept:'application/json'}});
-    if(!r.ok)throw new Error(`Routing HTTP ${r.status}`);
-    const data=await r.json();
+    const endpoints=[ROUTE_ROUTER_URL,'https://routing.openstreetmap.de/routed-car/route/v1/driving/'];
+    let data=null,lastErr=null;
+    for(const base of endpoints){
+      try{
+        const endpoint=`${base}${coords}?${qs.toString()}`;
+        const r=await fetch(endpoint,{mode:'cors',signal:controller.signal,headers:{Accept:'application/json'}});
+        if(!r.ok){lastErr=new Error(`Routing HTTP ${r.status}`);continue;}
+        const d=await r.json();
+        if(d?.code==='Ok'&&Array.isArray(d.routes)&&d.routes.length){data=d;break;}
+        lastErr=new Error('No driving route found');
+      }catch(e){if(e?.name==='AbortError')throw e;lastErr=e;}
+    }
+    if(!data)throw lastErr||new Error('Routing service unavailable');
     if(data.code!=='Ok'||!data.routes?.[0])throw new Error('No driving route found');
     let routes=data.routes.filter(x=>Array.isArray(x.geometry?.coordinates)&&x.geometry.coordinates.length>1);
     if(!routes.length)throw new Error('No route geometry');
     // Fastest is OSRM's first route. For other preferences, use alternatives as a
     // lightweight preference layer while keeping the existing OSRM engine isolated.
-    if(settings.roadPreference==='local') routes=routes.slice().sort((a,b)=>Number(b.distance)-Number(a.distance));
-    else if(settings.roadPreference==='secondary') routes=routes.slice().sort((a,b)=>Number(b.distance)-Number(a.distance));
-    else if(settings.roadPreference==='main') routes=routes.slice().sort((a,b)=>Number(a.duration)-Number(b.duration));
+    // Public OSRM does not expose a reliable road-class preference parameter.
+    // Keep all selected preferences intact and let the router return its best
+    // driving route rather than falsely claiming a road class was enforced.
     const rt=routes[0];
     const coords=(rt.geometry?.coordinates||[]).map(c=>[Number(c?.[1]),Number(c?.[0])]).filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]));
     if(coords.length<2)throw new Error('No valid route coordinates');
@@ -5768,7 +5780,6 @@ function fitCompletePlannedRoute(coords){
 }
 function formatRouteDuration(sec){const s=Math.max(0,Math.round(Number(sec)||0));const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h?`${h}h ${m}m`:`${Math.max(1,m)} min`;}
 async function buildPlannedRoute(){
-  if(!isTracking){routePlannerHint('Start Trip ก่อนจึงค้นหาเส้นทางได้');return;}
   if(!routePlan.start && Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng)){setRoutePoint('start',0,{lat:lastGpsLat,lon:lastGpsLng},'Current location');syncRoutePlannerInputs();}
   const points=collectPlannerPoints();
   if(!routePlan.start||!routePlan.destination){routePlannerHint('กรุณากำหนดจุดเริ่มต้นและจุดหมายก่อน');return;}
@@ -5792,7 +5803,7 @@ async function buildPlannedRoute(){
     // user presses the button.
     fitCompletePlannedRoute(result.coords);
     if(nav)nav.disabled=false;
-    nav.textContent='🧭 NAV';
+    nav.textContent='🔎 Find Route';
     updateMainNavRouteButton();
     routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว');
   }catch(e){
@@ -5828,7 +5839,7 @@ function clearPlannedRoute(){
   
   routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
   const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');if(ss)ss.value='';if(ds)ds.value='';
-  const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const nav=document.getElementById('routeNavigateBtn');if(nav){nav.disabled=true;nav.textContent='🧭 NAV';}hidePlannedRouteDistanceBadge();updateMainNavRouteButton();routePlannerHint('ค้นหาสถานที่ทั่วประเทศไทย หรือเลือกจากแผนที่ · เลื่อน/ซูมได้ · ลากหมุดเพื่อปรับตำแหน่งได้');
+  const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const nav=document.getElementById('routeNavigateBtn');if(nav){nav.disabled=true;nav.textContent='🔎 Find Route';}hidePlannedRouteDistanceBadge();updateMainNavRouteButton();routePlannerHint('ค้นหาสถานที่ทั่วประเทศไทย หรือเลือกจากแผนที่ · เลื่อน/ซูมได้ · ลากหมุดเพื่อปรับตำแหน่งได้');
 }
 function distanceMetersBetween(a,b){return getDistanceFromLatLonInKm(a.lat,a.lon,b.lat,b.lon)*1000;}
 function nearestPlannedRouteDistanceMeters(pos){
@@ -5899,19 +5910,33 @@ function bindRoutePlanner(){
     planner.addEventListener('toggle',()=>{if(planner.open){routeCurrentPosition();}});
   }
   openBtn?.addEventListener('click',()=>{
-    if(!isTracking){routePlannerHint('Start Trip ก่อนจึงค้นหาเส้นทางได้');return;}
-    if(planner){planner.open=!planner.open;}
+      if(planner){planner.open=!planner.open;}
     if(planner?.open){routeCurrentPosition();routePlannerHint('Search a place, address or POI. Then press Find Route.');}
   });
   settingsBtn?.addEventListener('click',()=>{if(settingsBox)settingsBox.hidden=!settingsBox.hidden;});
-  avoid?.addEventListener('change',()=>{routePlan.settings.avoidMotorway=!!avoid.checked;});
-  const syncRoadPreference=()=>{
-    const checks=[['main',prefMain],['secondary',prefSecondary],['local',prefLocal]].filter(([,el])=>el?.checked);
-    routePlan.settings.roadPreference=checks.length?checks[checks.length-1][0]:'fastest';
-    // Only one road preference can be active; expressway avoidance is independent.
-    [prefMain,prefSecondary,prefLocal].forEach((el)=>{if(el)el.checked=el===checks.at(-1)?.[1]});
+  const saveRouteSettings=()=>{
+    try{localStorage.setItem('tripABRouteSettingsV554',JSON.stringify(routePlan.settings));}catch(e){}
   };
-  [prefMain,prefSecondary,prefLocal].forEach(el=>el?.addEventListener('change',syncRoadPreference));
+  const syncRoadPreference=()=>{
+    // All road-type checkboxes are independent. They are preferences to carry
+    // into route calculation and are never forcibly unchecked by another box.
+    routePlan.settings.avoidMotorway=!!avoid?.checked;
+    routePlan.settings.preferMain=!!prefMain?.checked;
+    routePlan.settings.preferSecondary=!!prefSecondary?.checked;
+    routePlan.settings.preferLocal=!!prefLocal?.checked;
+    const active=[routePlan.settings.preferMain,routePlan.settings.preferSecondary,routePlan.settings.preferLocal].filter(Boolean).length;
+    routePlan.settings.roadPreference=active?'combined':'fastest';
+    saveRouteSettings();
+  };
+  [avoid,prefMain,prefSecondary,prefLocal].forEach(el=>el?.addEventListener('change',syncRoadPreference));
+  try{
+    const saved=JSON.parse(localStorage.getItem('tripABRouteSettingsV554')||'null');
+    if(saved&&typeof saved==='object')Object.assign(routePlan.settings,saved);
+  }catch(e){}
+  if(avoid)avoid.checked=!!routePlan.settings.avoidMotorway;
+  if(prefMain)prefMain.checked=!!routePlan.settings.preferMain;
+  if(prefSecondary)prefSecondary.checked=!!routePlan.settings.preferSecondary;
+  if(prefLocal)prefLocal.checked=!!routePlan.settings.preferLocal;
   document.getElementById('routeStartPickBtn')?.addEventListener('click',()=>chooseRoutePoint('start'));
   document.getElementById('routeDestPickBtn')?.addEventListener('click',()=>chooseRoutePoint('dest'));
   document.getElementById('routeUseGpsBtn')?.addEventListener('click',routeCurrentPosition);
@@ -5922,20 +5947,24 @@ function bindRoutePlanner(){
     chooseRoutePoint('stop',i);
   });
   document.getElementById('routeNavigateBtn')?.addEventListener('click',()=>{
-    if(routePointsReady() && !routePlan.route.length){ buildPlannedRoute(); return; }
-    startPlannedNavigation();
+    if(!routePointsReady()){
+      routePlannerHint('กำหนด Start และ Destination ก่อน แล้วกด Find Route');
+      return;
+    }
+    buildPlannedRoute();
   });
   document.getElementById('routeClearBtn')?.addEventListener('click',clearPlannedRoute);
   bindPlaceSearch(document.getElementById('routeStartSearch'),'start',0);
   bindPlaceSearch(document.getElementById('routeDestSearch'),'dest',0);
   document.addEventListener('click',e=>{if(!e.target.closest('.planner-place'))closeAllPlaceResults();});
   window.setRoutePlannerEnabled=(enabled)=>{
-    if(openBtn)openBtn.disabled=!enabled;
-    if(planner)planner.dataset.enabled=enabled?'1':'0';
-    if(!enabled){if(planner)planner.open=false;setRouteSelectMode(null);hidePlannedRouteDistanceBadge();routePlan.navigating=false;}
-    routePlannerHint(enabled?'Start Trip is active. You can search and build a route.':'Start Trip to enable route search.');
+    // Route Planner remains an independent preview tool. It is never disabled
+    // or closed by Trip Recorder state; only live NAV is controlled by Trip Start.
+    if(planner)planner.dataset.enabled='1';
+    if(!enabled){setRouteSelectMode(null);hidePlannedRouteDistanceBadge();}
+    routePlannerHint(enabled?'Set Start + Destination, then press Find Route.':'Route preview ready. Trip Start is required to begin live navigation.');
   };
-  window.setRoutePlannerEnabled(!!isTracking);
+  window.setRoutePlannerEnabled(true);
   updateMainNavRouteButton();
 }
 
