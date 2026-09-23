@@ -997,7 +997,7 @@ span[id^="wltpSegment"] {
 .route-planner .planner-row>button{font-size:10px;padding:7px 8px;white-space:nowrap}.planner-stop-row{grid-template-columns:76px 1fr auto!important}.planner-stop-actions{display:flex;gap:4px}.planner-stop-actions button{font-size:10px!important;padding:7px 7px!important}
 .route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}
 .route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}
-.route-plan-marker{position:relative;display:flex;align-items:center;gap:5px;transform:translateY(-1px);pointer-events:auto;cursor:grab;user-select:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))}.route-plan-marker .route-pin{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-size:13px;line-height:1;color:#fff}.route-plan-marker .route-pin.start{background:#16a34a}.route-plan-marker .route-pin.stop{background:#2563eb}.route-plan-marker .route-pin.dest{background:#dc2626}.route-plan-marker .route-tag{padding:4px 7px;border-radius:7px;background:rgba(4,10,18,.88);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1.1 Rubik,sans-serif;letter-spacing:.02em;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);text-shadow:0 1px 2px rgba(0,0,0,.35)}.route-plan-marker:active{cursor:grabbing} .maplibre-history-marker{z-index:100!important;pointer-events:auto}
+.route-plan-marker{position:relative;width:44px;height:44px;display:block;pointer-events:auto;cursor:grab;user-select:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))}.route-plan-marker .route-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-size:13px;line-height:1;color:#fff}.route-plan-marker .route-pin.start{background:#16a34a}.route-plan-marker .route-pin.stop{background:#2563eb}.route-plan-marker .route-pin.dest{background:#dc2626}.route-plan-marker .route-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:4px 7px;border-radius:7px;background:rgba(4,10,18,.90);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1.1 Rubik,sans-serif;letter-spacing:.02em;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);text-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none}.route-plan-marker:active{cursor:grabbing}.history-endpoint-marker{position:relative;width:46px;height:46px;display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto}.history-endpoint-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff}.history-endpoint-pin.start{background:#16a34a}.history-endpoint-pin.end{background:#dc2626}.history-endpoint-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.92);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);pointer-events:none}.maplibre-history-marker{z-index:100!important;pointer-events:auto}
 .route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}
 @media (max-width:560px){.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
 
@@ -1120,7 +1120,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.59</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.60</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1155,7 +1155,7 @@ span[id^="wltpSegment"] {
 		<button id="stopBtn" disabled>■ Stop Trip</button>
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 	</div>
-	<!-- V5.59: additive Route Planner. It does not replace or modify the original Trip/GPS/History controls. -->
+	<!-- V5.60: additive Route Planner. It does not replace or modify the original Trip/GPS/History controls. -->
 	<details id="routePlanner" class="route-planner">
 		<summary>🗺️ Find Route</summary>
 		<div class="planner-note">Find and view a route only. Live navigation starts only with Trip Start.</div>
@@ -4137,6 +4137,39 @@ function createMapLibreRouteManager(targetMap) {
         }
     };
 }
+function setMapViewportFrameMode(mode='overview') {
+    const el=document.getElementById('map');
+    if(!el)return;
+    const overview=mode!=='nav';
+    el.style.left=overview?'0':'-50%';
+    el.style.top=overview?'0':'-50%';
+    el.style.width=overview?'100%':'200%';
+    el.style.height=overview?'100%':'200%';
+    el.style.transform='none';
+    el.style.willChange=overview?'auto':'transform';
+    if(map&&map._loaded){try{map.resize();}catch(e){} requestAnimationFrame(()=>{try{map.resize();}catch(e){}});}
+}
+
+function fitVisibleMapBounds(coords,padding={top:46,right:36,bottom:58,left:36},maxZoom=null){
+    if(!map||!Array.isArray(coords)||coords.length<2)return false;
+    const frame=document.getElementById('map-container');
+    const width=Math.max(1,Number(frame?.clientWidth)||0),height=Math.max(1,Number(frame?.clientHeight)||0);
+    if(width<20||height<20)return false;
+    try{
+      setMapViewportFrameMode('overview');
+      map.stop();
+      map.resize();
+      const valid=coords.map(p=>[Number(p[1]),Number(p[0])]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
+      if(valid.length<2)return false;
+      const bounds=valid.reduce((b,c)=>b.extend(c),new maplibregl.LngLatBounds(valid[0],valid[0]));
+      const opts={padding,animate:false};
+      if(Number.isFinite(maxZoom))opts.maxZoom=maxZoom;
+      const nativeFit=map._nativeFitBounds;
+      if(nativeFit)nativeFit(bounds,opts);else map.fitBounds(bounds,opts);
+      return true;
+    }catch(e){console.warn('[Visible Map Fit]',e);return false;}
+}
+
 function makeMapLibreMarker(lat, lon, html, className='maplibre-marker', popupText=null) {
     const el=document.createElement('div'); el.className=className; el.innerHTML=html;
     const marker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lon,lat]).addTo(map);
@@ -4419,7 +4452,9 @@ function syncMapModeUi(){
     map3DSetActive(autoFollow);
 }
 function setMapModeNavigation(enabled,recenter=true){
-    autoFollow=!!enabled; autoRotate=autoFollow; syncMapModeUi();
+    autoFollow=!!enabled; autoRotate=autoFollow;
+    setMapViewportFrameMode(autoFollow?'nav':'overview');
+    syncMapModeUi();
     if(autoFollow){disableMapInteraction();if(recenter&&lastGpsLat!=null&&lastGpsLng!=null)forceRecenterToVehicle();}
     else{enableMapInteraction();if(smoothTransformAnimFrame){cancelAnimationFrame(smoothTransformAnimFrame);smoothTransformAnimFrame=null;}resetMapRotation(()=>{if(vehicleMarker?.setRotationAngle)vehicleMarker.setRotationAngle(lastGpsHeading||0);});}
     if(isTracking)setTrackingStatus(autoFollow?'TRACKING — NAV MODE':'TRACKING — EXPLORE MODE','good',autoFollow?'FOLLOW + 3D':'Manual map');
@@ -4738,6 +4773,7 @@ function startTracking() {
     if(!plateInput.value.trim()){alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม');plateInput.focus();return;}
     if(!navigator.geolocation){alert('อุปกรณ์ของคุณไม่รองรับการระบุตำแหน่ง');return;}
     try{
+        setMapViewportFrameMode('nav');
         resetTrackingVisualState();clearTrackingMapObjects();try{if(map?.getSource('trip-completed-history-source'))map.getSource('trip-completed-history-source').setData({type:'FeatureCollection',features:[]});if(map?._completedHistoryMarkers){map._completedHistoryMarkers.forEach(m=>{try{m.remove();}catch(e){}});map._completedHistoryMarkers=[];}}catch(e){}stopcallback=false;isFinalizing=false;isPeriodicSaving=false;tripInitialized=false;clearWatchId();
         lastRouteLat=null;lastRouteLon=null;lastRawGpsLat=null;lastRawGpsLon=null;lastInputGpsLat=null;lastInputGpsLon=null;lastInputTimestamp=null;kf=structuredClone(KF_DEFAULT);filteredMotionHeading=null;autoFollow=true;autoRotate=true;lastZoomLevel=calculateTargetZoom(0);lastAppliedZoom=lastZoomLevel;disableMapInteraction();lastGpsUpdateTime=performance.now();prevTimestamp=null;
         totalEnergyWh=0;cumulativeEnergyWh=0;driveEnergyWh=0;driveDistanceKm=0;prevAlt=null;prevSpeed=0;lastRegenTime=0;lastAccuracy=null;document.getElementById("energyConsumption").textContent="0.00 kWh";totalRegenEnergyWh=0;document.getElementById("totalRegenEnergy").textContent="0.00";maxSpeed=0;displayVelocity=0;lastTimestamp=null;tripLog.length=0;idleStartTime=null;belowStopLockSince=Date.now();filteredSpeedKmh=0;sensorSpeedKmh=0;rawSpeedKmh=0;displayedSpeed=0;avgGpsIntervalMs=1000;lastSpeedSlopeTimestamp=0;lastGpsSpeed=0;speedSlope=0;shownSpeed=0;gpsLossTime=0;lastGpsTimestamp=null;gpsIntervalSec=1;lastStorageUpdate=0;prevPos=null;
@@ -4949,24 +4985,16 @@ function renderCompletedTripOnMap(validCoords) {
             map._completedHistoryMarkers.forEach(m=>{try{m.remove();}catch(e){}});
             map._completedHistoryMarkers=[];
             const start=validCoords[0], end=validCoords[validCoords.length-1];
-            const startLabel = `<div style="display:flex;align-items:center;gap:5px;transform:translateY(-1px);filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto"><div style="width:32px;height:32px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff">S</div><div style="padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.9);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap">START</div></div>`;
+            const startLabel = `<div class="history-endpoint-marker"><div class="history-endpoint-pin start">S</div><div class="history-endpoint-tag">START</div></div>`;
             map._completedHistoryMarkers.push(makeMapLibreMarker(start[0],start[1],startLabel,'maplibre-history-marker','จุดเริ่มต้น'));
             if(validCoords.length>1){
-              const endLabel = `<div style="display:flex;align-items:center;gap:5px;transform:translateY(-1px);filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto"><div style="padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.9);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap">END</div><div style="width:32px;height:32px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff">E</div></div>`;
+              const endLabel = `<div class="history-endpoint-marker"><div class="history-endpoint-pin end">E</div><div class="history-endpoint-tag">END</div></div>`;
               map._completedHistoryMarkers.push(makeMapLibreMarker(end[0],end[1],endLabel,'maplibre-history-marker','จุดสิ้นสุด'));
             }
-             const coords=validCoords.map(p=>[p[1],p[0]]);
+             const coordsLatLon=validCoords.map(p=>[p[0],p[1]]);
              const fitComplete=()=>{
-                 if(!map||!coords.length)return;
-                 try{
-                     map.resize();
-                     if(coords.length>=2){
-                         const bounds=coords.reduce((b,c)=>b.extend(c),new maplibregl.LngLatBounds(coords[0],coords[0]));
-                         map._nativeFitBounds(bounds,{padding:{top:55,right:40,bottom:75,left:40},maxZoom:14,animate:false});
-                     }else{
-                         map.jumpTo({center:coords[0],zoom:17,bearing:0,pitch:0,padding:{top:0,right:0,bottom:0,left:0}});
-                     }
-                 }catch(e){console.warn('[Trip Stop] complete route fit retry',e);}
+                 if(!map||coordsLatLon.length<2)return;
+                 fitVisibleMapBounds(coordsLatLon,{top:55,right:40,bottom:75,left:40},14);
              };
              fitComplete();
              setTimeout(fitComplete,180);
@@ -5114,20 +5142,16 @@ async function stopTracking() {
 	}
 	autoFollow = false;
 	autoRotate = false;
-	try{routePlan.navigating=false;routePlan._rerouting=false;routePlanLayer?.clear();clearRoutePlanMarkers();hardClearMapRotation(map);}catch(e){}
+	try{routePlan.navigating=false;routePlan._rerouting=false;routePlanLayer?.clear();clearRoutePlanMarkers();hardClearMapRotation(map);setMapViewportFrameMode('overview');}catch(e){}
     renderCompletedTripOnMap(validCoords);
-    // V5.55: reuse the same speed-colored renderer used by the reliable History map.
-    // This is additive to the dedicated completed-trip layer and does not touch History storage.
+    // V5.60: use the actual visible #map-container frame for route history.
     try {
         if (map && map._loaded && validCoords.length > 1) {
             if (!routeLayer) routeLayer = createMapLibreRouteManager(map);
             routeLayer.clearLayers();
             routeLayer.setHistory(validCoords);
-            const ll = validCoords.map(p=>[p[1],p[0]]);
-            const bb = ll.reduce((b,c)=>b.extend(c), new maplibregl.LngLatBounds(ll[0],ll[0]));
-            map.resize();
-            map._nativeFitBounds(bb,{padding:{top:55,right:40,bottom:75,left:40},animate:false});
-            setTimeout(()=>{try{map.resize();map._nativeFitBounds(bb,{padding:{top:55,right:40,bottom:75,left:40},animate:false});}catch(e){}},350);
+            fitVisibleMapBounds(validCoords.map(p=>[p[0],p[1]]),{top:55,right:40,bottom:75,left:40},14);
+            setTimeout(()=>{try{fitVisibleMapBounds(validCoords.map(p=>[p[0],p[1]]),{top:55,right:40,bottom:75,left:40},14);}catch(e){}},350);
         }
     } catch(e) { console.warn('[Trip Stop] history-style route render failed',e); }
 
@@ -5703,48 +5727,22 @@ function nearestRoutePositionKm(lat,lon,route,cum){
 }
 function fitCompletePlannedRoute(coords){
   if(!Array.isArray(coords)||coords.length<2)return;
-  // Keep the latest route so a MapLibre style/load event cannot overwrite the
-  // overview with the initial BASE_ZOOM camera.
   pendingCompleteRouteFit=coords.slice();
   if(!map)return;
   const doFit=()=>{
     if(!map||!Array.isArray(pendingCompleteRouteFit)||pendingCompleteRouteFit.length<2)return;
-    const c=pendingCompleteRouteFit;
     try{
-      map.stop();
-      map.resize();
-      const lngs=c.map(p=>Number(p[1])).filter(Number.isFinite);
-      const lats=c.map(p=>Number(p[0])).filter(Number.isFinite);
-      if(lngs.length<2||lats.length<2)return;
-      const bounds=[[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]];
-      // Do not use a hard maxZoom that can prevent the complete route from
-      // fitting on a narrow/tall map. MapLibre calculates the zoom from bounds.
-      const opts={padding:{top:70,right:45,bottom:85,left:45},animate:false};
-      const nativeFit=map._nativeFitBounds;
-      if(nativeFit)nativeFit(bounds,opts);else map.fitBounds(bounds,opts);
-      // A second fit after layout/resize catches mobile/browser viewport changes.
-      setTimeout(()=>{
-        try{
-          if(!map||!pendingCompleteRouteFit)return;
-          map.resize();
-          const cc=pendingCompleteRouteFit;
-          const ll=cc.map(p=>Number(p[1])).filter(Number.isFinite),la=cc.map(p=>Number(p[0])).filter(Number.isFinite);
-          const bb=[[Math.min(...ll),Math.min(...la)],[Math.max(...ll),Math.max(...la)]];
-          const nf=map._nativeFitBounds;
-          if(nf)nf(bb,opts);else map.fitBounds(bb,opts);
-        }catch(e){console.warn('[Complete Route Fit retry]',e);}
-      },350);
+      setMapViewportFrameMode('overview');
+      fitVisibleMapBounds(pendingCompleteRouteFit,{top:70,right:45,bottom:85,left:45},null);
     }catch(e){console.warn('[Complete Route Fit]',e);}
   };
-  if(map.loaded?.()||map._loaded||map.isStyleLoaded?.()) requestAnimationFrame(doFit);
-  else {
-    // Do not let the map's initial load camera win. The load handler also calls
-    // this function after its initialization work.
-    try{map.once('load',()=>setTimeout(doFit,80));}catch(e){}
-  }
+  if(map.loaded?.()||map._loaded||map.isStyleLoaded?.())requestAnimationFrame(doFit);
+  else{try{map.once('load',()=>setTimeout(doFit,80));}catch(e){}}
+  setTimeout(doFit,350);
 }
 async function buildPlannedRoute(){
   const points=collectPlannerPoints();
+  setMapViewportFrameMode('overview');
   if(!routePlan.start||!routePlan.destination){routePlannerHint('กรุณากำหนดจุดเริ่มต้นและจุดหมายก่อน');return;}
   routePlannerHint('กำลังหาเส้นทางรถยนต์…');
   const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;
