@@ -1120,7 +1120,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.56-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.57-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1166,7 +1166,7 @@ span[id^="wltpSegment"] {
 				<div id="routeStartResults" class="planner-results"></div>
 				<div class="planner-place-meta"><span id="routeStartMeta">Not set</span><span id="routeStartCoord" class="coord"></span></div>
 			</div>
-			<button id="routeStartPickBtn" type="button" title="Pick start on map">📍</button>
+			<button id="routeStartGpsBtn" type="button" title="Use current GPS position" aria-label="Use current GPS position">📍</button>
 		</div>
 		<div class="route-waypoint-plus-row"><button id="routeAddWaypointBtn" type="button" class="route-add-waypoint" title="Add waypoint">＋</button></div>
 		<div class="planner-row">
@@ -1176,7 +1176,6 @@ span[id^="wltpSegment"] {
 				<div id="routeDestResults" class="planner-results"></div>
 				<div class="planner-place-meta"><span id="routeDestMeta">Not set</span><span id="routeDestCoord" class="coord"></span></div>
 			</div>
-			<button id="routeDestPickBtn" type="button" title="Pick destination on map">📍</button>
 		</div>
 		<div id="routeStopsRows"></div>
 		<div class="planner-actions">
@@ -5237,6 +5236,7 @@ const routePlan = {
   destination: null,
   destinationName: '',
   selecting: null,
+  activeTarget: null,
   route: [],
   distanceKm: 0,
   durationSec: 0,
@@ -5287,6 +5287,7 @@ function routePointNameFor(kind,index){
 }
 function setRoutePoint(kind,index,p,name=''){
   if(!p)return;
+  setActiveRouteTarget(kind,index);
   if(kind==='start'){routePlan.start=p;routePlan.startName=name||routePlan.startName||'เลือกจากแผนที่';}
   else if(kind==='dest'){routePlan.destination=p;routePlan.destinationName=name||routePlan.destinationName||'เลือกจากแผนที่';}
   else if(kind==='stop'){
@@ -5311,20 +5312,20 @@ function syncRoutePlannerInputs(){
   const sc=document.getElementById('routeStartCoord'),dc=document.getElementById('routeDestCoord');
   if(sc)sc.textContent=routeCoordText(routePlan.start); if(dc)dc.textContent=routeCoordText(routePlan.destination);
   refreshRoutePlannerRows();
+  updateRoutePlannerReadyState();
 }
 function refreshRoutePlannerRows(){
   const wrap=document.getElementById('routeStopsRows');if(!wrap)return;wrap.innerHTML='';
   routePlan.stops.forEach((item,i)=>{
     const obj=stopObject(item),p=obj.point;
     const row=document.createElement('div');row.className='planner-row planner-stop-row';
-    row.innerHTML=`<label>แวะ ${i+1}</label><div class="planner-place"><input class="planner-place-input planner-stop-search" data-stop-search="${i}" autocomplete="off" value="${escapeHtml(obj.name||'')}" placeholder="ค้นหาสถานที่ / ที่อยู่"><div class="planner-results" data-stop-results="${i}"></div><div class="planner-place-meta"><span class="planner-stop-meta">${escapeHtml(obj.name|| (p?'เลือกจากแผนที่':'ยังไม่ได้กำหนด'))}</span><span class="coord">${escapeHtml(routeCoordText(p))}</span></div><input type="hidden" data-stop-index="${i}" value="${escapeHtml(routeCoordText(p))}"></div><div class="planner-stop-actions"><button type="button" data-stop-pick="${i}" title="เลือกจากแผนที่">📍</button><button type="button" data-remove-stop="${i}" title="ลบจุดแวะ">✕</button></div>`;
+    row.innerHTML=`<label>แวะ ${i+1}</label><div class="planner-place"><input class="planner-place-input planner-stop-search" data-stop-search="${i}" autocomplete="off" value="${escapeHtml(obj.name||'')}" placeholder="ค้นหาสถานที่ / ที่อยู่"><div class="planner-results" data-stop-results="${i}"></div><div class="planner-place-meta"><span class="planner-stop-meta">${escapeHtml(obj.name|| (p?'เลือกจากแผนที่':'ยังไม่ได้กำหนด'))}</span><span class="coord">${escapeHtml(routeCoordText(p))}</span></div><input type="hidden" data-stop-index="${i}" value="${escapeHtml(routeCoordText(p))}"></div><div class="planner-stop-actions"><button type="button" data-remove-stop="${i}" title="ลบจุดแวะ">✕</button></div>`;
     wrap.appendChild(row);
   });
   wrap.querySelectorAll('.planner-stop-search').forEach(inp=>{
-    inp.addEventListener('input',()=>schedulePlaceSearch(inp.value,'stop',Number(inp.dataset.stopSearch),inp));
-    inp.addEventListener('focus',()=>{if(inp.value.trim().length>=2)showPlaceSearchResults(inp.value,'stop',Number(inp.dataset.stopSearch),inp);});
+    inp.addEventListener('input',()=>{setActiveRouteTarget('stop',Number(inp.dataset.stopSearch));schedulePlaceSearch(inp.value,'stop',Number(inp.dataset.stopSearch),inp);});
+    inp.addEventListener('focus',()=>{setActiveRouteTarget('stop',Number(inp.dataset.stopSearch));if(inp.value.trim().length>=2)showPlaceSearchResults(inp.value,'stop',Number(inp.dataset.stopSearch),inp);});
   });
-  wrap.querySelectorAll('[data-stop-pick]').forEach(btn=>btn.addEventListener('click',()=>chooseRoutePoint('stop',Number(btn.dataset.stopPick))));
   wrap.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.addEventListener('click',()=>{routePlan.stops.splice(Number(btn.dataset.removeStop),1);routePlan.route=[];routePlan.plannedProgressIndex=0;refreshRoutePlannerRows();renderRoutePlanMarkers();routePlannerHint('ลบจุดแวะแล้ว — กด “หาเส้นทาง” เพื่อคำนวณใหม่');}));
 }
 function ensureRoutePlanLayer(){
@@ -5406,22 +5407,15 @@ async function ensurePlannerMap(){
   },()=>{routePlannerHint('ยังรับตำแหน่ง GPS ไม่ได้ — กด “ใช้ตำแหน่งรถ” ใหม่เมื่อพร้อม');resolve(false)},{enableHighAccuracy:true,timeout:10000,maximumAge:10000}));
 }
 async function chooseRoutePoint(kind,index=0){
-  if(!(await ensurePlannerMap()))return;
-  // Route-point editing is intentionally interactive: the map may be panned/zoomed
-  // while selecting a point. This does not change the normal Trip Recorder lock.
-  enableMapInteraction();
-  setRouteSelectMode(kind,index);
-  routePlannerHint(kind==='start'?'เลื่อน/ซูมแผนที่ได้ แล้วแตะตำแหน่งจุดเริ่มต้น · ลากหมุดเพื่อปรับละเอียด':kind==='dest'?'เลื่อน/ซูมแผนที่ได้ แล้วแตะตำแหน่งจุดหมาย · ลากหมุดเพื่อปรับละเอียด':`เลื่อน/ซูมแผนที่ได้ แล้วแตะจุดแวะ ${index+1} · ลากหมุดเพื่อปรับละเอียด`);
+  setActiveRouteTarget(kind,index);
+  await ensurePlannerMap();
+  routePlannerHint(kind==='start'?'เลือกช่อง Start แล้วกดค้างบนแผนที่เพื่อกำหนดจุดเริ่มต้น':kind==='dest'?'เลือกช่อง Destination แล้วกดค้างบนแผนที่เพื่อกำหนดจุดหมาย':`เลือกช่องจุดแวะ ${index+1} แล้วกดค้างบนแผนที่เพื่อกำหนดตำแหน่ง`);
 }
 function onRoutePlannerMapClick(e){
-  const sel=routePlan.selecting;if(!sel)return;
-  const p={lat:e.lngLat.lat,lon:e.lngLat.lng};
-  setRoutePoint(sel.kind,sel.index,p,sel.kind==='start'?'เลือกจากแผนที่':sel.kind==='dest'?'เลือกจากแผนที่':`จุดแวะ ${sel.index+1}`);
-  setRouteSelectMode(null);syncRoutePlannerInputs();renderRoutePlanMarkers();
-  if(isTracking && !routePlan.navigating) disableMapInteraction();
-  routePlannerHint('กำหนดตำแหน่งแล้ว · ลากหมุดเพื่อปรับละเอียดได้ · กด “หาเส้นทาง” เพื่อคำนวณใหม่');
+  // Normal map click remains normal map behavior. Route-point placement uses long-press only.
 }
 function routeCurrentPosition(){
+  setActiveRouteTarget('start',0);
   const apply=()=>{if(lastGpsLat!=null&&lastGpsLng!=null){setRoutePoint('start',0,{lat:lastGpsLat,lon:lastGpsLng},'ตำแหน่งปัจจุบัน');syncRoutePlannerInputs();renderRoutePlanMarkers();routePlannerHint('ใช้ตำแหน่งรถปัจจุบันเป็นจุดเริ่มต้นแล้ว');return true;}return false;};
   if(apply())return;
   navigator.geolocation?.getCurrentPosition(pos=>{setRoutePoint('start',0,{lat:pos.coords.latitude,lon:pos.coords.longitude},'ตำแหน่งปัจจุบัน');syncRoutePlannerInputs();ensurePlannerMap().then(()=>renderRoutePlanMarkers());routePlannerHint('ใช้ตำแหน่งปัจจุบันเป็นจุดเริ่มต้นแล้ว')},()=>routePlannerHint('ยังรับตำแหน่งปัจจุบันไม่ได้'),{enableHighAccuracy:true,timeout:10000,maximumAge:5000});
@@ -5557,7 +5551,9 @@ function targetElements(kind,index){
   if(kind==='dest')return {input:document.getElementById('routeDestSearch'),results:document.getElementById('routeDestResults')};
   return {input:document.querySelector(`[data-stop-search="${index}"]`),results:document.querySelector(`[data-stop-results="${index}"]`)};
 }
+function setActiveRouteTarget(kind,index=0){ routePlan.activeTarget={kind,index}; }
 function setPlaceUI(kind,index,name,p){
+  setActiveRouteTarget(kind,index);
   const {input}=targetElements(kind,index);if(input){input.value=name;input.dataset.locked='selected';}
   setRoutePoint(kind,index,p,name);syncRoutePlannerInputs();renderRoutePlanMarkers();
 }
@@ -5577,21 +5573,19 @@ async function showPlaceSearchResults(query,kind,index,inputEl){
     // Do not call Photon on every search. Its public endpoint can return 400
     // for malformed/empty requests and it adds latency when Nominatim/MapTiler
     // already provide usable results. Photon is a true fallback only.
+    const q=String(query||'').trim();
+    if(q.length<2)return;
     let nom=[];
     let mt=[];
-    let pho=[];
-    try{nom=await run(sig=>fetchNominatimPlaces(query,sig),5000);}catch(e){}
+    try{nom=await run(sig=>fetchNominatimPlaces(q,sig),5000);}catch(e){}
     if(!signal.aborted){
-      try{mt=await run(sig=>fetchMapTilerPlaces(query,sig),5000);}catch(e){}
-    }
-    if(nom.length+mt.length<6 && !signal.aborted){
-      try{pho=await run(sig=>fetchPhotonPlaces(query,sig),5000);}catch(e){}
+      try{mt=await run(sig=>fetchMapTilerPlaces(q,sig),5000);}catch(e){}
     }
     let over=[];
-    if(poi && nom.length+pho.length+mt.length<5 && !signal.aborted){
-      try{over=await run(sig=>fetchOverpassPlaces(query,sig),7000);}catch(e){}
+    if(poi && nom.length+mt.length<5 && !signal.aborted){
+      try{over=await run(sig=>fetchOverpassPlaces(q,sig),7000);}catch(e){}
     }
-    const fs=mergeGeocoderResults(mt,nom,over,pho);
+    const fs=mergeGeocoderResults(mt,nom,over,[]);
     results.innerHTML='';
     if(!fs.length){
       const e=document.createElement('div');e.className='planner-result';
@@ -5600,7 +5594,7 @@ async function showPlaceSearchResults(query,kind,index,inputEl){
     }
     fs.forEach(r=>{
       const b=document.createElement('button');b.type='button';b.className='planner-result';
-      const parts=String(r.name).split(', '); const sourceLabel=r.poiLabel||({nominatim:'ที่อยู่/สถานที่',photon:'สถานที่',overpass:'POI',maptiler:'MapTiler'}[r.source]||'สถานที่');
+      const parts=String(r.name).split(', '); const sourceLabel=r.poiLabel||({nominatim:'ที่อยู่/สถานที่',overpass:'POI',maptiler:'MapTiler'}[r.source]||'สถานที่');
       b.innerHTML=`<b>${escapeHtml(parts[0]||r.name)}</b><span>${escapeHtml(r.name)}</span><small>${escapeHtml(sourceLabel)}</small>`;
       b.addEventListener('click',()=>{
         setPlaceUI(kind,index,r.name,{lat:r.lat,lon:r.lon});results.classList.remove('open');
@@ -5616,15 +5610,22 @@ async function showPlaceSearchResults(query,kind,index,inputEl){
   }finally{if(routeSearchAbort?.signal===signal)routeSearchAbort=null;}
 }
 function schedulePlaceSearch(query,kind,index,inputEl){
-  clearTimeout(routeSearchTimer);inputEl.dataset.locked='typing';
+  clearTimeout(routeSearchTimer);
+  setActiveRouteTarget(kind,index);
+  inputEl.dataset.locked='typing';
+  if(kind==='start'){routePlan.start=null;routePlan.startName='';}
+  else if(kind==='dest'){routePlan.destination=null;routePlan.destinationName='';}
+  else if(kind==='stop' && routePlan.stops[index]){routePlan.stops[index].point=null;routePlan.stops[index].name='';}
+  routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;
   const q=String(query||'').trim();const {results}=targetElements(kind,index);if(results)results.classList.remove('open');
+  updateRoutePlannerReadyState();
   if(q.length<2)return;
   routeSearchTimer=setTimeout(()=>showPlaceSearchResults(q,kind,index,inputEl),700);
 }
 function bindPlaceSearch(input,kind,index){
   if(!input)return;
-  input.addEventListener('input',()=>schedulePlaceSearch(input.value,kind,index,input));
-  input.addEventListener('focus',()=>{if(input.value.trim().length>=2)showPlaceSearchResults(input.value.trim(),kind,index,input);});
+  input.addEventListener('input',()=>{setActiveRouteTarget(kind,index);schedulePlaceSearch(input.value,kind,index,input);});
+  input.addEventListener('focus',()=>{setActiveRouteTarget(kind,index);if(input.value.trim().length>=2)showPlaceSearchResults(input.value.trim(),kind,index,input);});
   input.addEventListener('keydown',e=>{if(e.key==='Escape')closeAllPlaceResults();});
 }
 async function fetchOsrmRoute(points){
@@ -5729,7 +5730,6 @@ function fitCompletePlannedRoute(coords){
 async function buildPlannedRoute(){
   const points=collectPlannerPoints();
   if(!routePlan.start||!routePlan.destination){routePlannerHint('กรุณากำหนดจุดเริ่มต้นและจุดหมายก่อน');return;}
-  try{setMapModeNavigation(false,false);}catch(e){}
   routePlannerHint('กำลังหาเส้นทางรถยนต์…');
   const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;
   try{
@@ -5782,7 +5782,7 @@ function orientMapToPlannedRoutePreview(){
 function clearRoutePlan(){ return clearPlannedRoute(); }
 function clearPlannedRoute(){
   
-  routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
+  routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.activeTarget=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
   const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');if(ss)ss.value='';if(ds)ds.value='';
   const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;routePlannerHint('ค้นหาสถานที่ทั่วประเทศไทย หรือเลือกจากแผนที่ · เลื่อน/ซูมได้ · ลากหมุดเพื่อปรับตำแหน่งได้');
 }
@@ -5854,8 +5854,67 @@ function bindRouteMapEvents(targetMap){if(!targetMap||targetMap._routePlannerCli
 const _initMapV54=initMap;
 initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{ }catch(e){}}return result;};
 
+function updateRoutePlannerReadyState(){
+  const btn=document.getElementById('routeNavigateBtn');
+  if(!btn)return;
+  const startOk=!!routePlan.start && Number.isFinite(Number(routePlan.start.lat)) && Number.isFinite(Number(routePlan.start.lon));
+  const destOk=!!routePlan.destination && Number.isFinite(Number(routePlan.destination.lat)) && Number.isFinite(Number(routePlan.destination.lon));
+  const stopsOk=routePlan.stops.every(x=>{const p=pointObject(x);return !!p&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon));});
+  btn.disabled=!(startOk&&destOk&&stopsOk);
+}
+function applyLongPressRoutePoint(lat,lon){
+  const active=routePlan.activeTarget;
+  if(!active){
+    routePlannerHint('เลือกช่อง Start, Destination หรือจุดแวะก่อน แล้วกดค้างบนแผนที่เพื่อเปลี่ยนตำแหน่ง');
+    return;
+  }
+  const p={lat:Number(lat),lon:Number(lon)};
+  if(!Number.isFinite(p.lat)||!Number.isFinite(p.lon))return;
+  const name=active.kind==='start'?'เลือกจากแผนที่':active.kind==='dest'?'เลือกจากแผนที่':`จุดแวะ ${active.index+1}`;
+  setRoutePoint(active.kind,active.index,p,name);
+  syncRoutePlannerInputs();
+  renderRoutePlanMarkers();
+  routePlannerHint(`${active.kind==='start'?'Start':active.kind==='dest'?'Destination':`จุดแวะ ${active.index+1}`} เปลี่ยนตำแหน่งแล้ว · กด “Find Route” เพื่อคำนวณเส้นทางใหม่`);
+}
+function bindRouteLongPress(targetMap){
+  if(!targetMap||targetMap._routeLongPressBound)return;
+  targetMap._routeLongPressBound=true;
+  const canvas=targetMap.getCanvas?.();
+  if(!canvas)return;
+  let timer=null,startX=0,startY=0,startLngLat=null,active=false;
+  const cancel=()=>{if(timer){clearTimeout(timer);timer=null;}active=false;};
+  const start=(e)=>{
+    if(!document.getElementById('routePlanner')?.open)return;
+    if(!routePlan.activeTarget)return;
+    const pt=e?.point||{x:e?.clientX,y:e?.clientY};
+    if(!pt||!Number.isFinite(pt.x)||!Number.isFinite(pt.y))return;
+    startX=pt.x;startY=pt.y;startLngLat=null;
+    cancel();
+    timer=setTimeout(()=>{
+      const rect=canvas.getBoundingClientRect();
+      const p=targetMap.unproject([startX-rect.left,startY-rect.top]);
+      if(!p)return;
+      active=true;
+      applyLongPressRoutePoint(p.lat,p.lng);
+      timer=null;
+    },650);
+  };
+  const move=(e)=>{
+    if(!timer)return;
+    const pt=e?.point||{x:e?.clientX,y:e?.clientY};
+    if(pt&&Number.isFinite(pt.x)&&Number.isFinite(pt.y)&&Math.hypot(pt.x-startX,pt.y-startY)>8)cancel();
+  };
+  canvas.addEventListener('mousedown',start,{passive:true});
+  canvas.addEventListener('mousemove',move,{passive:true});
+  canvas.addEventListener('mouseup',()=>{if(timer)cancel();else active=false;},{passive:true});
+  canvas.addEventListener('mouseleave',cancel,{passive:true});
+  canvas.addEventListener('touchstart',start,{passive:true});
+  canvas.addEventListener('touchmove',move,{passive:true});
+  canvas.addEventListener('touchend',()=>{if(timer)cancel();else active=false;},{passive:true});
+  canvas.addEventListener('touchcancel',cancel,{passive:true});
+}
 function bindRoutePlannerV55(){
-  // V5.56: planner bindings are isolated; core Trip Start/NAV bindings remain untouched.
+  // V5.57: Route Planner is isolated. It never rebinds the main NAV button or Trip Start.
   const planner=document.getElementById('routePlanner');
   const settingsBtn=document.getElementById('routeSettingsBtn');
   const settingsBox=document.getElementById('routeSettings');
@@ -5867,24 +5926,23 @@ function bindRoutePlannerV55(){
   };
   if(!planner||planner._v55Bound)return;
   planner._v55Bound=true;
-  planner.addEventListener('toggle',()=>{if(planner.open){bindRouteMapEvents(map);if(!routePlan.start&&Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng))routeCurrentPosition();}});
+  planner.addEventListener('toggle',()=>{if(planner.open){bindRouteMapEvents(map);bindRouteLongPress(map);if(!routePlan.start&&Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng))routeCurrentPosition();}});
   settingsBtn?.addEventListener('click',()=>{if(settingsBox)settingsBox.hidden=!settingsBox.hidden;});
   const saveSettings=()=>{try{localStorage.setItem('tripABRouteSettingsV55',JSON.stringify(routePlan.settings));}catch(e){}};
   try{const saved=JSON.parse(localStorage.getItem('tripABRouteSettingsV55')||'null');if(saved&&typeof saved==='object')Object.assign(routePlan.settings,saved);}catch(e){}
   Object.entries(checks).forEach(([k,el])=>{if(el){el.checked=!!routePlan.settings[k];el.addEventListener('change',()=>{routePlan.settings[k]=!!el.checked;routePlan.settings.roadPreference=[routePlan.settings.preferMain,routePlan.settings.preferSecondary,routePlan.settings.preferLocal].some(Boolean)?'combined':'fastest';saveSettings();});}});
-  document.getElementById('routeStartPickBtn')?.addEventListener('click',()=>chooseRoutePoint('start'));
-  document.getElementById('routeDestPickBtn')?.addEventListener('click',()=>chooseRoutePoint('dest'));
-  document.getElementById('routeAddWaypointBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push({point:null,name:''});refreshRoutePlannerRows();chooseRoutePoint('stop',i);});
+  document.getElementById('routeStartGpsBtn')?.addEventListener('click',()=>{setActiveRouteTarget('start',0);routeCurrentPosition();});
+  document.getElementById('routeAddWaypointBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push({point:null,name:''});setActiveRouteTarget('stop',i);refreshRoutePlannerRows();routePlannerHint(`จุดแวะ ${i+1} ถูกเพิ่มแล้ว · ค้นหาในช่อง หรือกดค้างบนแผนที่เพื่อกำหนดตำแหน่ง`);});
   document.getElementById('routeNavigateBtn')?.addEventListener('click',buildPlannedRoute);
   document.getElementById('routeClearBtn')?.addEventListener('click',clearPlannedRoute);
   bindPlaceSearch(document.getElementById('routeStartSearch'),'start',0);
   bindPlaceSearch(document.getElementById('routeDestSearch'),'dest',0);
   document.addEventListener('click',e=>{if(!e.target.closest('.planner-place'))closeAllPlaceResults();});
-  // V5.56: NEVER override or rebind the main NAV/EXPLORE button.
-  // Route Planner is controlled only by its own Find Route button.
-  if(map)bindRouteMapEvents(map);
-  routePlannerHint('Set Start and Destination, then press Find Route. Trip Start is required only for live navigation.');
+  if(map){bindRouteMapEvents(map);bindRouteLongPress(map);}
+  updateRoutePlannerReadyState();
+  routePlannerHint('ค้นหา Start / Destination / จุดแวะ หรือเลือกช่องแล้วกดค้างบนแผนที่ · เมื่อครบแล้วกด Find Route');
 }
+
 bindRoutePlannerV55();
 
 (function bindUIOnce() {
