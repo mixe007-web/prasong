@@ -988,7 +988,7 @@ span[id^="wltpSegment"] {
 .map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.38);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
 
-/* ===== V5.62 MODERN ROUTE PLANNER ===== */
+/* ===== V5.59 MODERN ROUTE PLANNER ===== */
 .route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}
 .route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}.route-planner summary::-webkit-details-marker{display:none}
 .route-planner .planner-row{display:grid;grid-template-columns:76px 1fr auto;gap:6px;align-items:start;margin-top:8px}.route-planner .planner-row>label{font-size:11px;color:rgba(255,255,255,.76);padding-top:9px}
@@ -997,9 +997,18 @@ span[id^="wltpSegment"] {
 .route-planner .planner-row>button{font-size:10px;padding:7px 8px;white-space:nowrap}.planner-stop-row{grid-template-columns:76px 1fr auto!important}.planner-stop-actions{display:flex;gap:4px}.planner-stop-actions button{font-size:10px!important;padding:7px 7px!important}
 .route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}
 .route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}
-.route-plan-marker{position:relative;width:0;height:0;display:block;overflow:visible;pointer-events:auto;cursor:grab;user-select:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))}.route-plan-marker .route-marker-visual{position:absolute;left:-22px;top:-22px;width:44px;height:44px;transform:scale(var(--route-marker-scale,1));transform-origin:50% 50%;will-change:transform}.route-plan-marker .route-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-size:13px;line-height:1;color:#fff}.route-plan-marker .route-pin.start{background:#16a34a}.route-plan-marker .route-pin.stop{background:#2563eb}.route-plan-marker .route-pin.dest{background:#dc2626}.route-plan-marker .route-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:4px 7px;border-radius:7px;background:rgba(4,10,18,.90);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1.1 Rubik,sans-serif;letter-spacing:.02em;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);text-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none}.route-plan-marker:active{cursor:grabbing}.history-endpoint-marker{position:relative;width:0;height:0;display:block;overflow:visible;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto}.history-endpoint-marker .history-endpoint-visual{position:absolute;left:-23px;top:-23px;width:46px;height:46px;transform:scale(var(--route-marker-scale,1));transform-origin:50% 50%;will-change:transform}.history-endpoint-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff}.history-endpoint-pin.start{background:#16a34a}.history-endpoint-pin.end{background:#dc2626}.history-endpoint-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.92);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);pointer-events:none}.maplibre-history-marker{z-index:100!important;pointer-events:auto}
+.route-plan-marker{position:relative;width:44px;height:44px;display:block;pointer-events:auto;cursor:grab;user-select:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))}.route-plan-marker .route-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-size:13px;line-height:1;color:#fff}.route-plan-marker .route-pin.start{background:#16a34a}.route-plan-marker .route-pin.stop{background:#2563eb}.route-plan-marker .route-pin.dest{background:#dc2626}.route-plan-marker .route-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:4px 7px;border-radius:7px;background:rgba(4,10,18,.90);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1.1 Rubik,sans-serif;letter-spacing:.02em;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);text-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none}.route-plan-marker:active{cursor:grabbing}.history-endpoint-marker{position:relative;width:46px;height:46px;display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto;transform:scale(var(--route-marker-scale,1));transform-origin:50% 50%;will-change:transform}.history-endpoint-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff}.history-endpoint-pin.start{background:#16a34a}.history-endpoint-pin.end{background:#dc2626}.history-endpoint-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.92);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);pointer-events:none}.maplibre-history-marker{z-index:100!important;pointer-events:auto}
 .route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}
 @media (max-width:560px){.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
+
+/* V5.64: exact geographic anchors for Start / Waypoint / Destination */
+.route-plan-marker-anchor{position:relative!important;width:0!important;height:0!important;display:block!important;pointer-events:auto;cursor:grab;overflow:visible}
+.route-plan-marker-anchor .route-plan-visual{position:absolute;left:0;top:0;width:46px;height:46px;transform:translate(-50%,-50%) scale(var(--route-marker-scale,1));transform-origin:50% 50%;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:none;will-change:transform}
+.route-plan-marker-anchor .route-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font:800 13px/1 Rubik,sans-serif;color:#fff}
+.route-plan-marker-anchor .route-pin.start{background:#16a34a}.route-plan-marker-anchor .route-pin.stop{background:#2563eb}.route-plan-marker-anchor .route-pin.dest{background:#dc2626}
+.route-plan-marker-anchor .route-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:4px 7px;border-radius:7px;background:rgba(4,10,18,.92);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1.1 Rubik,sans-serif;letter-spacing:.02em;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);pointer-events:none}
+.route-plan-marker-anchor:active{cursor:grabbing}
+
 
 /* V5.45 cumulative Trip distance */
 .trip-distance-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0 12px;padding:8px;border:1px solid rgba(0,220,255,.16);border-radius:12px;background:rgba(0,0,0,.12)}
@@ -1120,7 +1129,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.63</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.64</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1155,7 +1164,7 @@ span[id^="wltpSegment"] {
 		<button id="stopBtn" disabled>■ Stop Trip</button>
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 	</div>
-	<!-- V5.61: additive Route Planner. It does not replace or modify the original Trip/GPS/History controls. -->
+	<!-- V5.64: Route Planner rebuilt from V5.61 baseline. It does not replace or modify the original Trip/GPS/History controls. -->
 	<details id="routePlanner" class="route-planner">
 		<summary>🗺️ Find Route</summary>
 		<div class="planner-note">Find and view a route only. Live navigation starts only with Trip Start.</div>
@@ -4147,7 +4156,7 @@ function setMapViewportFrameMode(mode='overview') {
     el.style.height=overview?'100%':'200%';
     el.style.transform='none';
     el.style.willChange=overview?'auto':'transform';
-    if(map&&map._loaded){try{map.resize();}catch(e){} requestAnimationFrame(()=>{try{map.resize();}catch(e){}});}
+    if(map&&map._loaded){try{map.resize();}catch(e){}}
 }
 
 function fitVisibleMapBounds(coords,padding={top:46,right:36,bottom:58,left:36},maxZoom=null){
@@ -4278,7 +4287,7 @@ function initMap(lat, lon) {
     });
     map._loaded=false;
 
-    // V5.58: MapTiler/MapLibre may request an icon absent from the current sprite
+    // V5.64: MapTiler/MapLibre may request an icon absent from the current sprite
     // (for example "office"). Register a transparent 1x1 fallback for any
     // missing image so the style does not spam the console or break that layer.
     map.on('styleimagemissing', (e) => {
@@ -4987,10 +4996,10 @@ function renderCompletedTripOnMap(validCoords) {
             map._completedHistoryMarkers.forEach(m=>{try{m.remove();}catch(e){}});
             map._completedHistoryMarkers=[];
             const start=validCoords[0], end=validCoords[validCoords.length-1];
-            const startLabel = `<div class="history-endpoint-marker"><div class="history-endpoint-visual"><div class="history-endpoint-pin start">S</div><div class="history-endpoint-tag">START</div></div></div>`;
+            const startLabel = `<div class="history-endpoint-marker"><div class="history-endpoint-pin start">S</div><div class="history-endpoint-tag">START</div></div>`;
             map._completedHistoryMarkers.push(makeMapLibreMarker(start[0],start[1],startLabel,'maplibre-history-marker','จุดเริ่มต้น'));
             if(validCoords.length>1){
-              const endLabel = `<div class="history-endpoint-marker"><div class="history-endpoint-visual"><div class="history-endpoint-pin end">E</div><div class="history-endpoint-tag">END</div></div></div>`;
+              const endLabel = `<div class="history-endpoint-marker"><div class="history-endpoint-pin end">E</div><div class="history-endpoint-tag">END</div></div>`;
               map._completedHistoryMarkers.push(makeMapLibreMarker(end[0],end[1],endLabel,'maplibre-history-marker','จุดสิ้นสุด'));
             }
             updateRoutePlanMarkerScale();
@@ -5147,7 +5156,7 @@ async function stopTracking() {
 	autoRotate = false;
 	try{routePlan.navigating=false;routePlan._rerouting=false;routePlanLayer?.clear();clearRoutePlanMarkers();hardClearMapRotation(map);setMapViewportFrameMode('overview');}catch(e){}
     renderCompletedTripOnMap(validCoords);
-    // V5.63: use the actual visible #map-container frame for route history; no endpoint connector overlays.
+    // V5.61: use the actual visible #map-container frame for route history.
     try {
         if (map && map._loaded && validCoords.length > 1) {
             if (!routeLayer) routeLayer = createMapLibreRouteManager(map);
@@ -5249,18 +5258,14 @@ async function stopTracking() {
 	clearActiveTripDraft();
 	loadHistory();
     // V5.59: redraw the completed trip after storage/history work as well.
-    try{
-        requestAnimationFrame(()=>{try{renderCompletedTripOnMap(validCoords);}catch(e){}});
-        setTimeout(()=>{try{renderCompletedTripOnMap(validCoords);}catch(e){}},250);
-        setTimeout(()=>{try{renderCompletedTripOnMap(validCoords);}catch(e){}},800);
-    }catch(e){}
+    try{ setTimeout(()=>{try{renderCompletedTripOnMap(validCoords);}catch(e){}},180); }catch(e){}
 	activeTripId = null;
     setTrackingStatus("TRIP COMPLETED — บันทึกแล้ว","good","Ready for next trip");
 	startBtn.disabled = false;
 	stopBtn.disabled = true;
 }
 /* ============================================================
-   V5.56 MODERN ROUTE PLANNER
+   V5.64 LOCKED ROUTE PLANNER — V5.61 BASELINE
    Planner is deliberately isolated from Trip Recorder/GPS/History.
    Search = Nominatim + MapTiler, routing = OSRM, map picking = MapLibre.
    EXPLORE can browse freely; NAV is only enabled after an explicit route build.
@@ -5271,10 +5276,10 @@ const routePlan = {
   stops: [],
   destination: null,
   destinationName: '',
+  locked: {start:null, stops:[], destination:null},
   selecting: null,
   activeTarget: null,
   route: [],
-  routeSnappedPoints: [],
   distanceKm: 0,
   durationSec: 0,
   navigating: false,
@@ -5323,38 +5328,55 @@ function routePointNameFor(kind,index){
   return routePlan.stops[index]?.name||'';
 }
 function setRoutePoint(kind,index,p,name=''){
-  if(!p)return;
+  const q=cloneRoutePoint(p); if(!q)return;
   setActiveRouteTarget(kind,index);
-  if(kind==='start'){routePlan.start=p;routePlan.startName=name||routePlan.startName||'เลือกจากแผนที่';}
-  else if(kind==='dest'){routePlan.destination=p;routePlan.destinationName=name||routePlan.destinationName||'เลือกจากแผนที่';}
-  else if(kind==='stop'){
+  if(kind==='start'){
+    routePlan.start=q;
+    routePlan.startName=name||routePlan.startName||'เลือกจากแผนที่';
+    routePlan.locked.start=cloneRoutePoint(q);
+  }else if(kind==='dest'){
+    routePlan.destination=q;
+    routePlan.destinationName=name||routePlan.destinationName||'เลือกจากแผนที่';
+    routePlan.locked.destination=cloneRoutePoint(q);
+  }else if(kind==='stop'){
     if(!routePlan.stops[index])routePlan.stops[index]={point:null,name:''};
-    routePlan.stops[index].point=p; if(name)routePlan.stops[index].name=name;
+    routePlan.stops[index].point=q;
+    if(name)routePlan.stops[index].name=name;
+    routePlan.locked.stops[index]=cloneRoutePoint(q);
   }
-  routePlan.route=[]; routePlan.routeSnappedPoints=[]; routePlan.distanceKm=0; routePlan.durationSec=0; routePlan.plannedProgressIndex=0; routePlan._lastLat=null; routePlan._lastLon=null;
+  // V5.64: locked coordinates are authoritative. OSRM is never allowed to
+  // overwrite them with its snapped road coordinates.
+  routePlan.route=[]; routePlan.distanceKm=0; routePlan.durationSec=0;
+  routePlan.plannedProgressIndex=0; routePlan._lastLat=null; routePlan._lastLon=null;
   updateRoutePlannerReadyState();
   const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}
 }
+
 function pointObject(x){ return x?.point ? x.point : x; }
 function stopObject(x){ return x?.point ? x : {point:x,name:''}; }
 function syncRoutePlannerInputs(){
+  const start=routePlan.locked.start||routePlan.start;
+  const dest=routePlan.locked.destination||routePlan.destination;
   const s=document.getElementById('routeStartInput'),d=document.getElementById('routeDestInput');
-  if(s)s.value=routeCoordText(routePlan.start);
-  if(d)d.value=routeCoordText(routePlan.destination);
+  if(s)s.value=routeCoordText(start);
+  if(d)d.value=routeCoordText(dest);
   const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');
   if(ss && routePlan.startName && ss.dataset.locked!=='typing')ss.value=routePlan.startName;
   if(ds && routePlan.destinationName && ds.dataset.locked!=='typing')ds.value=routePlan.destinationName;
   const sm=document.getElementById('routeStartMeta'),dm=document.getElementById('routeDestMeta');
-  if(sm)sm.textContent=routePlan.startName||'ยังไม่ได้กำหนด'; if(dm)dm.textContent=routePlan.destinationName||'ยังไม่ได้กำหนด';
+  if(sm)sm.textContent=routePlan.startName||'ยังไม่ได้กำหนด';
+  if(dm)dm.textContent=routePlan.destinationName||'ยังไม่ได้กำหนด';
   const sc=document.getElementById('routeStartCoord'),dc=document.getElementById('routeDestCoord');
-  if(sc)sc.textContent=routeCoordText(routePlan.start); if(dc)dc.textContent=routeCoordText(routePlan.destination);
+  if(sc)sc.textContent=routeCoordText(start);
+  if(dc)dc.textContent=routeCoordText(dest);
   refreshRoutePlannerRows();
   updateRoutePlannerReadyState();
 }
 function refreshRoutePlannerRows(){
-  const wrap=document.getElementById('routeStopsRows');if(!wrap)return;wrap.innerHTML='';
+  const wrap=document.getElementById('routeStopsRows');if(!wrap)return;
+  wrap.innerHTML='';
   routePlan.stops.forEach((item,i)=>{
-    const obj=stopObject(item),p=obj.point;
+    const obj=stopObject(item),p=routePlan.locked.stops[i]||obj.point;
     const row=document.createElement('div');row.className='planner-row planner-stop-row';
     row.innerHTML=`<label>แวะ ${i+1}</label><div class="planner-place"><input class="planner-place-input planner-stop-search" data-stop-search="${i}" autocomplete="off" value="${escapeHtml(obj.name||'')}" placeholder="ค้นหาสถานที่ / ที่อยู่"><div class="planner-results" data-stop-results="${i}"></div><div class="planner-place-meta"><span class="planner-stop-meta">${escapeHtml(obj.name|| (p?'เลือกจากแผนที่':'ยังไม่ได้กำหนด'))}</span><span class="coord">${escapeHtml(routeCoordText(p))}</span></div><input type="hidden" data-stop-index="${i}" value="${escapeHtml(routeCoordText(p))}"></div><div class="planner-stop-actions"><button type="button" data-remove-stop="${i}" title="ลบจุดแวะ">✕</button></div>`;
     wrap.appendChild(row);
@@ -5363,8 +5385,16 @@ function refreshRoutePlannerRows(){
     inp.addEventListener('input',()=>{setActiveRouteTarget('stop',Number(inp.dataset.stopSearch));schedulePlaceSearch(inp.value,'stop',Number(inp.dataset.stopSearch),inp);});
     inp.addEventListener('focus',()=>{setActiveRouteTarget('stop',Number(inp.dataset.stopSearch));if(inp.value.trim().length>=2)showPlaceSearchResults(inp.value,'stop',Number(inp.dataset.stopSearch),inp);});
   });
-  wrap.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.addEventListener('click',()=>{routePlan.stops.splice(Number(btn.dataset.removeStop),1);routePlan.route=[];routePlan.routeSnappedPoints=[];routePlan.plannedProgressIndex=0;try{ensureRoutePointConnectorLayer()?.clear();}catch(e){}refreshRoutePlannerRows();renderRoutePlanMarkers();routePlannerHint('ลบจุดแวะแล้ว — กด “หาเส้นทาง” เพื่อคำนวณใหม่');}));
+  wrap.querySelectorAll('[data-remove-stop]').forEach(btn=>btn.addEventListener('click',()=>{
+    const i=Number(btn.dataset.removeStop);
+    routePlan.stops.splice(i,1);
+    routePlan.locked.stops.splice(i,1);
+    routePlan.route=[];routePlan.plannedProgressIndex=0;
+    refreshRoutePlannerRows();renderRoutePlanMarkers();updateRoutePlannerReadyState();
+    routePlannerHint('ลบจุดแวะแล้ว — กด “Find Route” เพื่อคำนวณใหม่');
+  }));
 }
+
 function ensureRoutePlanLayer(){
   if(!map||!map._loaded)return null;
   if(routePlanLayer)return routePlanLayer;
@@ -5386,59 +5416,50 @@ function routePlannerMarkerScale(zoom){
   return Math.max(0.55,Math.min(1.20,Math.pow(2,z-15)));
 }
 function updateRoutePlanMarkerScale(){
-  if(!map) return;
+  if(!map)return;
   const scale=routePlannerMarkerScale(map.getZoom?.());
-  const apply=(m)=>{
-    const el=m?._element || m?._icon || m?.getElement?.();
-    if(!el)return;
-    const visual=el.querySelector?.('.route-marker-visual,.history-endpoint-visual') || el;
-    visual.style.setProperty('--route-marker-scale',String(scale));
-  };
-  if(Array.isArray(routePlanMarkers)) routePlanMarkers.forEach(apply);
-  if(Array.isArray(map._completedHistoryMarkers)) map._completedHistoryMarkers.forEach(apply);
-}
-
-function ensureRoutePointConnectorLayer(){ return null; }
-function renderRoutePointConnectors(){ /* V5.63: disabled; no connector lines between selected points and snapped road points. */ }
-
-function bindRouteMarkerZoomScale(){
-  if(!map||map._routeMarkerZoomScaleBound)return;
-  map._routeMarkerZoomScaleBound=true;
-  map.on('zoom',updateRoutePlanMarkerScale);
+  const apply=m=>{const el=m?._routeVisual||m?._element?.querySelector('.route-plan-visual');if(el)el.style.setProperty('--route-marker-scale',String(scale));};
+  if(Array.isArray(routePlanMarkers))routePlanMarkers.forEach(apply);
+  if(Array.isArray(map._completedHistoryMarkers))map._completedHistoryMarkers.forEach(apply);
 }
 
 function addRoutePlanMarker(kind,index,p,label){
   if(!map||!map._loaded||!window.maplibregl||!p)return;
-  const el=document.createElement('div');
-  el.className='route-plan-marker';
+  const q=cloneRoutePoint(p);if(!q)return;
+  // V5.64: zero-size outer anchor = exact longitude/latitude. Visual scaling
+  // happens only in the child element and can never move the geographic point.
+  const el=document.createElement('div');el.className='route-plan-marker-anchor';
   const type=kind==='start'?'start':kind==='dest'?'dest':'stop';
   const short=kind==='start'?'S':kind==='dest'?'E':String(index+1);
   const shownLabel=kind==='start'?'START':kind==='dest'?'DESTINATION':`WAYPOINT ${index+1}`;
-  el.innerHTML=`<div class="route-marker-visual"><div class="route-pin ${type}">${short}</div><div class="route-tag">${escapeHtml(shownLabel)}</div></div>`;
-  el.title=`${label} · ลากหมุดเพื่อปรับตำแหน่งได้`;
-  const marker=new maplibregl.Marker({element:el,anchor:'center',draggable:true}).setLngLat([p.lon,p.lat]).addTo(map);
-  // V5.63: the outer element is 0×0, so MapLibre anchors the marker at the exact geographic point.
-  el.dataset.lat=String(p.lat); el.dataset.lon=String(p.lon);
-  el.style.setProperty('--route-marker-scale',String(routePlannerMarkerScale(map.getZoom?.())));
-  marker._routePointKind=kind; marker._routePointIndex=index;
+  el.innerHTML=`<div class="route-plan-visual"><div class="route-pin ${type}">${short}</div><div class="route-tag">${escapeHtml(shownLabel)}</div></div>`;
+  const visual=el.querySelector('.route-plan-visual');
+  if(visual)visual.style.setProperty('--route-marker-scale',String(routePlannerMarkerScale(map.getZoom?.())));
+  const marker=new maplibregl.Marker({element:el,anchor:'center',draggable:true}).setLngLat([q.lon,q.lat]).addTo(map);
+  marker._routePointKind=kind;marker._routePointIndex=index;marker._routeLocked=true;marker._routeVisual=visual;
+  el.title=`${label} · พิกัดถูกล็อก · ลากหมุดเพื่อกำหนดพิกัดใหม่`;
   marker.on('dragend',()=>{
     const ll=marker.getLngLat();
-    const np={lat:ll.lat,lon:ll.lng};
-    setRoutePoint(kind,index,np,kind==='stop' ? (routePlan.stops[index]?.name||'เลือกจากแผนที่') : routePointNameFor(kind,index));
-    syncRoutePlannerInputs();renderRoutePlanMarkers();routePlannerHint(`${label} ถูกย้ายแล้ว · กด “หาเส้นทาง” เพื่อคำนวณใหม่`);
+    setRoutePoint(kind,index,{lat:ll.lat,lon:ll.lng},kind==='stop'?(routePlan.stops[index]?.name||`จุดแวะ ${index+1}`):routePointNameFor(kind,index));
+    syncRoutePlannerInputs();renderRoutePlanMarkers();
+    routePlannerHint(`${label} ถูกย้ายแล้ว · พิกัดใหม่ถูกล็อก · กด “Find Route” เพื่อคำนวณใหม่`);
   });
   routePlanMarkers.push(marker);
 }
-// V5.63: route markers remain at the selected coordinates; the displayed route geometry is also locked to those selected points.
 function renderRoutePlanMarkers(){
-  bindRouteMarkerZoomScale();
   clearRoutePlanMarkers();
-  if(routePlan.start)addRoutePlanMarker('start',0,routePlan.start,'จุดเริ่มต้น');
-  routePlan.stops.forEach((item,i)=>{const p=pointObject(item);if(p)addRoutePlanMarker('stop',i,p,`จุดแวะ ${i+1}`);});
-  if(routePlan.destination)addRoutePlanMarker('dest',0,routePlan.destination,'จุดหมาย');
+  const start=routePlan.locked.start||routePlan.start;
+  const dest=routePlan.locked.destination||routePlan.destination;
+  if(start)addRoutePlanMarker('start',0,start,'จุดเริ่มต้น');
+  routePlan.stops.forEach((item,i)=>{
+    const p=routePlan.locked.stops[i]||pointObject(item);
+    if(p)addRoutePlanMarker('stop',i,p,`จุดแวะ ${i+1}`);
+  });
+  if(dest)addRoutePlanMarker('dest',0,dest,'จุดหมาย');
   updateRoutePlanMarkerScale();
   updatePlannedRouteVisualProgress(routePlan._lastLat,routePlan._lastLon,true);
 }
+
 function nearestPlannedRouteProjection(lat,lon){
   const route=routePlan.route;
   if(!Array.isArray(route)||route.length<2)return null;
@@ -5486,9 +5507,21 @@ async function ensurePlannerMap(){
 }
 async function chooseRoutePoint(kind,index=0){
   setActiveRouteTarget(kind,index);
-  await ensurePlannerMap();
-  routePlannerHint(kind==='start'?'เลือกช่อง Start แล้วกดค้างบนแผนที่เพื่อกำหนดจุดเริ่มต้น':kind==='dest'?'เลือกช่อง Destination แล้วกดค้างบนแผนที่เพื่อกำหนดจุดหมาย':`เลือกช่องจุดแวะ ${index+1} แล้วกดค้างบนแผนที่เพื่อกำหนดตำแหน่ง`);
+  const ok=await ensurePlannerMap();
+  if(!ok||!map||!map._loaded){routePlannerHint('แผนที่ยังไม่พร้อม — ลองอีกครั้งเมื่อแผนที่โหลดเสร็จ');return;}
+  enableMapInteraction();
+  routePlan.selecting={kind,index};
+  document.getElementById('routePlanner')?.classList.add('route-selecting');
+  map.getCanvas().style.cursor='crosshair';
+  bindRouteMapEvents(map);
+  bindRouteLongPress(map);
+  routePlannerHint(kind==='start'
+    ? 'Start: เลื่อนแผนที่ได้ แล้วกดค้างบนตำแหน่งที่ต้องการ · พิกัดจะถูกล็อก'
+    : kind==='dest'
+      ? 'Destination: เลื่อนแผนที่ได้ แล้วกดค้างบนตำแหน่งที่ต้องการ · พิกัดจะถูกล็อก'
+      : `จุดแวะ ${index+1}: เลื่อนแผนที่ได้ แล้วกดค้างบนตำแหน่งที่ต้องการ · พิกัดจะถูกล็อก`);
 }
+
 function onRoutePlannerMapClick(e){
   // Normal map click remains normal map behavior. Route-point placement uses long-press only.
 }
@@ -5691,49 +5724,21 @@ function schedulePlaceSearch(query,kind,index,inputEl){
   clearTimeout(routeSearchTimer);
   setActiveRouteTarget(kind,index);
   inputEl.dataset.locked='typing';
-  if(kind==='start'){routePlan.start=null;routePlan.startName='';}
-  else if(kind==='dest'){routePlan.destination=null;routePlan.destinationName='';}
-  else if(kind==='stop' && routePlan.stops[index]){routePlan.stops[index].point=null;routePlan.stops[index].name='';}
+  if(kind==='start'){routePlan.start=null;routePlan.startName='';routePlan.locked.start=null;}
+  else if(kind==='dest'){routePlan.destination=null;routePlan.destinationName='';routePlan.locked.destination=null;}
+  else if(kind==='stop' && routePlan.stops[index]){routePlan.stops[index].point=null;routePlan.stops[index].name='';routePlan.locked.stops[index]=null;}
   routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;
   const q=String(query||'').trim();const {results}=targetElements(kind,index);if(results)results.classList.remove('open');
   updateRoutePlannerReadyState();
   if(q.length<2)return;
   routeSearchTimer=setTimeout(()=>showPlaceSearchResults(q,kind,index,inputEl),700);
 }
+
 function bindPlaceSearch(input,kind,index){
   if(!input)return;
   input.addEventListener('input',()=>{setActiveRouteTarget(kind,index);schedulePlaceSearch(input.value,kind,index,input);});
   input.addEventListener('focus',()=>{setActiveRouteTarget(kind,index);if(input.value.trim().length>=2)showPlaceSearchResults(input.value.trim(),kind,index,input);});
   input.addEventListener('keydown',e=>{if(e.key==='Escape')closeAllPlaceResults();});
-}
-async // V5.63: exact-point route geometry lock — selected coordinates are the visual source of truth.
-function distanceMetersForPoints(a,b){
-  return getDistanceFromLatLonInKm(Number(a?.lat),Number(a?.lon),Number(b?.lat),Number(b?.lon))*1000;
-}
-function lockRouteGeometryToSelectedPoints(routeCoords,selectedPoints,snappedPoints){
-  const route=Array.isArray(routeCoords)?routeCoords.map(p=>[Number(p?.[0]),Number(p?.[1])]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1])):[];
-  const selected=Array.isArray(selectedPoints)?selectedPoints.map(p=>({lat:Number(p?.lat),lon:Number(p?.lon)})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)):[];
-  const snapped=Array.isArray(snappedPoints)?snappedPoints.map(p=>({lat:Number(p?.lat),lon:Number(p?.lon)})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)):[];
-  if(route.length<2||selected.length<2)return route;
-  const out=route.slice();
-  // Replace the route vertex nearest each router-snapped waypoint with the
-  // exact point selected by the user. This makes START/WAYPOINT/DESTINATION
-  // lie on the displayed blue route instead of leaving a visible gap between
-  // the selected geographic point and the road-snapped routing point.
-  // The road-routing distance/time remain OSRM's values; this is a visual
-  // geometry correction for the displayed route endpoints/waypoints.
-  for(let i=0;i<Math.min(selected.length,snapped.length);i++){
-    const target=snapped[i],exact=selected[i];
-    let bestIndex=-1,bestDist=Infinity;
-    for(let j=0;j<out.length;j++){
-      const d=distanceMetersForPoints({lat:out[j][0],lon:out[j][1]},target);
-      if(d<bestDist){bestDist=d;bestIndex=j;}
-    }
-    if(bestIndex>=0 && bestDist<=3000){
-      out[bestIndex]=[exact.lat,exact.lon];
-    }
-  }
-  return out;
 }
 async function fetchOsrmRoute(points){
   const clean=(points||[]).map(p=>({lat:Number(p?.lat),lon:Number(p?.lon)})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
@@ -5752,13 +5757,11 @@ async function fetchOsrmRoute(points){
       if(d?.code!=='Ok'||!Array.isArray(d.routes)||!d.routes.length){lastErr=new Error(d?.message||'No driving route found');continue;}
       const rt=d.routes.find(x=>Array.isArray(x?.geometry?.coordinates)&&x.geometry.coordinates.length>1);
       if(!rt){lastErr=new Error('No route geometry');continue;}
-      const roadCoords=(rt.geometry.coordinates||[]).map(c=>[Number(c?.[1]),Number(c?.[0])]).filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]));
-      if(roadCoords.length<2){lastErr=new Error('No valid route coordinates');continue;}
+      const out=(rt.geometry.coordinates||[]).map(c=>[Number(c?.[1]),Number(c?.[0])]).filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]));
+      if(out.length<2){lastErr=new Error('No valid route coordinates');continue;}
       const distanceKm=Math.max(0,Number(rt.distance)||0)/1000;
       const suspicious=directKm>0&&directKm<200&&distanceKm>Math.max(400,directKm*12);
-      const snappedPoints=Array.isArray(d.waypoints)?d.waypoints.map(w=>Array.isArray(w?.location)?{lon:Number(w.location[0]),lat:Number(w.location[1])}:null):[];
-      const displayCoords=lockRouteGeometryToSelectedPoints(roadCoords,clean,snappedPoints);
-      results.push({coords:displayCoords,distanceKm,durationSec:Math.max(0,Number(rt.duration)||0),steps:Array.isArray(rt.legs)?rt.legs.flatMap(l=>l.steps||[]):[],snappedPoints,suspicious});
+      results.push({coords:out,distanceKm,durationSec:Math.max(0,Number(rt.duration)||0),steps:Array.isArray(rt.legs)?rt.legs.flatMap(l=>l.steps||[]):[],suspicious});
     }catch(e){lastErr=e;}finally{clearTimeout(timer);}
   }
   if(!results.length)throw lastErr||new Error('Routing service unavailable');
@@ -5766,16 +5769,21 @@ async function fetchOsrmRoute(points){
   pool.sort((a,b)=>(a.suspicious?1e9:a.distanceKm)-(b.suspicious?1e9:b.distanceKm));
   const best=pool[0];
   if(best.suspicious)throw new Error(`Routing returned an implausibly long route (${best.distanceKm.toFixed(1)} km for ${directKm.toFixed(1)} km direct)`);
-  return {coords:best.coords,distanceKm:best.distanceKm,durationSec:best.durationSec,steps:best.steps,snappedPoints:best.snappedPoints||[]};
+  return {coords:best.coords,distanceKm:best.distanceKm,durationSec:best.durationSec,steps:best.steps};
 }
-
 function collectPlannerPoints(){
-  const s=parseRouteCoord(document.getElementById('routeStartInput')?.value)||routePlan.start;
-  const d=parseRouteCoord(document.getElementById('routeDestInput')?.value)||routePlan.destination;
+  const s=cloneRoutePoint(routePlan.locked.start||routePlan.start);
+  const d=cloneRoutePoint(routePlan.locked.destination||routePlan.destination);
   routePlan.start=s;routePlan.destination=d;
-  routePlan.stops=routePlan.stops.map((item,i)=>{const obj=stopObject(item),el=document.querySelector(`input[data-stop-index="${i}"]`),p=parseRouteCoord(el?.value)||obj.point;return p?{point:p,name:obj.name||`จุดแวะ ${i+1}`}:null;}).filter(Boolean);
+  routePlan.stops=routePlan.stops.map((item,i)=>{
+    const obj=stopObject(item);
+    const p=cloneRoutePoint(routePlan.locked.stops[i]||obj.point);
+    return p?{point:p,name:obj.name||`จุดแวะ ${i+1}`}:null;
+  }).filter(Boolean);
+  routePlan.locked.stops=routePlan.stops.map((item,i)=>cloneRoutePoint(item.point||routePlan.locked.stops[i]));
   return [routePlan.start,...routePlan.stops.map(x=>x.point),routePlan.destination].filter(Boolean);
 }
+
 function routeCumulativeDistances(route){
   const out=[0];
   for(let i=1;i<route.length;i++)out.push(out[i-1]+haversineMeters(route[i-1][0],route[i-1][1],route[i][0],route[i][1])/1000);
@@ -5813,36 +5821,35 @@ function fitCompletePlannedRoute(coords){
 async function buildPlannedRoute(){
   const points=collectPlannerPoints();
   setMapViewportFrameMode('overview');
-  if(!routePlan.start||!routePlan.destination){routePlannerHint('กรุณากำหนดจุดเริ่มต้นและจุดหมายก่อน');return;}
+  if(!routePlan.start||!routePlan.destination){routePlannerHint('กรุณากำหนด Start และ Destination ก่อน');return;}
   routePlannerHint('กำลังหาเส้นทางรถยนต์…');
   const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;
   try{
     const result=await fetchOsrmRoute(points);
-    routePlan.route=result.coords;routePlan.routeSnappedPoints=result.snappedPoints||[];routePlan.plannedProgressIndex=0;routePlan._lastLat=null;routePlan._lastLon=null;
+    routePlan.route=result.coords;routePlan.plannedProgressIndex=0;routePlan._lastLat=null;routePlan._lastLon=null;
     routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan._rerouting=false;routePlan._lastRerouteAt=0;
-    
-    // V5.22: explicitly push the newly calculated route into the MapLibre
-    // GeoJSON source. Previously the route source could remain empty when the
-    // route was calculated after the map had already loaded.
-    if(map&&map._loaded){ ensureRoutePlanLayer()?.set(result.coords); bindRouteMarkerZoomScale(); }
+    if(map&&map._loaded)ensureRoutePlanLayer()?.set(result.coords);
     renderRoutePlanMarkers();
-    // V5.63: selected-point connectors are intentionally disabled. The marker itself is the exact geographic point.
     const summary=document.getElementById('routeSummary');
-    if(summary){summary.style.display='block';summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;}
-
-    // Fit the complete route even if the map style finishes loading after the
-    // user presses the button.
-    const fitPoints=result.coords.slice();
-    [routePlan.start,...routePlan.stops.map(x=>pointObject(x)),routePlan.destination].filter(Boolean).forEach(p=>fitPoints.push([p.lat,p.lon]));
-    fitCompletePlannedRoute(fitPoints);
+    if(summary){summary.style.display='block';summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;
+      // Show the exact locked coordinates as the authoritative endpoint/waypoint locations.
+      const locks=[];
+      if(routePlan.locked.start)locks.push([routePlan.locked.start.lat,routePlan.locked.start.lon]);
+      routePlan.locked.stops.forEach(p=>{if(p)locks.push([p.lat,p.lon]);});
+      if(routePlan.locked.destination)locks.push([routePlan.locked.destination.lat,routePlan.locked.destination.lon]);
+      fitCompletePlannedRoute(result.coords.concat(locks));
+    }else{
+      fitCompletePlannedRoute(result.coords);
+    }
     if(nav)nav.disabled=false;
-    routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว · กด Trip Start เพื่อเริ่มระบบนำทางและบันทึกการเดินทาง');
+    routePlannerHint('หาเส้นทางสำเร็จ · จุด Start / Waypoint / Destination ถูกล็อกตามพิกัดที่เลือก · กด Trip Start เพื่อเริ่มระบบ');
   }catch(e){
     console.error('[Route Planner]',e);
     if(nav)nav.disabled=true;
-    routePlannerHint('หาเส้นทางไม่สำเร็จ — ตรวจชื่อสถานที่/จุดบนแผนที่และอินเทอร์เน็ต');
+    routePlannerHint('หาเส้นทางไม่สำเร็จ — ตรวจพิกัด/ชื่อสถานที่และอินเทอร์เน็ต');
   }
 }
+
 function plannedRouteBearing(route){
   if(!Array.isArray(route)||route.length<2)return null;
   // Find a meaningful first segment so a very dense/near-duplicate geometry
@@ -5868,11 +5875,19 @@ function orientMapToPlannedRoutePreview(){
 }
 function clearRoutePlan(){ return clearPlannedRoute(); }
 function clearPlannedRoute(){
-  
-  routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.activeTarget=null;routePlan.destinationName='';routePlan.route=[];routePlan.routeSnappedPoints=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();try{ensureRoutePointConnectorLayer()?.clear();}catch(e){}syncRoutePlannerInputs();
-  const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');if(ss)ss.value='';if(ds)ds.value='';
-  const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;routePlannerHint('ค้นหาสถานที่ทั่วประเทศไทย หรือเลือกจากแผนที่ · เลื่อน/ซูมได้ · ลากหมุดเพื่อปรับตำแหน่งได้');
+  routePlan.start=null;routePlan.startName='';
+  routePlan.stops=[];
+  routePlan.destination=null;routePlan.destinationName='';
+  routePlan.locked={start:null,stops:[],destination:null};
+  routePlan.activeTarget=null;routePlan.selecting=null;routePlan.route=[];
+  routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan._rerouting=false;routePlan._lastRerouteAt=0;
+  setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
+  const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');if(ss){ss.value='';ss.dataset.locked='';}if(ds){ds.value='';ds.dataset.locked='';}
+  const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}
+  const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;
+  routePlannerHint('ค้นหา Start / Destination / จุดแวะ หรือเลือกช่องแล้วกดค้างบนแผนที่ · เมื่อครบแล้วกด Find Route');
 }
+
 function distanceMetersBetween(a,b){return getDistanceFromLatLonInKm(a.lat,a.lon,b.lat,b.lon)*1000;}
 function nearestPlannedRouteDistanceMeters(pos){
   if(!routePlan.route?.length)return Infinity;
@@ -5883,7 +5898,15 @@ function updatePlannedNavigationProgress(lat,lon){
   if(!routePlan.navigating||!routePlan.destination)return;
   const pos={lat,lon},destM=distanceMetersBetween(pos,routePlan.destination);
   if(destM<=70){routePlan.navigating=false;routePlannerHint('🏁 ถึงจุดหมายแล้ว');if(isTracking)setTrackingStatus('NAVIGATION — ARRIVED','good',`${Math.round(destM)} m`);return;}
-  if(routePlan.stops.length){const first=stopObject(routePlan.stops[0]).point;if(first&&distanceMetersBetween(pos,first)<=60){routePlan.stops.shift();refreshRoutePlannerRows();routePlannerHint(routePlan.stops.length?`ถึงจุดแวะแล้ว · เหลือ ${routePlan.stops.length} จุด`:'ผ่านจุดแวะทั้งหมดแล้ว · มุ่งหน้าจุดหมาย');}}
+  if(routePlan.stops.length){
+    const first=stopObject(routePlan.stops[0]).point;
+    if(first&&distanceMetersBetween(pos,first)<=60){
+      routePlan.stops.shift();
+      routePlan.locked.stops.shift();
+      refreshRoutePlannerRows();
+      routePlannerHint(routePlan.stops.length?`ถึงจุดแวะแล้ว · เหลือ ${routePlan.stops.length} จุด`:'ผ่านจุดแวะทั้งหมดแล้ว · มุ่งหน้าจุดหมาย');
+    }
+  }
   updatePlannedRouteVisualProgress(lat,lon);
   const offRoute=nearestPlannedRouteDistanceMeters(pos),now=Date.now();
   if(offRoute>50&&!routePlan._rerouting&&now-(routePlan._lastRerouteAt||0)>700){
@@ -5892,13 +5915,19 @@ function updatePlannedNavigationProgress(lat,lon){
     const points=[pos,...routePlan.stops.map(x=>x.point),routePlan.destination];
     fetchOsrmRoute(points).then(result=>{
       if(!routePlan.navigating)return;
-      routePlan.start=pos;routePlan.route=result.coords;routePlan.routeSnappedPoints=result.snappedPoints||[];routePlan.plannedProgressIndex=0;routePlan._lastLat=pos.lat;routePlan._lastLon=pos.lon;routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;renderRoutePlanMarkers();renderRoutePointConnectors();const summary=document.getElementById('routeSummary');if(summary)summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;routePlannerHint('คำนวณเส้นทางใหม่แล้ว');
+      routePlan.start=pos;
+      routePlan.locked.start=cloneRoutePoint(pos);
+      routePlan.route=result.coords;routePlan.plannedProgressIndex=0;routePlan._lastLat=pos.lat;routePlan._lastLon=pos.lon;routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;renderRoutePlanMarkers();
+      const summary=document.getElementById('routeSummary');if(summary)summary.innerHTML=`<b>${result.distanceKm.toFixed(1)} km</b> · ประมาณ ${Math.max(1,Math.round(result.durationSec/60))} นาที · ${routePlan.stops.length} จุดแวะ`;
+      routePlannerHint('คำนวณเส้นทางใหม่แล้ว');
     }).catch(()=>routePlannerHint('ออกนอกเส้นทาง — ยังไม่สามารถคำนวณใหม่ได้')).finally(()=>{routePlan._rerouting=false;});
-  }else {if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`เหลือ ${destM>=1000?(destM/1000).toFixed(1)+' km':Math.round(destM)+' m'}`);}
+  }else{
+    if(isTracking)setTrackingStatus('NAVIGATION — ROUTE ACTIVE','good',`เหลือ ${destM>=1000?(destM/1000).toFixed(1)+' km':Math.round(destM)+' m'}`);
+  }
 }
 
+
 function startPlannedNavigation(){
-  try{ensureRoutePointConnectorLayer()?.clear();}catch(e){}
   if(!routePlan.route.length||!routePlan.destination){routePlannerHint('ต้องหาเส้นทางให้สำเร็จก่อนจึงเปิด NAV ได้');return;}
   routePlan.navigating=true;
   setMapModeNavigation(true,false);
@@ -6020,7 +6049,7 @@ function bindRoutePlannerV55(){
   try{const saved=JSON.parse(localStorage.getItem('tripABRouteSettingsV55')||'null');if(saved&&typeof saved==='object')Object.assign(routePlan.settings,saved);}catch(e){}
   Object.entries(checks).forEach(([k,el])=>{if(el){el.checked=!!routePlan.settings[k];el.addEventListener('change',()=>{routePlan.settings[k]=!!el.checked;routePlan.settings.roadPreference=[routePlan.settings.preferMain,routePlan.settings.preferSecondary,routePlan.settings.preferLocal].some(Boolean)?'combined':'fastest';saveSettings();});}});
   document.getElementById('routeStartGpsBtn')?.addEventListener('click',()=>{setActiveRouteTarget('start',0);routeCurrentPosition();});
-  document.getElementById('routeAddWaypointBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push({point:null,name:''});setActiveRouteTarget('stop',i);refreshRoutePlannerRows();routePlannerHint(`จุดแวะ ${i+1} ถูกเพิ่มแล้ว · ค้นหาในช่อง หรือกดค้างบนแผนที่เพื่อกำหนดตำแหน่ง`);});
+  document.getElementById('routeAddWaypointBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push({point:null,name:''});routePlan.locked.stops.push(null);setActiveRouteTarget('stop',i);refreshRoutePlannerRows();routePlannerHint(`จุดแวะ ${i+1} ถูกเพิ่มแล้ว · ค้นหาในช่อง หรือกดค้างบนแผนที่เพื่อกำหนดตำแหน่ง`);});
   document.getElementById('routeNavigateBtn')?.addEventListener('click',buildPlannedRoute);
   document.getElementById('routeClearBtn')?.addEventListener('click',clearPlannedRoute);
   bindPlaceSearch(document.getElementById('routeStartSearch'),'start',0);
