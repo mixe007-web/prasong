@@ -988,7 +988,7 @@ span[id^="wltpSegment"] {
 .map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.38);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
 
-/* ===== V5.58 MODERN ROUTE PLANNER ===== */
+/* ===== V5.59 MODERN ROUTE PLANNER ===== */
 .route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}
 .route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}.route-planner summary::-webkit-details-marker{display:none}
 .route-planner .planner-row{display:grid;grid-template-columns:76px 1fr auto;gap:6px;align-items:start;margin-top:8px}.route-planner .planner-row>label{font-size:11px;color:rgba(255,255,255,.76);padding-top:9px}
@@ -997,7 +997,7 @@ span[id^="wltpSegment"] {
 .route-planner .planner-row>button{font-size:10px;padding:7px 8px;white-space:nowrap}.planner-stop-row{grid-template-columns:76px 1fr auto!important}.planner-stop-actions{display:flex;gap:4px}.planner-stop-actions button{font-size:10px!important;padding:7px 7px!important}
 .route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}
 .route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}
-.route-plan-marker{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7));cursor:grab}.route-plan-marker:active{cursor:grabbing}
+.route-plan-marker{position:relative;display:flex;align-items:center;gap:5px;transform:translateY(-1px);pointer-events:auto;cursor:grab;user-select:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))}.route-plan-marker .route-pin{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-size:13px;line-height:1;color:#fff}.route-plan-marker .route-pin.start{background:#16a34a}.route-plan-marker .route-pin.stop{background:#2563eb}.route-plan-marker .route-pin.dest{background:#dc2626}.route-plan-marker .route-tag{padding:4px 7px;border-radius:7px;background:rgba(4,10,18,.88);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1.1 Rubik,sans-serif;letter-spacing:.02em;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);text-shadow:0 1px 2px rgba(0,0,0,.35)}.route-plan-marker:active{cursor:grabbing} .maplibre-history-marker{z-index:100!important;pointer-events:auto}
 .route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}
 @media (max-width:560px){.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
 
@@ -1120,7 +1120,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.58-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.59</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1155,7 +1155,7 @@ span[id^="wltpSegment"] {
 		<button id="stopBtn" disabled>■ Stop Trip</button>
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 	</div>
-	<!-- V5.55: additive Route Planner. It does not replace or modify the original Trip/GPS/History controls. -->
+	<!-- V5.59: additive Route Planner. It does not replace or modify the original Trip/GPS/History controls. -->
 	<details id="routePlanner" class="route-planner">
 		<summary>🗺️ Find Route</summary>
 		<div class="planner-note">Find and view a route only. Live navigation starts only with Trip Start.</div>
@@ -4949,8 +4949,12 @@ function renderCompletedTripOnMap(validCoords) {
             map._completedHistoryMarkers.forEach(m=>{try{m.remove();}catch(e){}});
             map._completedHistoryMarkers=[];
             const start=validCoords[0], end=validCoords[validCoords.length-1];
-            map._completedHistoryMarkers.push(makeMapLibreMarker(start[0],start[1],'<div style="width:30px;height:30px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px">🚗</div>','maplibre-history-marker','จุดเริ่มต้น'));
-            if(validCoords.length>1) map._completedHistoryMarkers.push(makeMapLibreMarker(end[0],end[1],'<div style="width:30px;height:30px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px">🏁</div>','maplibre-history-marker','จุดสิ้นสุด'));
+            const startLabel = `<div style="display:flex;align-items:center;gap:5px;transform:translateY(-1px);filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto"><div style="width:32px;height:32px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff">S</div><div style="padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.9);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap">START</div></div>`;
+            map._completedHistoryMarkers.push(makeMapLibreMarker(start[0],start[1],startLabel,'maplibre-history-marker','จุดเริ่มต้น'));
+            if(validCoords.length>1){
+              const endLabel = `<div style="display:flex;align-items:center;gap:5px;transform:translateY(-1px);filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto"><div style="padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.9);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap">END</div><div style="width:32px;height:32px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff">E</div></div>`;
+              map._completedHistoryMarkers.push(makeMapLibreMarker(end[0],end[1],endLabel,'maplibre-history-marker','จุดสิ้นสุด'));
+            }
              const coords=validCoords.map(p=>[p[1],p[0]]);
              const fitComplete=()=>{
                  if(!map||!coords.length)return;
@@ -5217,6 +5221,12 @@ async function stopTracking() {
 	positions = [];
 	clearActiveTripDraft();
 	loadHistory();
+    // V5.59: redraw the completed trip after storage/history work as well.
+    try{
+        requestAnimationFrame(()=>{try{renderCompletedTripOnMap(validCoords);}catch(e){}});
+        setTimeout(()=>{try{renderCompletedTripOnMap(validCoords);}catch(e){}},250);
+        setTimeout(()=>{try{renderCompletedTripOnMap(validCoords);}catch(e){}},800);
+    }catch(e){}
 	activeTripId = null;
     setTrackingStatus("TRIP COMPLETED — บันทึกแล้ว","good","Ready for next trip");
 	startBtn.disabled = false;
@@ -5340,9 +5350,15 @@ function ensureRoutePlanLayer(){
   routePlanLayer={source,layer,set(coords){try{map.getSource(source)?.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords.map(p=>[p[1],p[0]])}})}catch(e){console.warn('planned route render failed',e)}},clear(){try{map.getSource(source)?.setData({type:'FeatureCollection',features:[]})}catch(e){}}};
   return routePlanLayer;
 }
-function addRoutePlanMarker(kind,index,p,label,emoji){
+function addRoutePlanMarker(kind,index,p,label){
   if(!map||!map._loaded||!window.maplibregl||!p)return;
-  const el=document.createElement('div');el.className='route-plan-marker';el.textContent=emoji;el.title=`${label} · ลากหมุดเพื่อปรับตำแหน่งได้`;
+  const el=document.createElement('div');
+  el.className='route-plan-marker';
+  const type=kind==='start'?'start':kind==='dest'?'dest':'stop';
+  const short=kind==='start'?'S':kind==='dest'?'E':String(index+1);
+  const shownLabel=kind==='start'?'START':kind==='dest'?'DESTINATION':`WAYPOINT ${index+1}`;
+  el.innerHTML=`<div class="route-pin ${type}">${short}</div><div class="route-tag">${escapeHtml(shownLabel)}</div>`;
+  el.title=`${label} · ลากหมุดเพื่อปรับตำแหน่งได้`;
   const marker=new maplibregl.Marker({element:el,anchor:'center',draggable:true}).setLngLat([p.lon,p.lat]).addTo(map);
   marker._routePointKind=kind; marker._routePointIndex=index;
   marker.on('dragend',()=>{
@@ -5355,9 +5371,9 @@ function addRoutePlanMarker(kind,index,p,label,emoji){
 }
 function renderRoutePlanMarkers(){
   clearRoutePlanMarkers();
-  if(routePlan.start)addRoutePlanMarker('start',0,routePlan.start,'จุดเริ่มต้น','🟢');
-  routePlan.stops.forEach((item,i)=>{const p=pointObject(item);if(p)addRoutePlanMarker('stop',i,p,`จุดแวะ ${i+1}`,'🔵');});
-  if(routePlan.destination)addRoutePlanMarker('dest',0,routePlan.destination,'จุดหมาย','🏁');
+  if(routePlan.start)addRoutePlanMarker('start',0,routePlan.start,'จุดเริ่มต้น');
+  routePlan.stops.forEach((item,i)=>{const p=pointObject(item);if(p)addRoutePlanMarker('stop',i,p,`จุดแวะ ${i+1}`);});
+  if(routePlan.destination)addRoutePlanMarker('dest',0,routePlan.destination,'จุดหมาย');
   updatePlannedRouteVisualProgress(routePlan._lastLat,routePlan._lastLon,true);
 }
 function nearestPlannedRouteProjection(lat,lon){
@@ -5631,22 +5647,13 @@ async function fetchOsrmRoute(points){
   const clean=(points||[]).map(p=>({lat:Number(p?.lat),lon:Number(p?.lon)})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
   if(clean.length<2)throw new Error('Start and destination are required');
   const coords=clean.map(p=>`${p.lon},${p.lat}`).join(';');
-  const settings=routePlan.settings||{};
-  // V5.58: do not send exclude=motorway to the public routing profiles used here.
-  // Both endpoints tested from this app return HTTP 400 for that option.
-  // The setting remains stored/UI-visible for compatibility, but route calculation
-  // uses the standard driving request so Find Route can complete successfully.
-  const qs=new URLSearchParams({overview:'full',geometries:'geojson',steps:'false',alternatives:'false'});
-  const endpoints=[
-    'https://router.project-osrm.org/route/v1/driving/',
-    'https://routing.openstreetmap.de/routed-car/route/v1/driving/'
-  ];
-  let lastErr=null;
+  const directKm=clean.slice(1).reduce((sum,p,i)=>sum+getDistanceFromLatLonInKm(clean[i].lat,clean[i].lon,p.lat,p.lon),0);
+  const endpoints=['https://router.project-osrm.org/route/v1/driving/','https://routing.openstreetmap.de/routed-car/route/v1/driving/'];
+  const results=[];let lastErr=null;
   for(const base of endpoints){
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),9000);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),9000);
     try{
-      const endpoint=`${base}${coords}?${qs.toString()}`;
+      const endpoint=`${base}${coords}?overview=full&geometries=geojson&steps=false&alternatives=false`;
       const r=await fetch(endpoint,{method:'GET',mode:'cors',signal:controller.signal,headers:{Accept:'application/json'}});
       if(!r.ok){lastErr=new Error(`Routing HTTP ${r.status}`);continue;}
       const d=await r.json();
@@ -5655,10 +5662,17 @@ async function fetchOsrmRoute(points){
       if(!rt){lastErr=new Error('No route geometry');continue;}
       const out=(rt.geometry.coordinates||[]).map(c=>[Number(c?.[1]),Number(c?.[0])]).filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]));
       if(out.length<2){lastErr=new Error('No valid route coordinates');continue;}
-      return {coords:out,distanceKm:Math.max(0,Number(rt.distance)||0)/1000,durationSec:Math.max(0,Number(rt.duration)||0),steps:Array.isArray(rt.legs)?rt.legs.flatMap(l=>l.steps||[]):[]};
+      const distanceKm=Math.max(0,Number(rt.distance)||0)/1000;
+      const suspicious=directKm>0&&directKm<200&&distanceKm>Math.max(400,directKm*12);
+      results.push({coords:out,distanceKm,durationSec:Math.max(0,Number(rt.duration)||0),steps:Array.isArray(rt.legs)?rt.legs.flatMap(l=>l.steps||[]):[],suspicious});
     }catch(e){lastErr=e;}finally{clearTimeout(timer);}
   }
-  throw lastErr||new Error('Routing service unavailable');
+  if(!results.length)throw lastErr||new Error('Routing service unavailable');
+  const sane=results.filter(r=>!r.suspicious);const pool=sane.length?sane:results;
+  pool.sort((a,b)=>(a.suspicious?1e9:a.distanceKm)-(b.suspicious?1e9:b.distanceKm));
+  const best=pool[0];
+  if(best.suspicious)throw new Error(`Routing returned an implausibly long route (${best.distanceKm.toFixed(1)} km for ${directKm.toFixed(1)} km direct)`);
+  return {coords:best.coords,distanceKm:best.distanceKm,durationSec:best.durationSec,steps:best.steps};
 }
 
 function collectPlannerPoints(){
