@@ -988,7 +988,7 @@ span[id^="wltpSegment"] {
 .map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.38);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
 
-/* ===== V5.56 MODERN ROUTE PLANNER ===== */
+/* ===== V5.58 MODERN ROUTE PLANNER ===== */
 .route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}
 .route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}.route-planner summary::-webkit-details-marker{display:none}
 .route-planner .planner-row{display:grid;grid-template-columns:76px 1fr auto;gap:6px;align-items:start;margin-top:8px}.route-planner .planner-row>label{font-size:11px;color:rgba(255,255,255,.76);padding-top:9px}
@@ -1120,7 +1120,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.57-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.58-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -4245,23 +4245,22 @@ function initMap(lat, lon) {
     });
     map._loaded=false;
 
-    // Prevent MapLibre from warning about the MapTiler style's blank icon-image.
-    // Some style layers can request an image whose id is a single blank space.
-    // Supplying a transparent 1x1 image keeps the layer valid without displaying anything.
+    // V5.58: MapTiler/MapLibre may request an icon absent from the current sprite
+    // (for example "office"). Register a transparent 1x1 fallback for any
+    // missing image so the style does not spam the console or break that layer.
     map.on('styleimagemissing', (e) => {
         const id = String(e?.id ?? '');
-        if (!id.trim()) {
-            try {
-                if (!map.hasImage(id)) {
-                    map.addImage(id, {
-                        width: 1,
-                        height: 1,
-                        data: new Uint8Array([0, 0, 0, 0])
-                    });
-                }
-            } catch (err) {
-                // Ignore only this cosmetic fallback; the map remains usable.
+        if (!id) return;
+        try {
+            if (!map.hasImage(id)) {
+                map.addImage(id, {
+                    width: 1,
+                    height: 1,
+                    data: new Uint8Array([0, 0, 0, 0])
+                });
             }
+        } catch (err) {
+            // Cosmetic fallback only; the map remains usable.
         }
     });
     const nativeSetCenter=map.setCenter.bind(map), nativeFitBounds=map.fitBounds.bind(map), nativeResize=map.resize.bind(map);
@@ -5226,7 +5225,7 @@ async function stopTracking() {
 /* ============================================================
    V5.56 MODERN ROUTE PLANNER
    Planner is deliberately isolated from Trip Recorder/GPS/History.
-   Search = Photon geocoder, routing = OSRM, map picking = MapLibre.
+   Search = Nominatim + MapTiler, routing = OSRM, map picking = MapLibre.
    EXPLORE can browse freely; NAV is only enabled after an explicit route build.
    ============================================================ */
 const routePlan = {
@@ -5295,7 +5294,7 @@ function setRoutePoint(kind,index,p,name=''){
     routePlan.stops[index].point=p; if(name)routePlan.stops[index].name=name;
   }
   routePlan.route=[]; routePlan.distanceKm=0; routePlan.durationSec=0; routePlan.plannedProgressIndex=0; routePlan._lastLat=null; routePlan._lastLon=null;
-  
+  updateRoutePlannerReadyState();
   const sum=document.getElementById('routeSummary');if(sum){sum.style.display='none';sum.textContent='';}
 }
 function pointObject(x){ return x?.point ? x.point : x; }
@@ -5633,8 +5632,11 @@ async function fetchOsrmRoute(points){
   if(clean.length<2)throw new Error('Start and destination are required');
   const coords=clean.map(p=>`${p.lon},${p.lat}`).join(';');
   const settings=routePlan.settings||{};
+  // V5.58: do not send exclude=motorway to the public routing profiles used here.
+  // Both endpoints tested from this app return HTTP 400 for that option.
+  // The setting remains stored/UI-visible for compatibility, but route calculation
+  // uses the standard driving request so Find Route can complete successfully.
   const qs=new URLSearchParams({overview:'full',geometries:'geojson',steps:'false',alternatives:'false'});
-  if(settings.avoidMotorway)qs.set('exclude','motorway');
   const endpoints=[
     'https://router.project-osrm.org/route/v1/driving/',
     'https://routing.openstreetmap.de/routed-car/route/v1/driving/'
@@ -5749,7 +5751,7 @@ async function buildPlannedRoute(){
     // user presses the button.
     fitCompletePlannedRoute(result.coords);
     if(nav)nav.disabled=false;
-    routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว');
+    routePlannerHint('หาเส้นทางสำเร็จ · แสดงเส้นทางทั้งหมดแล้ว · กด Trip Start เพื่อเริ่มระบบนำทางและบันทึกการเดินทาง');
   }catch(e){
     console.error('[Route Planner]',e);
     if(nav)nav.disabled=true;
@@ -5914,7 +5916,7 @@ function bindRouteLongPress(targetMap){
   canvas.addEventListener('touchcancel',cancel,{passive:true});
 }
 function bindRoutePlannerV55(){
-  // V5.57: Route Planner is isolated. It never rebinds the main NAV button or Trip Start.
+  // V5.58: Route Planner is isolated. It never rebinds the main NAV button or Trip Start.
   const planner=document.getElementById('routePlanner');
   const settingsBtn=document.getElementById('routeSettingsBtn');
   const settingsBox=document.getElementById('routeSettings');
