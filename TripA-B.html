@@ -997,7 +997,7 @@ span[id^="wltpSegment"] {
 .route-planner .planner-row>button{font-size:10px;padding:7px 8px;white-space:nowrap}.planner-stop-row{grid-template-columns:76px 1fr auto!important}.planner-stop-actions{display:flex;gap:4px}.planner-stop-actions button{font-size:10px!important;padding:7px 7px!important}
 .route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}
 .route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}
-.route-plan-marker{position:relative;width:44px;height:44px;display:block;pointer-events:auto;cursor:grab;user-select:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))}.route-plan-marker .route-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-size:13px;line-height:1;color:#fff}.route-plan-marker .route-pin.start{background:#16a34a}.route-plan-marker .route-pin.stop{background:#2563eb}.route-plan-marker .route-pin.dest{background:#dc2626}.route-plan-marker .route-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:4px 7px;border-radius:7px;background:rgba(4,10,18,.90);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1.1 Rubik,sans-serif;letter-spacing:.02em;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);text-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none}.route-plan-marker:active{cursor:grabbing}.history-endpoint-marker{position:relative;width:46px;height:46px;display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto}.history-endpoint-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff}.history-endpoint-pin.start{background:#16a34a}.history-endpoint-pin.end{background:#dc2626}.history-endpoint-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.92);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);pointer-events:none}.maplibre-history-marker{z-index:100!important;pointer-events:auto}
+.route-plan-marker{position:relative;width:44px;height:44px;display:block;pointer-events:auto;cursor:grab;user-select:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))}.route-plan-marker .route-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);font-size:13px;line-height:1;color:#fff}.route-plan-marker .route-pin.start{background:#16a34a}.route-plan-marker .route-pin.stop{background:#2563eb}.route-plan-marker .route-pin.dest{background:#dc2626}.route-plan-marker .route-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:4px 7px;border-radius:7px;background:rgba(4,10,18,.90);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1.1 Rubik,sans-serif;letter-spacing:.02em;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);text-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none}.route-plan-marker:active{cursor:grabbing}.history-endpoint-marker{position:relative;width:46px;height:46px;display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.55));pointer-events:auto;transform:scale(var(--route-marker-scale,1));transform-origin:50% 50%;will-change:transform}.history-endpoint-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:800 12px/1 Rubik,sans-serif;color:#fff}.history-endpoint-pin.start{background:#16a34a}.history-endpoint-pin.end{background:#dc2626}.history-endpoint-tag{position:absolute;left:50%;top:-2px;transform:translate(-50%,-100%);padding:5px 8px;border-radius:7px;background:rgba(4,10,18,.92);border:1px solid rgba(255,255,255,.28);color:#fff;font:800 10px/1 Rubik,sans-serif;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.38);pointer-events:none}.maplibre-history-marker{z-index:100!important;pointer-events:auto}
 .route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}
 @media (max-width:560px){.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
 
@@ -1114,13 +1114,13 @@ span[id^="wltpSegment"] {
 
 
 /* V5.55 isolated Route Planner UI — additive only */
-.route-waypoint-plus-row{display:flex;justify-content:center;margin:-2px 0 2px}.route-add-waypoint{width:28px;height:28px;border-radius:50%;padding:0;font-size:20px;line-height:1;font-weight:700}.route-settings-icon{width:34px;min-width:34px;padding:0}.route-settings .route-setting-check{display:flex;align-items:center;gap:7px;margin:6px 0;cursor:pointer}.route-settings .route-setting-check input{width:16px;height:16px;margin:0}.route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}.route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}.route-planner summary::-webkit-details-marker{display:none}.route-planner .planner-row{display:grid;grid-template-columns:76px 1fr auto;gap:6px;align-items:start;margin-top:8px}.route-planner .planner-row>label{font-size:11px;color:rgba(255,255,255,.76);padding-top:9px}.planner-place{position:relative;min-width:0}.planner-place-input{width:100%;box-sizing:border-box;background:rgba(0,0,0,.30);border:1px solid rgba(255,255,255,.15);color:inherit;border-radius:8px;padding:8px 9px;font-size:11px;outline:none}.planner-place-input:focus{border-color:rgba(0,220,255,.55);box-shadow:0 0 0 2px rgba(0,220,255,.08)}.planner-place-meta{display:flex;gap:6px;align-items:center;margin-top:3px;min-height:14px;font-size:9px;opacity:.68;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.planner-place-meta .coord{overflow:hidden;text-overflow:ellipsis}.planner-results{position:absolute;left:0;right:0;top:36px;z-index:10020;background:#07111d;border:1px solid rgba(0,220,255,.32);border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,.45);overflow:hidden;display:none}.planner-results.open{display:block}.planner-result{display:block;width:100%;padding:8px 9px;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:transparent;color:inherit;text-align:left;cursor:pointer;font-size:10px}.planner-result:last-child{border-bottom:0}.planner-result:hover,.planner-result:focus{background:rgba(0,220,255,.10)}.planner-result b{display:block;font-size:11px;font-weight:700}.planner-result span{display:block;opacity:.62;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.route-planner .planner-row>button{font-size:10px;padding:7px 8px;white-space:nowrap}.planner-stop-row{grid-template-columns:76px 1fr auto!important}.planner-stop-actions{display:flex;gap:4px}.planner-stop-actions button{font-size:10px!important;padding:7px 7px!important}.route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;align-items:center}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}.route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}.route-plan-marker{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7));cursor:grab}.route-plan-marker:active{cursor:grabbing}.route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}.route-settings{margin-top:8px;padding:8px;border:1px solid rgba(0,220,255,.14);border-radius:9px;background:rgba(0,0,0,.16);display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px}.route-settings label{display:flex;align-items:center;gap:6px;color:var(--text-mid)}.route-setting-check input{accent-color:var(--cyan)}.route-distance-badge{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:10010;padding:7px 13px;border-radius:999px;background:rgba(4,10,18,.86);border:1px solid rgba(0,220,255,.55);box-shadow:0 4px 18px rgba(0,0,0,.42);color:#fff;font:800 12px/1 Orbitron,sans-serif;letter-spacing:.03em;pointer-events:none;white-space:nowrap}.route-distance-badge[hidden]{display:none}@media(max-width:560px){.route-settings{grid-template-columns:1fr}.route-distance-badge{bottom:10px;font-size:11px}.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
+.route-waypoint-plus-row{display:flex;justify-content:center;margin:-2px 0 2px}.route-add-waypoint{width:28px;height:28px;border-radius:50%;padding:0;font-size:20px;line-height:1;font-weight:700}.route-settings-icon{width:34px;min-width:34px;padding:0}.route-settings .route-setting-check{display:flex;align-items:center;gap:7px;margin:6px 0;cursor:pointer}.route-settings .route-setting-check input{width:16px;height:16px;margin:0}.route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}.route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}.route-planner summary::-webkit-details-marker{display:none}.route-planner .planner-row{display:grid;grid-template-columns:76px 1fr auto;gap:6px;align-items:start;margin-top:8px}.route-planner .planner-row>label{font-size:11px;color:rgba(255,255,255,.76);padding-top:9px}.planner-place{position:relative;min-width:0}.planner-place-input{width:100%;box-sizing:border-box;background:rgba(0,0,0,.30);border:1px solid rgba(255,255,255,.15);color:inherit;border-radius:8px;padding:8px 9px;font-size:11px;outline:none}.planner-place-input:focus{border-color:rgba(0,220,255,.55);box-shadow:0 0 0 2px rgba(0,220,255,.08)}.planner-place-meta{display:flex;gap:6px;align-items:center;margin-top:3px;min-height:14px;font-size:9px;opacity:.68;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.planner-place-meta .coord{overflow:hidden;text-overflow:ellipsis}.planner-results{position:absolute;left:0;right:0;top:36px;z-index:10020;background:#07111d;border:1px solid rgba(0,220,255,.32);border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,.45);overflow:hidden;display:none}.planner-results.open{display:block}.planner-result{display:block;width:100%;padding:8px 9px;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:transparent;color:inherit;text-align:left;cursor:pointer;font-size:10px}.planner-result:last-child{border-bottom:0}.planner-result:hover,.planner-result:focus{background:rgba(0,220,255,.10)}.planner-result b{display:block;font-size:11px;font-weight:700}.planner-result span{display:block;opacity:.62;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.route-planner .planner-row>button{font-size:10px;padding:7px 8px;white-space:nowrap}.planner-stop-row{grid-template-columns:76px 1fr auto!important}.planner-stop-actions{display:flex;gap:4px}.planner-stop-actions button{font-size:10px!important;padding:7px 7px!important}.route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;align-items:center}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}.route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}.route-plan-marker{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7));cursor:grab;transform:scale(var(--route-marker-scale,1));transform-origin:50% 50%;will-change:transform}.route-plan-marker:active{cursor:grabbing}.route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}.route-settings{margin-top:8px;padding:8px;border:1px solid rgba(0,220,255,.14);border-radius:9px;background:rgba(0,0,0,.16);display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px}.route-settings label{display:flex;align-items:center;gap:6px;color:var(--text-mid)}.route-setting-check input{accent-color:var(--cyan)}.route-distance-badge{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:10010;padding:7px 13px;border-radius:999px;background:rgba(4,10,18,.86);border:1px solid rgba(0,220,255,.55);box-shadow:0 4px 18px rgba(0,0,0,.42);color:#fff;font:800 12px/1 Orbitron,sans-serif;letter-spacing:.03em;pointer-events:none;white-space:nowrap}.route-distance-badge[hidden]{display:none}@media(max-width:560px){.route-settings{grid-template-columns:1fr}.route-distance-badge{bottom:10px;font-size:11px}.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.60</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.61</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1155,7 +1155,7 @@ span[id^="wltpSegment"] {
 		<button id="stopBtn" disabled>■ Stop Trip</button>
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 	</div>
-	<!-- V5.60: additive Route Planner. It does not replace or modify the original Trip/GPS/History controls. -->
+	<!-- V5.61: additive Route Planner. It does not replace or modify the original Trip/GPS/History controls. -->
 	<details id="routePlanner" class="route-planner">
 		<summary>🗺️ Find Route</summary>
 		<div class="planner-note">Find and view a route only. Live navigation starts only with Trip Start.</div>
@@ -4289,7 +4289,8 @@ function initMap(lat, lon) {
                 map.addImage(id, {
                     width: 1,
                     height: 1,
-                    data: new Uint8Array([0, 0, 0, 0])
+                    data: new Uint8Array([0, 0, 0, 0]),
+                    sdf: true
                 });
             }
         } catch (err) {
@@ -4327,6 +4328,7 @@ function initMap(lat, lon) {
     }
     vehicleMarker=createVehicleMarker(lat,lon);
     try { map.on('zoom', updateVehicleScaleFromMapZoom); } catch (_) {}
+    try { map.on('zoom', updateRoutePlanMarkerScale); } catch (_) {}
     map.on('styledata',()=>{ if(map._loaded){ applyThaiMapLabels(map); addMapLibreTerrain(map); add3DBuildings(map); }});
 }
 // PATCH: flyTo animation unlock (SAFE + removable)
@@ -4991,6 +4993,7 @@ function renderCompletedTripOnMap(validCoords) {
               const endLabel = `<div class="history-endpoint-marker"><div class="history-endpoint-pin end">E</div><div class="history-endpoint-tag">END</div></div>`;
               map._completedHistoryMarkers.push(makeMapLibreMarker(end[0],end[1],endLabel,'maplibre-history-marker','จุดสิ้นสุด'));
             }
+            updateRoutePlanMarkerScale();
              const coordsLatLon=validCoords.map(p=>[p[0],p[1]]);
              const fitComplete=()=>{
                  if(!map||coordsLatLon.length<2)return;
@@ -5144,7 +5147,7 @@ async function stopTracking() {
 	autoRotate = false;
 	try{routePlan.navigating=false;routePlan._rerouting=false;routePlanLayer?.clear();clearRoutePlanMarkers();hardClearMapRotation(map);setMapViewportFrameMode('overview');}catch(e){}
     renderCompletedTripOnMap(validCoords);
-    // V5.60: use the actual visible #map-container frame for route history.
+    // V5.61: use the actual visible #map-container frame for route history.
     try {
         if (map && map._loaded && validCoords.length > 1) {
             if (!routeLayer) routeLayer = createMapLibreRouteManager(map);
@@ -5374,6 +5377,26 @@ function ensureRoutePlanLayer(){
   routePlanLayer={source,layer,set(coords){try{map.getSource(source)?.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords.map(p=>[p[1],p[0]])}})}catch(e){console.warn('planned route render failed',e)}},clear(){try{map.getSource(source)?.setData({type:'FeatureCollection',features:[]})}catch(e){}}};
   return routePlanLayer;
 }
+function routePlannerMarkerScale(zoom){
+  const z=Number(zoom);
+  if(!Number.isFinite(z)) return 1;
+  // HTML markers are screen-pixel elements, not map-scaled symbols. Keep the
+  // geographic anchor fixed, but make marker size respond to overview zoom.
+  return Math.max(0.55,Math.min(1.20,Math.pow(2,z-15)));
+}
+function updateRoutePlanMarkerScale(){
+  if(!map) return;
+  const scale=routePlannerMarkerScale(map.getZoom?.());
+  if(Array.isArray(routePlanMarkers)) routePlanMarkers.forEach(m=>{
+    const el=m?._element || m?._icon || m?.getElement?.();
+    if(el) el.style.setProperty('--route-marker-scale',String(scale));
+  });
+  if(Array.isArray(map._completedHistoryMarkers)) map._completedHistoryMarkers.forEach(m=>{
+    const el=m?._element || m?._icon || m?.getElement?.();
+    if(el) el.style.setProperty('--route-marker-scale',String(scale));
+  });
+}
+
 function addRoutePlanMarker(kind,index,p,label){
   if(!map||!map._loaded||!window.maplibregl||!p)return;
   const el=document.createElement('div');
@@ -5384,6 +5407,7 @@ function addRoutePlanMarker(kind,index,p,label){
   el.innerHTML=`<div class="route-pin ${type}">${short}</div><div class="route-tag">${escapeHtml(shownLabel)}</div>`;
   el.title=`${label} · ลากหมุดเพื่อปรับตำแหน่งได้`;
   const marker=new maplibregl.Marker({element:el,anchor:'center',draggable:true}).setLngLat([p.lon,p.lat]).addTo(map);
+  el.style.setProperty('--route-marker-scale',String(routePlannerMarkerScale(map.getZoom?.())));
   marker._routePointKind=kind; marker._routePointIndex=index;
   marker.on('dragend',()=>{
     const ll=marker.getLngLat();
@@ -5398,6 +5422,7 @@ function renderRoutePlanMarkers(){
   if(routePlan.start)addRoutePlanMarker('start',0,routePlan.start,'จุดเริ่มต้น');
   routePlan.stops.forEach((item,i)=>{const p=pointObject(item);if(p)addRoutePlanMarker('stop',i,p,`จุดแวะ ${i+1}`);});
   if(routePlan.destination)addRoutePlanMarker('dest',0,routePlan.destination,'จุดหมาย');
+  updateRoutePlanMarkerScale();
   updatePlannedRouteVisualProgress(routePlan._lastLat,routePlan._lastLon,true);
 }
 function nearestPlannedRouteProjection(lat,lon){
@@ -5736,9 +5761,9 @@ function fitCompletePlannedRoute(coords){
       fitVisibleMapBounds(pendingCompleteRouteFit,{top:70,right:45,bottom:85,left:45},null);
     }catch(e){console.warn('[Complete Route Fit]',e);}
   };
-  if(map.loaded?.()||map._loaded||map.isStyleLoaded?.())requestAnimationFrame(doFit);
+  if(map.loaded?.()||map._loaded||map.isStyleLoaded?.())setTimeout(doFit,0);
   else{try{map.once('load',()=>setTimeout(doFit,80));}catch(e){}}
-  setTimeout(doFit,350);
+  setTimeout(doFit,250);
 }
 async function buildPlannedRoute(){
   const points=collectPlannerPoints();
