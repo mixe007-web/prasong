@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Trip A-B Professional GPS EV Tracker — V5.51 Auto Trip Recorder</title>
+<title>Trip A-B Professional GPS EV Tracker — V5.55 Auto Trip Recorder</title>
 <link rel="manifest" href="./manifest.json" />
 <meta name="theme-color" content="#007bff" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -1112,12 +1112,15 @@ span[id^="wltpSegment"] {
   .history-map-info-item b{font-size:9.5px}
 }
 
+
+/* V5.55 isolated Route Planner UI — additive only */
+.route-waypoint-plus-row{display:flex;justify-content:center;margin:-2px 0 2px}.route-add-waypoint{width:28px;height:28px;border-radius:50%;padding:0;font-size:20px;line-height:1;font-weight:700}.route-settings-icon{width:34px;min-width:34px;padding:0}.route-settings .route-setting-check{display:flex;align-items:center;gap:7px;margin:6px 0;cursor:pointer}.route-settings .route-setting-check input{width:16px;height:16px;margin:0}.route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}.route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}.route-planner summary::-webkit-details-marker{display:none}.route-planner .planner-row{display:grid;grid-template-columns:76px 1fr auto;gap:6px;align-items:start;margin-top:8px}.route-planner .planner-row>label{font-size:11px;color:rgba(255,255,255,.76);padding-top:9px}.planner-place{position:relative;min-width:0}.planner-place-input{width:100%;box-sizing:border-box;background:rgba(0,0,0,.30);border:1px solid rgba(255,255,255,.15);color:inherit;border-radius:8px;padding:8px 9px;font-size:11px;outline:none}.planner-place-input:focus{border-color:rgba(0,220,255,.55);box-shadow:0 0 0 2px rgba(0,220,255,.08)}.planner-place-meta{display:flex;gap:6px;align-items:center;margin-top:3px;min-height:14px;font-size:9px;opacity:.68;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.planner-place-meta .coord{overflow:hidden;text-overflow:ellipsis}.planner-results{position:absolute;left:0;right:0;top:36px;z-index:10020;background:#07111d;border:1px solid rgba(0,220,255,.32);border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,.45);overflow:hidden;display:none}.planner-results.open{display:block}.planner-result{display:block;width:100%;padding:8px 9px;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:transparent;color:inherit;text-align:left;cursor:pointer;font-size:10px}.planner-result:last-child{border-bottom:0}.planner-result:hover,.planner-result:focus{background:rgba(0,220,255,.10)}.planner-result b{display:block;font-size:11px;font-weight:700}.planner-result span{display:block;opacity:.62;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.route-planner .planner-row>button{font-size:10px;padding:7px 8px;white-space:nowrap}.planner-stop-row{grid-template-columns:76px 1fr auto!important}.planner-stop-actions{display:flex;gap:4px}.planner-stop-actions button{font-size:10px!important;padding:7px 7px!important}.route-planner .planner-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;align-items:center}.route-planner button{font-size:11px;padding:6px 9px}.route-planner .planner-hint{font-size:10px;opacity:.68;margin-top:7px;line-height:1.45}.route-planner .route-summary{font-size:11px;margin-top:8px;color:var(--cyan);display:none;line-height:1.5}.route-planner.route-selecting{border-color:rgba(255,200,60,.7);box-shadow:0 0 16px rgba(255,200,60,.12)}.route-plan-marker{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7));cursor:grab}.route-plan-marker:active{cursor:grabbing}.route-planner .planner-note{font-size:9px;opacity:.55;margin-top:5px}.route-planner .planner-searching{opacity:.7}.route-settings{margin-top:8px;padding:8px;border:1px solid rgba(0,220,255,.14);border-radius:9px;background:rgba(0,0,0,.16);display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px}.route-settings label{display:flex;align-items:center;gap:6px;color:var(--text-mid)}.route-setting-check input{accent-color:var(--cyan)}.route-distance-badge{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:10010;padding:7px 13px;border-radius:999px;background:rgba(4,10,18,.86);border:1px solid rgba(0,220,255,.55);box-shadow:0 4px 18px rgba(0,0,0,.42);color:#fff;font:800 12px/1 Orbitron,sans-serif;letter-spacing:.03em;pointer-events:none;white-space:nowrap}.route-distance-badge[hidden]{display:none}@media(max-width:560px){.route-settings{grid-template-columns:1fr}.route-distance-badge{bottom:10px;font-size:11px}.route-planner .planner-row{grid-template-columns:58px 1fr auto}.planner-stop-row{grid-template-columns:58px 1fr auto!important}.route-planner{margin-left:8px;margin-right:8px}.planner-place-input{font-size:12px}.planner-result{font-size:11px}}
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.51-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.55-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1152,6 +1155,44 @@ span[id^="wltpSegment"] {
 		<button id="stopBtn" disabled>■ Stop Trip</button>
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 	</div>
+	<!-- V5.55: additive Route Planner. It does not replace or modify the original Trip/GPS/History controls. -->
+	<details id="routePlanner" class="route-planner">
+		<summary>🗺️ Find Route</summary>
+		<div class="planner-note">Find and view a route only. Live navigation starts only with Trip Start.</div>
+		<div class="planner-row">
+			<label>Start</label>
+			<div class="planner-place">
+				<input id="routeStartSearch" class="planner-place-input" autocomplete="off" placeholder="Current location, place, address, POI">
+				<div id="routeStartResults" class="planner-results"></div>
+				<div class="planner-place-meta"><span id="routeStartMeta">Not set</span><span id="routeStartCoord" class="coord"></span></div>
+			</div>
+			<button id="routeStartPickBtn" type="button" title="Pick start on map">📍</button>
+		</div>
+		<div class="route-waypoint-plus-row"><button id="routeAddWaypointBtn" type="button" class="route-add-waypoint" title="Add waypoint">＋</button></div>
+		<div class="planner-row">
+			<label>Destination</label>
+			<div class="planner-place">
+				<input id="routeDestSearch" class="planner-place-input" autocomplete="off" placeholder="Search place, address, POI">
+				<div id="routeDestResults" class="planner-results"></div>
+				<div class="planner-place-meta"><span id="routeDestMeta">Not set</span><span id="routeDestCoord" class="coord"></span></div>
+			</div>
+			<button id="routeDestPickBtn" type="button" title="Pick destination on map">📍</button>
+		</div>
+		<div id="routeStopsRows"></div>
+		<div class="planner-actions">
+			<button id="routeNavigateBtn" type="button" disabled>🔎 Find Route</button>
+			<button id="routeClearBtn" type="button">Clear</button>
+			<button id="routeSettingsBtn" type="button" class="route-settings-icon" title="Route settings" aria-label="Route settings">⚙</button>
+		</div>
+		<div id="routeSettings" class="route-settings" hidden>
+			<label class="route-setting-check"><input id="routeAvoidMotorway" type="checkbox"> Avoid expressways</label>
+			<label class="route-setting-check"><input id="routePreferMain" type="checkbox"> Main roads</label>
+			<label class="route-setting-check"><input id="routePreferSecondary" type="checkbox"> Secondary roads</label>
+			<label class="route-setting-check"><input id="routePreferLocal" type="checkbox"> Local roads</label>
+		</div>
+		<div id="routeSummary" class="route-summary"></div>
+		<div id="routePlannerHint" class="planner-hint">Set Start and Destination, then press Find Route.</div>
+	</details>
 <!-- ================= Trip Recorder Panel ================= -->
 	<div id="tripRecorderPanel">
 		<h2>📋 Trip Recorder</h2>
@@ -4710,7 +4751,7 @@ function startTracking() {
         if(!speedAnimFrame)speedAnimFrame=requestAnimationFrame(animateDigitalSpeed);startAvgEfficiencyTracking();
         if (startTimeSpan) startTimeSpan.textContent=new Date(tripStartTime).toLocaleString();if (endTimeSpan) endTimeSpan.textContent="-";if (distanceSpan) distanceSpan.textContent="0.000";if (maxSpeedSpan) maxSpeedSpan.textContent="0.0";if (avgSpeedSpan) avgSpeedSpan.textContent="0.0";if (startCoordSpan) startCoordSpan.textContent="-";if (endCoordSpan) endCoordSpan.textContent="-";lastRenderedSpeedText="";lastSpeedClass="";
         if(elapsedTimeInterval)clearInterval(elapsedTimeInterval);if(updateEndTimeInterval)clearInterval(updateEndTimeInterval);elapsedTimeInterval=setInterval(()=>{try{checkIdleStatus();updateTripTime();updateIdleDisplay();}catch(e){console.warn("Trip timer update failed",e);}},1000);
-        isTracking=true;startBtn.disabled=true;stopBtn.disabled=false;setTrackingStatus("กำลังค้นหา GPS...","info","Watch started — กด Stop ได้ทันที");updateGpsUi("acquiring",null);if(gpsWatchdogInterval)clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=setInterval(updateGpsWatchdog,1000);requestWakeLock();
+        isTracking=true;if(routePlan.route.length>1){try{startPlannedNavigation();}catch(e){console.warn("[Route Planner] Trip Start navigation trigger failed",e);}}startBtn.disabled=true;stopBtn.disabled=false;setTrackingStatus("กำลังค้นหา GPS...","info","Watch started — กด Stop ได้ทันที");updateGpsUi("acquiring",null);if(gpsWatchdogInterval)clearInterval(gpsWatchdogInterval);gpsWatchdogInterval=setInterval(updateGpsWatchdog,1000);requestWakeLock();
         if(firstFixTimer)clearTimeout(firstFixTimer);firstFixTimer=setTimeout(()=>{if(isTracking&&!tripInitialized)setTrackingStatus("GPS ยังไม่พบตำแหน่ง","warn","ยังทำงานอยู่ — รอสัญญาณหรือกด Stop");},FIRST_FIX_UI_TIMEOUT_MS);
         let newWatchId;
         try{
@@ -5072,7 +5113,21 @@ async function stopTracking() {
 	autoFollow = false;
 	autoRotate = false;
 	try{routePlan.navigating=false;routePlan._rerouting=false;routePlanLayer?.clear();clearRoutePlanMarkers();hardClearMapRotation(map);}catch(e){}
-	renderCompletedTripOnMap(validCoords);
+    renderCompletedTripOnMap(validCoords);
+    // V5.55: reuse the same speed-colored renderer used by the reliable History map.
+    // This is additive to the dedicated completed-trip layer and does not touch History storage.
+    try {
+        if (map && map._loaded && validCoords.length > 1) {
+            if (!routeLayer) routeLayer = createMapLibreRouteManager(map);
+            routeLayer.clearLayers();
+            routeLayer.setHistory(validCoords);
+            const ll = validCoords.map(p=>[p[1],p[0]]);
+            const bb = ll.reduce((b,c)=>b.extend(c), new maplibregl.LngLatBounds(ll[0],ll[0]));
+            map.resize();
+            map._nativeFitBounds(bb,{padding:{top:55,right:40,bottom:75,left:40},animate:false});
+            setTimeout(()=>{try{map.resize();map._nativeFitBounds(bb,{padding:{top:55,right:40,bottom:75,left:40},animate:false});}catch(e){}},350);
+        }
+    } catch(e) { console.warn('[Trip Stop] history-style route render failed',e); }
 
 	if (frozenTripLog.length === 0 && lastGpsLat != null && lastGpsLng != null) {
 		frozenTripLog.push({time: Date.now(),
@@ -5186,7 +5241,10 @@ const routePlan = {
   distanceKm: 0,
   durationSec: 0,
   navigating: false,
-  plannedProgressIndex: 0
+  plannedProgressIndex: 0,
+  settings: {avoidMotorway:false,preferMain:false,preferSecondary:false,preferLocal:false,roadPreference:'fastest'},
+  _rerouting:false,
+  _lastRerouteAt:0
 };
 let routePlanMarkers = [];
 let routePlanLayer = null;
@@ -5207,7 +5265,7 @@ const PLACE_SEARCH_TIMEOUT_MS = 5500;
 const EV_POI_QUERY_LIMIT = 8;
 const EV_POI_QUERY_CONCURRENCY = 3;
 
-function routeCoordText(p){ return p ? `${p.lat.toFixed(6)},${p.lon.toFixed(6)}` : ''; }
+function routeCoordText(p){ const lat=Number(p?.lat),lon=Number(p?.lon); return Number.isFinite(lat)&&Number.isFinite(lon)?`${lat.toFixed(6)},${lon.toFixed(6)}`:''; }
 function parseRouteCoord(text){
   const m=String(text||'').trim().match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
   if(!m)return null;
@@ -5340,11 +5398,11 @@ function setRouteSelectMode(mode,index=null){
   routePlannerHint(mode==='start'?'แตะแผนที่เพื่อกำหนดจุดเริ่มต้น · ลากหมุดเพื่อปรับได้':mode==='dest'?'แตะแผนที่เพื่อกำหนดจุดหมาย · ลากหมุดเพื่อปรับได้':mode==='stop'?`แตะแผนที่เพื่อกำหนดจุดแวะ ${index+1} · ลากหมุดเพื่อปรับได้`:'เลือกสถานที่จากผลค้นหา หรือเลือกจากแผนที่');
 }
 async function ensurePlannerMap(){
-  if(map&&map._loaded)return true;
+  if(map&&map._loaded){bindRouteMapEvents(map);return true;}
   if(!navigator.geolocation){routePlannerHint('อุปกรณ์ไม่รองรับ GPS — สามารถเปิดแผนที่จากตำแหน่งStartได้เมื่อมีแผนที่');return false;}
   routePlannerHint('กำลังเปิดแผนที่...');
   return new Promise(resolve=>navigator.geolocation.getCurrentPosition(pos=>{
-    try{if(!map)initMap(pos.coords.latitude,pos.coords.longitude);let tries=0;const wait=()=>{if(map&&map._loaded){map.jumpTo({center:[pos.coords.longitude,pos.coords.latitude],zoom:BASE_ZOOM,pitch:0,bearing:0});resolve(true);}else if(++tries<20)setTimeout(wait,150);else{routePlannerHint('แผนที่ยังโหลดไม่เสร็จ');resolve(false);}};wait();}catch(e){console.warn(e);resolve(false)}
+    try{if(!map)initMap(pos.coords.latitude,pos.coords.longitude);let tries=0;const wait=()=>{if(map&&map._loaded){bindRouteMapEvents(map);map.jumpTo({center:[pos.coords.longitude,pos.coords.latitude],zoom:BASE_ZOOM,pitch:0,bearing:0});resolve(true);}else if(++tries<20)setTimeout(wait,150);else{routePlannerHint('แผนที่ยังโหลดไม่เสร็จ');resolve(false);}};wait();}catch(e){console.warn(e);resolve(false)}
   },()=>{routePlannerHint('ยังรับตำแหน่ง GPS ไม่ได้ — กด “ใช้ตำแหน่งรถ” ใหม่เมื่อพร้อม');resolve(false)},{enableHighAccuracy:true,timeout:10000,maximumAge:10000}));
 }
 async function chooseRoutePoint(kind,index=0){
@@ -5570,13 +5628,36 @@ function bindPlaceSearch(input,kind,index){
   input.addEventListener('keydown',e=>{if(e.key==='Escape')closeAllPlaceResults();});
 }
 async function fetchOsrmRoute(points){
-  if(points.length<2)throw new Error('ต้องมีจุดเริ่มและจุดหมาย');
-  const coords=points.map(p=>`${p.lon},${p.lat}`).join(';');
-  const url=`${ROUTE_ROUTER_URL}${coords}?overview=full&geometries=geojson&steps=false`;
-  const r=await fetch(url,{mode:'cors',headers:{Accept:'application/json'}});if(!r.ok)throw new Error(`Routing HTTP ${r.status}`);const data=await r.json();
-  if(data.code!=='Ok'||!data.routes?.[0])throw new Error('ไม่พบเส้นทางรถยนต์');
-  const rt=data.routes[0];return {coords:(rt.geometry?.coordinates||[]).map(c=>[Number(c[1]),Number(c[0])]),distanceKm:Number(rt.distance||0)/1000,durationSec:Number(rt.duration||0),steps:rt.legs?.flatMap(l=>l.steps||[])||[]};
+  const clean=(points||[]).map(p=>({lat:Number(p?.lat),lon:Number(p?.lon)})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon));
+  if(clean.length<2)throw new Error('Start and destination are required');
+  const coords=clean.map(p=>`${p.lon},${p.lat}`).join(';');
+  const settings=routePlan.settings||{};
+  const qs=new URLSearchParams({overview:'full',geometries:'geojson',steps:'false',alternatives:'false'});
+  if(settings.avoidMotorway)qs.set('exclude','motorway');
+  const endpoints=[
+    'https://router.project-osrm.org/route/v1/driving/',
+    'https://routing.openstreetmap.de/routed-car/route/v1/driving/'
+  ];
+  let lastErr=null;
+  for(const base of endpoints){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),9000);
+    try{
+      const endpoint=`${base}${coords}?${qs.toString()}`;
+      const r=await fetch(endpoint,{method:'GET',mode:'cors',signal:controller.signal,headers:{Accept:'application/json'}});
+      if(!r.ok){lastErr=new Error(`Routing HTTP ${r.status}`);continue;}
+      const d=await r.json();
+      if(d?.code!=='Ok'||!Array.isArray(d.routes)||!d.routes.length){lastErr=new Error(d?.message||'No driving route found');continue;}
+      const rt=d.routes.find(x=>Array.isArray(x?.geometry?.coordinates)&&x.geometry.coordinates.length>1);
+      if(!rt){lastErr=new Error('No route geometry');continue;}
+      const out=(rt.geometry.coordinates||[]).map(c=>[Number(c?.[1]),Number(c?.[0])]).filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]));
+      if(out.length<2){lastErr=new Error('No valid route coordinates');continue;}
+      return {coords:out,distanceKm:Math.max(0,Number(rt.distance)||0)/1000,durationSec:Math.max(0,Number(rt.duration)||0),steps:Array.isArray(rt.legs)?rt.legs.flatMap(l=>l.steps||[]):[]};
+    }catch(e){lastErr=e;}finally{clearTimeout(timer);}
+  }
+  throw lastErr||new Error('Routing service unavailable');
 }
+
 function collectPlannerPoints(){
   const s=parseRouteCoord(document.getElementById('routeStartInput')?.value)||routePlan.start;
   const d=parseRouteCoord(document.getElementById('routeDestInput')?.value)||routePlan.destination;
@@ -5771,6 +5852,47 @@ function bindRoutePlanner(){
 function bindRouteMapEvents(targetMap){if(!targetMap||targetMap._routePlannerClickBound)return;targetMap._routePlannerClickBound=true;targetMap.on('click',onRoutePlannerMapClick);}
 const _initMapV54=initMap;
 initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{ }catch(e){}}return result;};
+
+function bindRoutePlannerV55(){
+  const planner=document.getElementById('routePlanner');
+  const settingsBtn=document.getElementById('routeSettingsBtn');
+  const settingsBox=document.getElementById('routeSettings');
+  const checks={
+    avoidMotorway:document.getElementById('routeAvoidMotorway'),
+    preferMain:document.getElementById('routePreferMain'),
+    preferSecondary:document.getElementById('routePreferSecondary'),
+    preferLocal:document.getElementById('routePreferLocal')
+  };
+  if(!planner||planner._v55Bound)return;
+  planner._v55Bound=true;
+  planner.addEventListener('toggle',()=>{if(planner.open){bindRouteMapEvents(map);if(!routePlan.start&&Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng))routeCurrentPosition();}});
+  settingsBtn?.addEventListener('click',()=>{if(settingsBox)settingsBox.hidden=!settingsBox.hidden;});
+  const saveSettings=()=>{try{localStorage.setItem('tripABRouteSettingsV55',JSON.stringify(routePlan.settings));}catch(e){}};
+  try{const saved=JSON.parse(localStorage.getItem('tripABRouteSettingsV55')||'null');if(saved&&typeof saved==='object')Object.assign(routePlan.settings,saved);}catch(e){}
+  Object.entries(checks).forEach(([k,el])=>{if(el){el.checked=!!routePlan.settings[k];el.addEventListener('change',()=>{routePlan.settings[k]=!!el.checked;routePlan.settings.roadPreference=[routePlan.settings.preferMain,routePlan.settings.preferSecondary,routePlan.settings.preferLocal].some(Boolean)?'combined':'fastest';saveSettings();});}});
+  document.getElementById('routeStartPickBtn')?.addEventListener('click',()=>chooseRoutePoint('start'));
+  document.getElementById('routeDestPickBtn')?.addEventListener('click',()=>chooseRoutePoint('dest'));
+  document.getElementById('routeAddWaypointBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push({point:null,name:''});refreshRoutePlannerRows();chooseRoutePoint('stop',i);});
+  document.getElementById('routeNavigateBtn')?.addEventListener('click',()=>buildPlannedRoute());
+  document.getElementById('routeClearBtn')?.addEventListener('click',clearRoutePlan);
+  bindPlaceSearch(document.getElementById('routeStartSearch'),'start',0);
+  bindPlaceSearch(document.getElementById('routeDestSearch'),'dest',0);
+  document.addEventListener('click',e=>{if(!e.target.closest('.planner-place'))closeAllPlaceResults();});
+  const navModeBtn=document.getElementById('navModeBtn');
+  if(navModeBtn&&!navModeBtn._v55RouteBound){
+    navModeBtn._v55RouteBound=true;
+    navModeBtn.textContent='🔎 Find Route';
+    navModeBtn.title='Find and view the complete route';
+    navModeBtn.addEventListener('click',()=>{
+      if(planner&&!planner.open)planner.open=true;
+      if(routePointsReady())buildPlannedRoute();
+      else {routeCurrentPosition();routePlannerHint('Set Start and Destination, then press Find Route.');}
+    });
+  }
+  if(map)bindRouteMapEvents(map);
+  routePlannerHint('Set Start and Destination, then press Find Route. Trip Start is required only for live navigation.');
+}
+bindRoutePlannerV55();
 
 (function bindUIOnce() {
 	if (window._uiBoundOnce) return;
