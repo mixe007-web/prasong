@@ -988,7 +988,7 @@ span[id^="wltpSegment"] {
 .map-mode-control{position:absolute;top:12px;right:58px;z-index:10000;display:flex;align-items:center;gap:5px;padding:3px 4px 3px 6px;border:1px solid rgba(0,220,255,.28);border-radius:999px;background:rgba(4,10,18,.38);backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto}.map-mode-label{font:800 8px/1 Rubik,sans-serif;letter-spacing:.08em;opacity:.65}.map-mode-control button{font:800 10px/1 Rubik,sans-serif;padding:6px 8px!important;min-width:66px;border-radius:999px;margin:0!important}
 .history-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}.history-stat{padding:7px;border:1px solid rgba(0,220,255,.16);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.history-stat b{display:block;font-size:13px}.history-stat span{font-size:9px;opacity:.7}
 
-/* ===== V5.9 MODERN ROUTE PLANNER ===== */
+/* ===== V5.56 MODERN ROUTE PLANNER ===== */
 .route-planner{margin:10px 14px 0;padding:10px;border:1px solid rgba(0,220,255,.28);border-radius:12px;background:rgba(5,16,28,.72);box-shadow:0 0 18px rgba(0,180,255,.06)}
 .route-planner summary{cursor:pointer;color:var(--cyan);font-weight:700;list-style:none}.route-planner summary::-webkit-details-marker{display:none}
 .route-planner .planner-row{display:grid;grid-template-columns:76px 1fr auto;gap:6px;align-items:start;margin-top:8px}.route-planner .planner-row>label{font-size:11px;color:rgba(255,255,255,.76);padding-top:9px}
@@ -1120,7 +1120,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.55-AUTO-TRIP-RECORDER</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">PRO-68-V5.56-AUTO-TRIP-RECORDER</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -5225,7 +5225,7 @@ async function stopTracking() {
 	stopBtn.disabled = true;
 }
 /* ============================================================
-   V5.9 MODERN ROUTE PLANNER
+   V5.56 MODERN ROUTE PLANNER
    Planner is deliberately isolated from Trip Recorder/GPS/History.
    Search = Photon geocoder, routing = OSRM, map picking = MapLibre.
    EXPLORE can browse freely; NAV is only enabled after an explicit route build.
@@ -5779,6 +5779,7 @@ function orientMapToPlannedRoutePreview(){
     map.easeTo({bearing:normalizeAngle(bearing),duration:450});
   }catch(e){console.warn('Planned route preview rotation failed:',e);}
 }
+function clearRoutePlan(){ return clearPlannedRoute(); }
 function clearPlannedRoute(){
   
   routePlan.start=null;routePlan.startName='';routePlan.stops=[];routePlan.destination=null;routePlan.destinationName='';routePlan.route=[];routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan._rerouting=false;routePlan._lastRerouteAt=0;setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
@@ -5854,6 +5855,7 @@ const _initMapV54=initMap;
 initMap=function(lat,lon){const result=_initMapV54(lat,lon);if(map){try{ }catch(e){}}return result;};
 
 function bindRoutePlannerV55(){
+  // V5.56: planner bindings are isolated; core Trip Start/NAV bindings remain untouched.
   const planner=document.getElementById('routePlanner');
   const settingsBtn=document.getElementById('routeSettingsBtn');
   const settingsBox=document.getElementById('routeSettings');
@@ -5873,22 +5875,13 @@ function bindRoutePlannerV55(){
   document.getElementById('routeStartPickBtn')?.addEventListener('click',()=>chooseRoutePoint('start'));
   document.getElementById('routeDestPickBtn')?.addEventListener('click',()=>chooseRoutePoint('dest'));
   document.getElementById('routeAddWaypointBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push({point:null,name:''});refreshRoutePlannerRows();chooseRoutePoint('stop',i);});
-  document.getElementById('routeNavigateBtn')?.addEventListener('click',()=>buildPlannedRoute());
-  document.getElementById('routeClearBtn')?.addEventListener('click',clearRoutePlan);
+  document.getElementById('routeNavigateBtn')?.addEventListener('click',buildPlannedRoute);
+  document.getElementById('routeClearBtn')?.addEventListener('click',clearPlannedRoute);
   bindPlaceSearch(document.getElementById('routeStartSearch'),'start',0);
   bindPlaceSearch(document.getElementById('routeDestSearch'),'dest',0);
   document.addEventListener('click',e=>{if(!e.target.closest('.planner-place'))closeAllPlaceResults();});
-  const navModeBtn=document.getElementById('navModeBtn');
-  if(navModeBtn&&!navModeBtn._v55RouteBound){
-    navModeBtn._v55RouteBound=true;
-    navModeBtn.textContent='🔎 Find Route';
-    navModeBtn.title='Find and view the complete route';
-    navModeBtn.addEventListener('click',()=>{
-      if(planner&&!planner.open)planner.open=true;
-      if(routePointsReady())buildPlannedRoute();
-      else {routeCurrentPosition();routePlannerHint('Set Start and Destination, then press Find Route.');}
-    });
-  }
+  // V5.56: NEVER override or rebind the main NAV/EXPLORE button.
+  // Route Planner is controlled only by its own Find Route button.
   if(map)bindRouteMapEvents(map);
   routePlannerHint('Set Start and Destination, then press Find Route. Trip Start is required only for live navigation.');
 }
