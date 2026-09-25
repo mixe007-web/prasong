@@ -1,6 +1,6 @@
 // ============================================================
 // TripA-B Service Worker — API SAFE / Stable Auto Update
-// V22
+// V23
 //
 // IMPORTANT:
 // - Only same-origin TripA-B.html is handled by this SW.
@@ -9,10 +9,11 @@
 //   errors and avoiding interference with CORS/API responses.
 // - Future normal app updates require uploading TripA-B.html only.
 // - TripA-B.html is always requested from Network first (cache: no-store).
+// - V23 keeps the same API-safe fetch policy and only rotates the shell cache version.
 // - The cached HTML is used only when Network is unavailable.
 // ============================================================
 
-const CACHE_VERSION = 'trip-ab-shell-v22';
+const CACHE_VERSION = 'trip-ab-shell-v23';
 const CACHE_NAME = CACHE_VERSION;
 const STATIC_ASSETS = [
   './manifest.json',
