@@ -1130,7 +1130,7 @@ span[id^="wltpSegment"] {
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.68</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">Professional-v5.69</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -5258,7 +5258,7 @@ async function stopTracking() {
 	stopBtn.disabled = true;
 }
 /* ============================================================
-   V5.68 LOCKED ROUTE PLANNER — V5.66 STABLE FIND-ROUTE BASELINE
+   V5.69 LOCKED ROUTE PLANNER — V5.68 BASELINE + ROBUST WAYPOINT LEGS
    Planner is deliberately isolated from Trip Recorder/GPS/History.
    Search = Nominatim + MapTiler, routing = OSRM, map picking = MapLibre.
    EXPLORE can browse freely; NAV is only enabled after an explicit route build.
@@ -5276,6 +5276,7 @@ const routePlan = {
   route: [],
   routeCumulativeKm: [],
   routeGeometryKm: 0,
+  routeLegMeta: [],
   distanceKm: 0,
   durationSec: 0,
   navigating: false,
@@ -5355,7 +5356,7 @@ function setRoutePoint(kind,index,p,name=''){
   }
   // V5.64: locked coordinates are authoritative. OSRM is never allowed to
   // overwrite them with its snapped road coordinates.
-  routePlan.route=[]; routePlan.routeCumulativeKm=[]; routePlan.routeGeometryKm=0; routePlan.distanceKm=0; routePlan.durationSec=0;
+  routePlan.route=[]; routePlan.routeCumulativeKm=[]; routePlan.routeGeometryKm=0; routePlan.routeLegMeta=[]; routePlan.distanceKm=0; routePlan.durationSec=0;
   routePlan.plannedProgressIndex=0; routePlan._lastLat=null; routePlan._lastLon=null;
   if(!routePlan.navigating)clearRouteDistanceBadge();
   updateRoutePlannerReadyState();
@@ -5401,7 +5402,7 @@ function refreshRoutePlannerRows(){
     routePlan.locked.stops.splice(i,1);
     routePlan.markerVisible.stops.splice(i,1);
     removeRoutePlanMarker('stop',i);
-    routePlan.route=[];routePlan.routeCumulativeKm=[];routePlan.routeGeometryKm=0;routePlan.plannedProgressIndex=0;
+    routePlan.route=[];routePlan.routeCumulativeKm=[];routePlan.routeGeometryKm=0;routePlan.routeLegMeta=[];routePlan.plannedProgressIndex=0;
     refreshRoutePlannerRows();renderRoutePlanMarkers();updateRoutePlannerReadyState();
     routePlannerHint('ลบจุดแวะแล้ว — กด “Find Route” เพื่อคำนวณใหม่');
   }));
@@ -5426,10 +5427,11 @@ function routePlannerMarkerScale(zoom){
   return Math.max(0.55,Math.min(1.20,Math.pow(2,z-15)));
 }
 function formatRouteTimeMMSS(sec){
+  // V5.69: display remaining/travel time as HH:MM only.
   const total=Math.max(0,Math.round(Number(sec)||0));
-  const mm=Math.floor(total/60);
-  const ss=total%60;
-  return `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  const hh=Math.floor(total/3600);
+  const mm=Math.floor((total%3600)/60);
+  return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
 }
 function activeRouteTargetForBadge(){
   if(!routePlan.navigating)return {label:'TOTAL',point:null,km:Math.max(0,Number(routePlan.distanceKm)||0),timeSec:Math.max(0,Number(routePlan.durationSec)||0)};
@@ -5453,9 +5455,7 @@ function updateRouteDistanceBadge(km,visible=true,label='',timeSec=null){
   el.hidden=false;
 }
 function routeTargetTimeSecForKm(km){
-  const totalKm=Math.max(0,Number(routePlan.routeGeometryKm)||0);
-  const totalSec=Math.max(0,Number(routePlan.durationSec)||0);
-  return totalKm>0?totalSec*Math.max(0,Number(km)||0)/totalKm:0;
+  return routeTimeAtKm(km);
 }
 function clearRouteDistanceBadge(){updateRouteDistanceBadge(0,false);}
 function updateRoutePlanMarkerScale(){
@@ -5922,60 +5922,125 @@ function bindPlaceSearch(input,kind,index){
   input.addEventListener('focus',()=>{setActiveRouteTarget(kind,index);if(input.value.trim().length>=2)showPlaceSearchResults(input.value.trim(),kind,index,input);});
   input.addEventListener('keydown',e=>{if(e.key==='Escape')closeAllPlaceResults();});
 }
-async function fetchOsrmRoute(points){
-  const clean=(points||[]).map(p=>cloneRoutePoint(p)).filter(Boolean);
-  if(clean.length<2)throw new Error('Start and destination are required');
-  // Validate requested points against the actual Thailand country polygon before
-  // asking the router. This avoids routing from a Thai-looking bounding box into
-  // Laos/Cambodia/Myanmar/Malaysia.
-  if(!await isRouteWithinThailand(clean.map(p=>[p.lat,p.lon])))throw new Error('Route points must be inside Thailand');
-  const coords=clean.map(p=>`${p.lon},${p.lat}`).join(';');
-  const directKm=clean.slice(1).reduce((sum,p,i)=>sum+getDistanceFromLatLonInKm(clean[i].lat,clean[i].lon,p.lat,p.lon),0);
-  const endpoints=['https://router.project-osrm.org/route/v1/driving/','https://routing.openstreetmap.de/routed-car/route/v1/driving/'];
-  const results=[];let lastErr=null;
+async function fetchOsrmSingleLeg(a,b){
+  const from=cloneRoutePoint(a),to=cloneRoutePoint(b);
+  if(!from||!to)throw new Error('Invalid route point');
+  const directKm=Math.max(0,getDistanceFromLatLonInKm(from.lat,from.lon,to.lat,to.lon));
+  const coords=`${from.lon},${from.lat};${to.lon},${to.lat}`;
+  const endpoints=[
+    'https://router.project-osrm.org/route/v1/driving/',
+    'https://routing.openstreetmap.de/routed-car/route/v1/driving/'
+  ];
+  let lastErr=null;
+  const candidates=[];
   for(const base of endpoints){
-    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),9000);
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),10000);
     try{
-      const endpoint=`${base}${coords}?overview=full&geometries=geojson&steps=false&alternatives=true`;
+      const endpoint=`${base}${coords}?overview=full&geometries=geojson&steps=false&alternatives=false`;
       const r=await fetch(endpoint,{method:'GET',mode:'cors',signal:controller.signal,headers:{Accept:'application/json'}});
       if(!r.ok){lastErr=new Error(`Routing HTTP ${r.status}`);continue;}
       const d=await r.json();
       if(d?.code!=='Ok'||!Array.isArray(d.routes)||!d.routes.length){lastErr=new Error(d?.message||'No driving route found');continue;}
-      const candidates=Array.isArray(d.routes)?d.routes:[];
-      let accepted=false;
-      for(const rt of candidates){
-        if(!Array.isArray(rt?.geometry?.coordinates)||rt.geometry.coordinates.length<2)continue;
-        const out=(rt.geometry.coordinates||[]).map(c=>[Number(c?.[1]),Number(c?.[0])]).filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]));
-        if(out.length<2)continue;
-        if(!await isRouteWithinThailand(out))continue;
-        const distanceKm=Math.max(0,Number(rt.distance)||0)/1000;
-        const suspicious=directKm>0&&distanceKm>Math.max(400,directKm*12);
-        results.push({coords:out,distanceKm,durationSec:Math.max(0,Number(rt.duration)||0),steps:Array.isArray(rt.legs)?rt.legs.flatMap(l=>l.steps||[]):[],suspicious});
-        accepted=true;
-      }
-      if(!accepted)lastErr=new Error('No Thailand route');
-    }catch(e){lastErr=e;}finally{clearTimeout(timer);}
+      const rt=d.routes.find(x=>Array.isArray(x?.geometry?.coordinates)&&x.geometry.coordinates.length>1);
+      if(!rt){lastErr=new Error('No route geometry');continue;}
+      const out=(rt.geometry.coordinates||[])
+        .map(c=>[Number(c?.[1]),Number(c?.[0])])
+        .filter(c=>Number.isFinite(c[0])&&Number.isFinite(c[1]));
+      if(out.length<2){lastErr=new Error('No valid route coordinates');continue;}
+      const distanceKm=Math.max(0,Number(rt.distance)||0)/1000;
+      const suspicious=directKm>0&&distanceKm>Math.max(400,directKm*12);
+      candidates.push({coords:out,distanceKm,durationSec:Math.max(0,Number(rt.duration)||0),steps:Array.isArray(rt.legs)?rt.legs.flatMap(l=>l.steps||[]):[],suspicious});
+    }catch(e){lastErr=e;}
+    finally{clearTimeout(timer);}
   }
-  if(!results.length)throw lastErr||new Error('Routing service unavailable');
-  const sane=results.filter(r=>!r.suspicious);
-  if(!sane.length)throw new Error('No sane Thailand route returned');
-  sane.sort((a,b)=>a.distanceKm-b.distanceKm);
-  const best=sane[0];
-  return {coords:best.coords,distanceKm:best.distanceKm,durationSec:best.durationSec,steps:best.steps};
+  if(!candidates.length)throw lastErr||new Error('Routing service unavailable');
+  const sane=candidates.filter(x=>!x.suspicious);
+  if(!sane.length)throw new Error(`No sane Thailand route returned for ${directKm.toFixed(1)} km leg`);
+
+  // Prefer a route whose complete geometry remains inside Thailand.
+  let thailand=[];
+  for(const c of sane){
+    try{
+      if(await isRouteWithinThailand(c.coords))thailand.push(c);
+    }catch(e){}
+  }
+  if(!thailand.length)throw new Error('Route leaves Thailand');
+  thailand.sort((x,y)=>x.distanceKm-y.distanceKm);
+  return thailand[0];
+}
+
+async function fetchOsrmRoute(points){
+  const clean=(points||[]).map(p=>cloneRoutePoint(p)).filter(Boolean);
+  if(clean.length<2)throw new Error('Start and destination are required');
+
+  // V5.69: requested planner points must all be in Thailand. Do not use a map
+  // viewport rectangle as the country restriction.
+  if(!await isRouteWithinThailand(clean.map(p=>[p.lat,p.lon])).catch(()=>false)){
+    throw new Error('Route points must be inside Thailand');
+  }
+
+  // Route each leg separately when waypoints exist. This is more reliable than
+  // sending a long multi-waypoint request to a public OSRM endpoint and keeps
+  // every waypoint as an explicit routing milestone.
+  const legs=[];
+  for(let i=0;i<clean.length-1;i++){
+    const leg=await fetchOsrmSingleLeg(clean[i],clean[i+1]);
+    legs.push(leg);
+  }
+  if(!legs.length)throw new Error('No route legs');
+
+  const merged=[]; let distanceKm=0, durationSec=0; const steps=[];
+  const legMeta=[];
+  legs.forEach((leg,i)=>{
+    const c=leg.coords||[];
+    const startIndex=i===0?0:Math.max(0,merged.length-1);
+    if(i===0)merged.push(...c);
+    else merged.push(...c.slice(1));
+    const endIndex=Math.max(startIndex,merged.length-1);
+    const geomCum=routeCumulativeDistances(merged);
+    const geomStartKm=Number(geomCum[startIndex]||0);
+    const geomEndKm=Number(geomCum[endIndex]||geomStartKm);
+    const legDistance=Math.max(0,Number(leg.distanceKm)||0);
+    const legTime=Math.max(0,Number(leg.durationSec)||0);
+    legMeta.push({startIndex,endIndex,startKm:geomStartKm,endKm:geomEndKm,distanceKm:legDistance,durationSec:legTime});
+    distanceKm+=legDistance;
+    durationSec+=legTime;
+    if(Array.isArray(leg.steps))steps.push(...leg.steps);
+  });
+  let timeCursor=0;
+  legMeta.forEach(m=>{m.timeStartSec=timeCursor;timeCursor+=Math.max(0,Number(m.durationSec)||0);});
+  if(merged.length<2)throw new Error('No valid merged route geometry');
+  if(!await isRouteWithinThailand(merged))throw new Error('Route leaves Thailand');
+
+  return {coords:merged,distanceKm,durationSec,steps,routeLegMeta:legMeta};
 }
 
 function collectPlannerPoints(){
-  const s=cloneRoutePoint(routePlan.locked.start||routePlan.start);
-  const d=cloneRoutePoint(routePlan.locked.destination||routePlan.destination);
-  routePlan.start=s;routePlan.destination=d;
-  routePlan.stops=routePlan.stops.map((item,i)=>{
+  const start=cloneRoutePoint(routePlan.locked.start||routePlan.start);
+  const dest=cloneRoutePoint(routePlan.locked.destination||routePlan.destination);
+  if(!start)throw new Error('Start is not set');
+  if(!dest)throw new Error('Destination is not set');
+
+  const normalizedStops=[];
+  for(let i=0;i<routePlan.stops.length;i++){
+    const item=routePlan.stops[i];
     const obj=stopObject(item);
     const p=cloneRoutePoint(routePlan.locked.stops[i]||obj.point);
-    return p?{point:p,name:obj.name||`จุดแวะ ${i+1}`,passed:!!obj.passed}:null;
-  }).filter(Boolean);
-  routePlan.locked.stops=routePlan.stops.map((item,i)=>cloneRoutePoint(item.point||routePlan.locked.stops[i]));
-  routePlan.markerVisible.stops=routePlan.stops.map(x=>!x.passed);
-  return [routePlan.start,...routePlan.stops.map(x=>x.point),routePlan.destination].filter(Boolean);
+    if(!p)throw new Error(`Waypoint ${i+1} is not set`);
+    normalizedStops.push({point:p,name:obj.name||`จุดแวะ ${i+1}`,passed:!!obj.passed});
+  }
+
+  routePlan.start=start;
+  routePlan.destination=dest;
+  routePlan.stops=normalizedStops;
+  routePlan.locked.start=cloneRoutePoint(start);
+  routePlan.locked.destination=cloneRoutePoint(dest);
+  routePlan.locked.stops=normalizedStops.map(x=>cloneRoutePoint(x.point));
+  ensureRoutePlanMarkerVisibility();
+  routePlan.markerVisible.stops=normalizedStops.map(x=>!x.passed);
+
+  return [start,...normalizedStops.map(x=>x.point),dest];
 }
 
 function routeCumulativeDistances(route){
@@ -6001,6 +6066,24 @@ function projectPointKmOnRoute(point,route,cum){
   if(!point||!Array.isArray(route)||route.length<2)return 0;
   return nearestRoutePositionKm(Number(point.lat),Number(point.lon),route,cum).km;
 }
+function routeTimeAtKm(km){
+  const k=Math.max(0,Number(km)||0);
+  const metas=Array.isArray(routePlan.routeLegMeta)?routePlan.routeLegMeta:[];
+  if(!metas.length){
+    const totalGeom=Math.max(0,Number(routePlan.routeGeometryKm)||0);
+    const totalSec=Math.max(0,Number(routePlan.durationSec)||0);
+    return totalGeom>0?totalSec*Math.min(1,k/totalGeom):0;
+  }
+  for(const m of metas){
+    const a=Number(m.startKm)||0,b=Number(m.endKm)||a;
+    if(k<=b){
+      const frac=b>a?Math.max(0,Math.min(1,(k-a)/(b-a))):0;
+      return (Number(m.timeStartSec)||0)+Math.max(0,Number(m.durationSec)||0)*frac;
+    }
+  }
+  const last=metas[metas.length-1];
+  return (Number(last.timeStartSec)||0)+Math.max(0,Number(last.durationSec)||0);
+}
 function rebuildRouteMilestones(){
   const route=routePlan.route,cum=routePlan.routeCumulativeKm;
   if(!Array.isArray(route)||route.length<2||!Array.isArray(cum)||cum.length<2){routePlan.milestones=[];routePlan.legSummary=[];return;}
@@ -6020,7 +6103,7 @@ function rebuildRouteMilestones(){
   for(let i=1;i<list.length;i++){
     const from=list[i-1],to=list[i];
     const km=Math.max(0,to.routeKm-from.routeKm);
-    const time=totalGeom>0?totalSec*(km/totalGeom):0;
+    const time=Math.max(0,routeTimeAtKm(to.routeKm)-routeTimeAtKm(from.routeKm));
     routePlan.legSummary.push({from:from.label,to:to.label,distanceKm:km,timeSec:time});
   }
 }
@@ -6045,8 +6128,10 @@ function updateNavigationTargetBadge(lat,lon,currentKm){
     if(m.kind==='dest'||m.kind==='stop'){target=m;break;}
   }
   if(!target){updateRouteDistanceBadge(0,true,'DESTINATION',0);return;}
-  const remain=Math.max(0,(Number(target.routeKm)||totalGeom)-Math.max(0,Number(currentKm)||0));
-  const sec=totalGeom>0?Math.max(0,Number(routePlan.durationSec)||0)*(remain/totalGeom):0;
+  const nowKm=Math.max(0,Number(currentKm)||0);
+  const targetKm=Math.max(nowKm,Number(target.routeKm)||totalGeom);
+  const remain=Math.max(0,targetKm-nowKm);
+  const sec=Math.max(0,routeTimeAtKm(targetKm)-routeTimeAtKm(nowKm));
   updateRouteDistanceBadge(remain,true,target.label,sec);
 }
 
@@ -6072,14 +6157,15 @@ async function buildPlannedRoute(){
   routePlan.markerVisible.start=true;
   routePlan.markerVisible.destination=true;
   routePlan.markerVisible.stops=routePlan.stops.map(()=>true);
-  const points=collectPlannerPoints();
   setMapViewportFrameMode('overview');
-  if(!routePlan.start||!routePlan.destination){routePlannerHint('กรุณากำหนด Start และ Destination ก่อน');return;}
-  routePlannerHint('กำลังหาเส้นทางรถยนต์…');
-  const nav=document.getElementById('routeNavigateBtn');if(nav)nav.disabled=true;
+  const nav=document.getElementById('routeNavigateBtn');
+  if(nav)nav.disabled=true;
   try{
+    const points=collectPlannerPoints();
+    if(!routePlan.start||!routePlan.destination)throw new Error('กรุณากำหนด Start และ Destination ก่อน');
+    routePlannerHint('กำลังหาเส้นทางรถยนต์…');
     const result=await fetchOsrmRoute(points);
-    routePlan.route=result.coords;routePlan.routeCumulativeKm=routeCumulativeDistances(result.coords);routePlan.routeGeometryKm=routePlan.routeCumulativeKm.at(-1)||0;routePlan.plannedProgressIndex=0;routePlan._lastLat=null;routePlan._lastLon=null;
+    routePlan.route=result.coords;routePlan.routeCumulativeKm=routeCumulativeDistances(result.coords);routePlan.routeGeometryKm=routePlan.routeCumulativeKm.at(-1)||0;routePlan.routeLegMeta=Array.isArray(result.routeLegMeta)?result.routeLegMeta:[];routePlan.plannedProgressIndex=0;routePlan._lastLat=null;routePlan._lastLon=null;
     routePlan.distanceKm=result.distanceKm;routePlan.durationSec=result.durationSec;routePlan._rerouting=false;routePlan._lastRerouteAt=0;
     rebuildRouteMilestones();
     if(map&&map._loaded)ensureRoutePlanLayer()?.set(result.coords);
@@ -6091,7 +6177,8 @@ async function buildPlannedRoute(){
     routePlannerHint('หาเส้นทางสำเร็จ · จุด Start / Waypoint / Destination ถูกล็อกตามพิกัดที่เลือก · กด Trip Start เพื่อเริ่มระบบ');
   }catch(e){
     updateRoutePlannerReadyState();
-    routePlannerHint(e?.message==='Route leaves Thailand'?'หาเส้นทางไม่สำเร็จ — ระบบอนุญาตเฉพาะเส้นทางภายในประเทศไทย':(e?.message||'หาเส้นทางไม่สำเร็จ — ตรวจจุดและลอง Find Route ใหม่'));
+    const msg=String(e?.message||'');
+    routePlannerHint(msg==='Route leaves Thailand'?'หาเส้นทางไม่สำเร็จ — ระบบอนุญาตเฉพาะเส้นทางภายในประเทศไทย':(msg||'หาเส้นทางไม่สำเร็จ — ตรวจจุดและลอง Find Route ใหม่'));
   }
 }
 
@@ -6125,7 +6212,7 @@ function clearPlannedRoute(){
   routePlan.destination=null;routePlan.destinationName='';
   routePlan.locked={start:null,stops:[],destination:null};
   routePlan.markerVisible={start:true,stops:[],destination:true};
-  routePlan.activeTarget=null;routePlan.selecting=null;routePlan.route=[];routePlan.routeCumulativeKm=[];routePlan.routeGeometryKm=0;
+  routePlan.activeTarget=null;routePlan.selecting=null;routePlan.route=[];routePlan.routeCumulativeKm=[];routePlan.routeGeometryKm=0;routePlan.routeLegMeta=[];
   routePlan.distanceKm=0;routePlan.durationSec=0;routePlan.navigating=false;routePlan._rerouting=false;routePlan._lastRerouteAt=0;routePlan.milestones=[];routePlan.legSummary=[];
   setRouteSelectMode(null);clearRoutePlanMarkers();routePlanLayer?.clear();syncRoutePlannerInputs();
   const ss=document.getElementById('routeStartSearch'),ds=document.getElementById('routeDestSearch');if(ss){ss.value='';ss.dataset.locked='';}if(ds){ds.value='';ds.dataset.locked='';}
@@ -6340,7 +6427,7 @@ function bindRoutePlannerV55(){
   try{const saved=JSON.parse(localStorage.getItem('tripABRouteSettingsV55')||'null');if(saved&&typeof saved==='object')Object.assign(routePlan.settings,saved);}catch(e){}
   Object.entries(checks).forEach(([k,el])=>{if(el){el.checked=!!routePlan.settings[k];el.addEventListener('change',()=>{routePlan.settings[k]=!!el.checked;routePlan.settings.roadPreference=[routePlan.settings.preferMain,routePlan.settings.preferSecondary,routePlan.settings.preferLocal].some(Boolean)?'combined':'fastest';saveSettings();});}});
   document.getElementById('routeStartGpsBtn')?.addEventListener('click',()=>{setActiveRouteTarget('start',0);routeCurrentPosition();});
-  document.getElementById('routeAddWaypointBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push({point:null,name:'',passed:false});routePlan.locked.stops.push(null);routePlan.markerVisible.stops.push(true);setActiveRouteTarget('stop',i);refreshRoutePlannerRows();updateRoutePlannerReadyState();routePlannerHint(`จุดแวะ ${i+1} ถูกเพิ่มแล้ว · ค้นหาในช่อง หรือกดค้างบนแผนที่เพื่อกำหนดตำแหน่ง`);});
+  document.getElementById('routeAddWaypointBtn')?.addEventListener('click',()=>{const i=routePlan.stops.length;routePlan.stops.push({point:null,name:'',passed:false});routePlan.locked.stops.push(null);routePlan.markerVisible.stops.push(true);setActiveRouteTarget('stop',i);refreshRoutePlannerRows();updateRoutePlannerReadyState();routePlannerHint(`จุดแวะ ${i+1} ถูกเพิ่มแล้ว · กำหนดตำแหน่งให้ครบก่อนกด Find Route`);});
   document.getElementById('routeNavigateBtn')?.addEventListener('click',buildPlannedRoute);
   document.getElementById('routeClearBtn')?.addEventListener('click',clearPlannedRoute);
   bindPlaceSearch(document.getElementById('routeStartSearch'),'start',0);
