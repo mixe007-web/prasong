@@ -1428,7 +1428,7 @@ function showUpdatePopup() {
 if ('serviceWorker' in navigator) {
   // Stable SW: TripA-B.html is fetched Network-First, so future Trip updates
   // normally require uploading TripA-B.html only.
-  navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
+  navigator.serviceWorker.register('./service-worker-v23.js', { updateViaCache: 'none' })
     .then(async reg => {
       console.log('[SW] Registered:', reg.scope);
       try { await reg.update(); } catch (e) { console.warn('[SW] Update check failed:', e); }
