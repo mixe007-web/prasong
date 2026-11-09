@@ -987,34 +987,23 @@ span[id^="wltpSegment"] {
   word-break: break-word; /* กันข้อความยาวล้น */
 }
 
-/* v56 — normal-size Leaflet viewport for route overview, search and STOP */
-#map-container.trip-overview #map {
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    transform: none !important;
-}
-#poiSearchPanel { margin-top: 12px; padding: 12px; border: 1px solid var(--border-dim); border-radius: var(--radius-md); background: rgba(0,200,255,0.035); }
-#poiSearchPanel .poi-search-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
-#poiSearchPanel .poi-search-row > label { flex: 0 0 90px; margin: 0; }
-#poiSearchPanel .poi-search-row > label > input { margin-top: 4px; }
-#poiSearchPanel .poi-search-row > input { flex: 1 1 190px; }
-#poiSearchPanel .poi-search-buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-#poiSearchPanel .poi-search-buttons button { flex: 1 1 145px; }
-#poiSearchResults { max-height: 230px; overflow-y: auto; margin-top: 8px; }
-.poi-result { padding: 8px; margin: 5px 0; border: 1px solid var(--border-dim); border-radius: 8px; display: flex; align-items: center; gap: 8px; }
-.poi-result .poi-result-info { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
-.poi-result button { width: auto; flex: none; margin: 0; padding: 6px 8px; }
-#poiSearchStatus { font-size: 12px; color: var(--text-mid); margin-top: 5px; min-height: 18px; }
-#mapReviewStatus { margin: 6px 10px 0; padding: 5px 8px; background: rgba(5,8,16,0.75); border: 1px solid var(--border-dim); border-radius: 6px; color: #fff; font-size: 11px; display: none; }
-@media(max-width:480px) { #poiSearchPanel .poi-search-buttons button { width: auto; } #poiSearchPanel .poi-result button { width: auto; } }
+
+/* EV search: collapsed by default; independent of trip controls */
+#evSearchPanel { margin:8px 0; border:1px solid var(--border-dim); border-radius:10px; background:rgba(0,200,255,.035); }
+#evSearchPanel summary { cursor:pointer; padding:9px 12px; font-weight:700; color:var(--cyan); font-size:13px; }
+#evSearchBody { padding:8px 10px 12px; }
+#evSearchBody .ev-row { display:flex; gap:8px; align-items:center; margin:6px 0; }
+#evSearchBody input[type=number] { width:100px; }
+#evSearchResults { max-height:220px; overflow:auto; font-size:12px; }
+#evSearchResults .ev-result { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 3px; border-bottom:1px solid var(--border-dim); }
+#evSearchResults button { width:auto; padding:6px 9px; flex-shrink:0; }
+@media(max-width:480px) { #evSearchBody button {width:auto;} }
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v56888</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v55.1</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1044,19 +1033,6 @@ span[id^="wltpSegment"] {
 			</label>
 		</div>
 	</div>
-	<section id="poiSearchPanel" aria-label="ค้นหาจุดหมายและสถานีชาร์จในรัศมี">
-		<h3>📍 ค้นหาสถานีชาร์จ / จุดหมายตามรัศมี GPS</h3>
-		<div class="poi-search-row">
-			<label for="poiRadiusKm">รัศมี (กม.)<input id="poiRadiusKm" type="number" min="1" max="50" step="1" value="10"></label>
-			<input type="text" id="poiDestinationQuery" placeholder="ชื่อสถานที่ หรือเป้าหมายที่ต้องการค้นหา" aria-label="ชื่อสถานที่ปลายทาง">
-		</div>
-		<div class="poi-search-buttons">
-			<button id="poiSearchChargersBtn" type="button">⚡ ค้นหาสถานีชาร์จ</button>
-			<button id="poiSearchDestinationBtn" type="button">🔎 ค้นหาเป้าหมาย</button>
-		</div>
-		<div id="poiSearchStatus" role="status" aria-live="polite">ค้นหาจากตำแหน่ง GPS ภายในรัศมีที่ตั้งไว้ (ระยะเส้นตรง)</div>
-		<div id="poiSearchResults"></div>
-	</section>
 	<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:4px;">
 		<button id="tripRecorderBtn">📋 Trip Recorder</button>
 		<button id="startBtn">▶ Trip Start</button>
@@ -1076,6 +1052,15 @@ span[id^="wltpSegment"] {
 		</div>
 		<div id="tripHistory"></div>
 	</div>
+
+<details id="evSearchPanel">
+ <summary>⚡ ค้นหาสถานีชาร์จ EV (แตะเพื่อแสดง/ซ่อน)</summary>
+ <div id="evSearchBody">
+  <div class="ev-row"><label for="evRadiusKm">รัศมี (กม.)</label><input id="evRadiusKm" type="number" min="1" max="50" step="1" value="10"/><button id="evSearchBtn" type="button">ค้นหา</button></div>
+  <div id="evSearchStatus" role="status" aria-live="polite">ค้นหาจากตำแหน่ง GPS ปัจจุบัน</div>
+  <div id="evSearchResults"></div>
+ </div>
+</details>
 	<div id="speedometer-top">
 		<div id="speedometer">
 		
@@ -1087,7 +1072,6 @@ span[id^="wltpSegment"] {
 				<img src="https://img.icons8.com/fluency/48/place-marker.png" alt="GPS">
 				</button>
 			</div>
-				<div id="mapReviewStatus">สีเส้นทางตามความเร็ว GPS · แดง 0–10 · ส้ม 10–20 · เหลือง 20–40 · เขียวอ่อน 40–60 · เขียว มากกว่า 60 กม./ชม.</div>
 			<div style="padding:10px 14px 0;">
 				<div class="label">Speed</div>
 				<div id="digitalSpeed">0 km/h</div>
@@ -2478,21 +2462,18 @@ function showLeafletMapFromTrip(trip) {
 	window.isHistoryModalOpen = true;
 	if (window.replayMap) window.replayMap.remove();
 	if (mapContainer._leaflet_id) mapContainer._leaflet_id = null;
-	const m = L.map('leafletMap', { center: [13.7563, 100.5018], zoom: BASE_ZOOM, preferCanvas: true });
+	const m = L.map('leafletMap', { center: [13.7563, 100.5018], zoom: BASE_ZOOM });
 	window.replayMap = m;
 	L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
 		attribution: '&copy; OpenStreetMap contributors, &copy; CARTO', noWrap: true
 	}).addTo(m);
 	const entries = trip.path
     .map(p => {
-        if (!p?.coord) return null;
-        const [lat, lng] = p.coord.split(',').map(Number);
-        const speed = Number(p.speed);
-        return (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180)
-            ? { lat, lng, speed: Number.isFinite(speed) ? speed : 0 } : null;
+		if (!p.coord) return null;
+			const [lat, lng] = p.coord.split(',').map(Number);
+		return (isFinite(lat) && isFinite(lng)) ? { lat, lng, speed: p.speed ?? 0 } : null;
     })
     .filter(Boolean);
-    if (!entries.length) { m.remove(); window.replayMap = null; mapModal.style.display = 'none'; window.isHistoryModalOpen = false; alert('ไม่พบพิกัดเส้นทางที่ถูกต้อง'); return; }
 	for (let i = 0; i < entries.length - 1; i++) {
 		const a = entries[i];
 		const b = entries[i + 1];
@@ -2507,11 +2488,9 @@ function showLeafletMapFromTrip(trip) {
 	L.marker([start.lat, start.lng], { icon: startIcon }).bindPopup("🚗 จุดเริ่มต้น").addTo(m);
 	L.marker([end.lat, end.lng], { icon: endIcon }).bindPopup("🏁 จุดสิ้นสุด").addTo(m);
 	const latlngs = entries.map(e => [e.lat, e.lng]);
-	requestAnimationFrame(() => {
-        m.invalidateSize({ pan: false });
-        if (latlngs.length >= 2) m.fitBounds(L.latLngBounds(latlngs), { padding: [24, 24], maxZoom: BASE_ZOOM, animate: false });
-        else m.setView(latlngs[0], BASE_ZOOM, { animate: false });
-    });
+	if (latlngs.length >= 2) m.fitBounds(latlngs, { padding: [40, 40], maxZoom: BASE_ZOOM });
+	else m.setView(latlngs[0], BASE_ZOOM);
+	setTimeout(() => m.invalidateSize(), 300);
 	tripInfo.innerHTML = `
 		<strong>ระยะทาง (กม.):</strong> ${trip.distance?.toFixed(3) ?? 0} km<br/>
 		<strong>เวลารถจอดนิ่ง:</strong> ${formatTime(trip.idleTimeSeconds ?? 0)}<br/>
@@ -2541,7 +2520,6 @@ function showLeafletMapFromTrip(trip) {
 let map = null;
 let vehicleMarker = null;
 let routeLayer = null;
-let lastStoppedBounds = null;
 let watchId = null;
 let pathCoordinates = [];
 let routeBatchLayers = [];
@@ -2559,6 +2537,70 @@ let lastPanTime = 0;
 let pathCoordinatesRender = [];
 let lastRenderLat = null;
 let lastRenderLon = null;
+
+// EV charging search (OpenStreetMap / Overpass). No changes to GPS tracking.
+let evChargingLayer = null;
+let evSearchController = null;
+const evSearchButton = document.getElementById('evSearchBtn');
+const evSearchStatus = document.getElementById('evSearchStatus');
+const evSearchResults = document.getElementById('evSearchResults');
+function evEscape(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function searchEvCharging() {
+    const radius = Number(document.getElementById('evRadiusKm').value);
+    if (!Number.isFinite(radius) || radius < 1 || radius > 50) {
+        evSearchStatus.textContent = 'กำหนดรัศมี 1–50 กม.'; return;
+    }
+    evSearchButton.disabled = true;
+    evSearchStatus.textContent = 'กำลังอ่านตำแหน่ง...';
+    evSearchResults.replaceChildren();
+    try {
+        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:12000, maximumAge:15000}));
+        const lat = pos.coords.latitude, lon = pos.coords.longitude;
+        if (evSearchController) evSearchController.abort();
+        evSearchController = new AbortController();
+        const query = `[out:json][timeout:25];(node["amenity"="charging_station"](around:${Math.round(radius*1000)},${lat},${lon});way["amenity"="charging_station"](around:${Math.round(radius*1000)},${lat},${lon});relation["amenity"="charging_station"](around:${Math.round(radius*1000)},${lat},${lon}););out center tags;`;
+        evSearchStatus.textContent = 'กำลังค้นหาสถานีชาร์จ...';
+        let response, lastError;
+        for (const endpoint of ['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter']) {
+            try {
+                response = await fetch(endpoint, {method:'POST', body:new URLSearchParams({data:query}), signal:evSearchController.signal});
+                if (!response.ok) throw new Error('HTTP '+response.status);
+                break;
+            } catch(err) { lastError = err; if (err.name === 'AbortError') throw err; response = null; }
+        }
+        if (!response) throw lastError || new Error('Network error');
+        const data = await response.json();
+        const stations = (data.elements || []).map(e => {
+            const a = e.lat ?? e.center?.lat, b = e.lon ?? e.center?.lon;
+            if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+            const dist = haversineMeters(lat,lon,a,b)/1000;
+            return {id:e.type+'/'+e.id, lat:a, lon:b, dist, tags:e.tags||{}};
+        }).filter(x=>x && x.dist <= radius).sort((a,b)=>a.dist-b.dist);
+        const unique = [...new Map(stations.map(x=>[x.id,x])).values()];
+        if (evChargingLayer && map) map.removeLayer(evChargingLayer);
+        evChargingLayer = map ? L.layerGroup().addTo(map) : null;
+        const fragment = document.createDocumentFragment();
+        for (const item of unique) {
+            const name = item.tags.name || item.tags.operator || 'สถานีชาร์จ EV';
+            const plugs = Object.entries(item.tags).filter(([k,v])=>k.startsWith('socket:') && !k.endsWith(':output') && !k.endsWith(':current') && !k.endsWith(':voltage') && v !== 'no' && v !== '0').map(([k])=>k.slice(7).replaceAll('_',' ')).join(', ');
+            const line = document.createElement('div'); line.className='ev-result';
+            const info = document.createElement('span');
+            info.textContent = `${name} · ${item.dist.toFixed(1)} กม.${plugs ? ' · '+plugs : ''}`;
+            const btn = document.createElement('button'); btn.type='button'; btn.textContent='นำทาง';
+            btn.addEventListener('click',()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.lat+','+item.lon)}&travelmode=driving`,'_blank','noopener'));
+            line.append(info,btn); fragment.appendChild(line);
+            if (evChargingLayer) L.circleMarker([item.lat,item.lon],{radius:6,color:'#00c8ff',fillColor:'#00ff88',fillOpacity:.9,weight:2}).bindPopup(`${evEscape(name)}<br>${item.dist.toFixed(1)} กม.`).addTo(evChargingLayer);
+        }
+        evSearchResults.appendChild(fragment);
+        evSearchStatus.textContent = unique.length ? `พบ ${unique.length} แห่งในรัศมี ${radius} กม. (ระยะเส้นตรง)` : 'ไม่พบสถานีในข้อมูล OpenStreetMap ภายในรัศมีที่กำหนด';
+    } catch(err) {
+        evSearchStatus.textContent = err.code === 1 ? 'กรุณาอนุญาตการเข้าถึงตำแหน่ง GPS' : 'ค้นหาไม่สำเร็จ: ตรวจสอบอินเทอร์เน็ตหรือทดลองใหม่';
+        console.warn('EV station search failed',err);
+    } finally { evSearchButton.disabled=false; }
+}
+evSearchButton.addEventListener('click',searchEvCharging);
 const BASE_ZOOM = 17;
 const BASE_ICON_SIZE = 32;
 const POLYLINE_BATCH_SIZE = 200;
@@ -3422,7 +3464,6 @@ function enableMapInteraction() {
 // initMap 
 function initMap(lat, lon) {
     destroyMap();
-    document.getElementById('map-container')?.classList.remove('trip-overview');
 	rotationWrapperCache = null;
 	map = L.map("map", {
 		center: [lat, lon],
@@ -3433,8 +3474,7 @@ function initMap(lat, lon) {
 		keepBuffer: 12,
 		inertia: false,
 		zoomSnap: 1,
-		zoomDelta: 1,
-        preferCanvas: true
+		zoomDelta: 1
 	});
 	L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
 		keepBuffer: 12,
@@ -3475,6 +3515,7 @@ function bindFlyToUnlockEvents(targetMap) {
 }
 function destroyMap() {
 	if (!map) return;
+	evChargingLayer = null;
 	hardClearMapRotation(map);
 	removeRotationWrapper(map);
 	if (map._invalidateTimeout) {
@@ -3516,8 +3557,10 @@ function addRealtimePolylineSegment(lat, lon, speedKmh) {
     const prev = pathCoordinatesRender[len - 2];
     const curr = pathCoordinatesRender[len - 1];
     const color = getSpeedColor(speedKmh || 0);
-	// Retain earlier segments; the full driven track must remain visible until STOP.
-
+	if (routeBatchLayers.length > 40) {
+		const oldBatch = routeBatchLayers.shift();
+		oldBatch?.forEach(p => {routeLayer.removeLayer(p);});
+	}
     let currentBatch = routeBatchLayers[routeBatchLayers.length - 1];
     if (!currentBatch) { currentBatch = []; routeBatchLayers.push(currentBatch); }
     let currentPolyline = currentBatch[currentBatch.length - 1];
@@ -3567,7 +3610,7 @@ function updateRoute(lat, lon, speedKmh = 0, headingDegInput = null) {
 }
 // DRAW HISTORY ROUTE (UNCHANGED)
 function drawHistoryRoute(pathCoords) {
-    if (!map || !Array.isArray(pathCoords) || pathCoords.length === 0) return;
+    if (!map || pathCoords.length < 2) return;
     if (!routeLayer) routeLayer = L.layerGroup().addTo(map);
     else routeLayer.clearLayers();
     routeBatchLayers = [];
@@ -3585,10 +3628,12 @@ function drawHistoryRoute(pathCoords) {
 	const startMarker = L.marker([start[0], start[1]], { icon: startIcon })
     .bindPopup("🚗 จุดเริ่มต้น", {autoPan: false, closeOnClick: false })
     .addTo(routeLayer);
+	startMarker.openPopup();
     const end = pathCoords[pathCoords.length - 1];
     const endMarker = L.marker([end[0], end[1]], { icon: endIcon })
     .bindPopup("🏁 จุดสิ้นสุด", {autoPan: false, closeOnClick: false })
     .addTo(routeLayer);
+	endMarker.openPopup();
 }
 function forceRecenterToVehicle() {
 	if (!map || lastGpsLat == null || lastGpsLng == null) return;
@@ -3627,21 +3672,9 @@ panVelocityLon = 0;
 		);
     }
 }
-// 🔹 GPS FOLLOW BUTTON — in STOP mode recenter on the complete saved route.
+// 🔹 GPS FOLLOW BUTTON (FIXED)
 document.getElementById('gpsFollowBtn').addEventListener('click', () => {
-    if (!map || !vehicleMarker || isFinalizing) return;
-    if (!isTracking) {
-        autoFollow = false;
-        autoRotate = false;
-        enterMapOverviewMode();
-        enableMapInteraction();
-        if (lastStoppedBounds?.isValid()) {
-            map.fitBounds(lastStoppedBounds, {padding:[22,22], maxZoom:BASE_ZOOM, animate:false});
-        } else if (lastGpsLat != null && lastGpsLng != null) {
-            map.setView([lastGpsLat,lastGpsLng],BASE_ZOOM,{animate:false});
-        }
-        return;
-    }
+    if (!map || !vehicleMarker) return;
     const btn = document.getElementById('gpsFollowBtn');
     autoFollow = !autoFollow;
 	if (autoFollow) {
@@ -3649,7 +3682,6 @@ document.getElementById('gpsFollowBtn').addEventListener('click', () => {
 		btn.innerHTML = '🚗';
 		disableMapInteraction();
 		autoRotate = true;
-        leaveMapOverviewMode();
 		forceRecenterToVehicle();
 	} else {
         btn.classList.remove('active');
@@ -3947,13 +3979,8 @@ function startTracking() {
 	if (isTracking) { alert('Trip กำลังทำงานอยู่แล้ว'); return; }
 	if (!plateInput.value.trim()) { alert('กรุณากรอกบันทึกการเดินทางก่อนเริ่ม'); plateInput.focus(); return; }
 	if (!navigator.geolocation) { alert('อุปกรณ์ของคุณไม่รองรับการระบุตำแหน่ง'); return; }
-	clearPoiSearchResults();
-    lastStoppedBounds = null;
-	leaveMapOverviewMode();
 	resetTrackingVisualState();
 	clearTrackingMapObjects();
-	const reviewLabel = document.getElementById('mapReviewStatus');
-	if (reviewLabel) reviewLabel.style.display = 'none';
 	// --- Reset state ---
 	stopcallback = false;
 	isFinalizing = false;
@@ -4283,11 +4310,7 @@ function compressPath(path) {
             normalizedSpeed > 40  ? 20 :
             normalizedSpeed > 10  ? 10 :
             5;
-        // Keep color changes even when consecutive GPS fixes are close together.
-        const previous = result[result.length - 1];
-        const previousSpeed = Number(previous?.speed) || 0;
-        const colorChanged = getSpeedColor(previousSpeed) !== getSpeedColor(normalizedSpeed);
-        if (dist >= threshold || (dist >= 1.5 && colorChanged)) {
+        if (dist >= threshold) {
             result.push(point);
             lastLat = lat;
             lastLon = lon;
@@ -4436,39 +4459,120 @@ async function stopTracking() {
 	const snapshot_elapsedTime = elapsedTime;
 	const snapshot_distance = cumulativeDistance;
 
-	// v56 STOP: use the actual visible viewport, not the 200%-sized NAV map.
-    // Render the complete GPS track and speed colors before fitting the bounds.
-    const validCoords = frozenTripLog
-        .map(p => {
-            if (!p?.coord) return null;
-            const [lat, lon] = p.coord.split(',').map(Number);
-            if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
-            return [lat, lon, Number(p.speed) || 0];
-        })
-        .filter(Boolean);
-    if (map) {
-        enterMapOverviewMode();
-        lastStoppedBounds = validCoords.length ? L.latLngBounds(validCoords.map(p => [p[0],p[1]])) : null;
-        if (validCoords.length) {
-            // Large tracks are rendered on a canvas to avoid thousands of SVG DOM nodes.
-            drawHistoryRoute(validCoords);
-            requestAnimationFrame(() => {
-                if (!map) return;
-                map.invalidateSize({pan: false});
-                const bounds = L.latLngBounds(validCoords.map(p => [p[0], p[1]]));
-                if (validCoords.length === 1 || bounds.getNorthEast().equals(bounds.getSouthWest())) {
-                    map.setView([validCoords[0][0], validCoords[0][1]], BASE_ZOOM, {animate: false});
-                } else if (bounds.isValid()) {
-                    map.fitBounds(bounds, { padding: [22, 22], maxZoom: BASE_ZOOM, animate: false });
-                }
-                // Leaflet final layout settles after navigation transforms are removed.
-                requestAnimationFrame(() => map?.invalidateSize({pan: false}));
-            });
-        }
-        enableMapInteraction();
-        const reviewLabel = document.getElementById('mapReviewStatus');
-        if (reviewLabel) reviewLabel.style.display = validCoords.length > 1 ? 'block' : 'none';
-    }
+	// 🌟 วาดเส้นทาง + marker + fitBounds + rotation reset
+	if (tripLog.length === 0) {
+		console.warn("tripLog ว่าง แต่ยัง save skeleton");
+	}
+	const stopRouteSource = tripLog.some(p => p.coord) ? tripLog : pathCoordinates.map(p => ({coord: `${p[0]},${p[1]}`, speed: p[2] || 0}));
+	let validCoords = stopRouteSource
+		.map(p => {
+			if (!p.coord) return null;
+			const [lat, lon] = p.coord.split(',').map(Number);
+			if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+			return [lat, lon, p.speed || 0];
+		})
+		.filter(Boolean);
+	const MAX_RENDER_POINTS = 8000;
+	if (validCoords.length > MAX_RENDER_POINTS) {
+		const step = Math.ceil(validCoords.length / MAX_RENDER_POINTS);
+		const reduced = [];
+		for (let i = 0; i < validCoords.length; i += step) {
+			reduced.push(validCoords[i]);
+		}
+		const last = validCoords[validCoords.length - 1];
+		if (reduced[reduced.length - 1] !== last) reduced.push(last);
+		validCoords = reduced;
+	}
+	if (validCoords.length === 1) {
+		map.setView([validCoords[0][0], validCoords[0][1]], calculateTargetZoom(Math.max(0, lastGpsSpeedKmh || 0)));
+		drawHistoryRoute(validCoords);
+		enableMapInteraction();
+	} else if (validCoords.length > 1) {
+		requestAnimationFrame(() => {
+			hardClearMapRotation(map);
+			setMapPaneTransformOriginToCenter(map);
+			const FIT_CONFIG = {
+				paddingRatio: 0.12, 
+				minPadding: 60,
+				maxPadding: 500,   
+				maxZoom: 17,
+				retryLimit: 4,
+				overflowFactor: 1.3
+			};
+			let bounds = L.latLngBounds(validCoords);
+			if (!bounds.isValid()) {
+				enableMapInteraction();
+				return;
+			}
+			const ne = bounds.getNorthEast();
+			const sw = bounds.getSouthWest();
+			const diagonalMeters = ne.distanceTo(sw);
+			const distanceMeters = diagonalMeters;
+			bounds = bounds.pad(
+				distanceMeters > 500000 ? 0.30 :
+				distanceMeters > 100000 ? 0.18 :
+				distanceMeters > 10000  ? 0.12 :
+				0.08 
+			);
+			const dynamicMaxZoom =
+			distanceMeters > 1000000 ? 8  :
+			distanceMeters > 500000  ? 10 :
+			distanceMeters > 200000  ? 12 :
+			FIT_CONFIG.maxZoom;
+			const mapSize = map.getSize();
+			let padding = Math.min(mapSize.x, mapSize.y) * FIT_CONFIG.paddingRatio;
+			if (distanceMeters < 2000) padding *= 1.4; 
+			else if (distanceMeters < 20000) padding *= 1.3; 
+			else if (distanceMeters < 200000) padding *= 1.2; 
+			else if (distanceMeters < 800000) padding *= 1.1; 
+			else padding *= 1.05; 
+			const latDiff = Math.abs(ne.lat - sw.lat);
+			const lngDiff = Math.abs(ne.lng - sw.lng);
+			const stretchFactor = Math.max(latDiff, lngDiff) / Math.max(0.00001, Math.min(latDiff, lngDiff));
+			const safeStretch = Math.min(stretchFactor, 10);
+			if (safeStretch > 5) padding *= 1.2;
+			padding = Math.max(FIT_CONFIG.minPadding, padding);
+			padding = Math.min(FIT_CONFIG.maxPadding, padding);
+			map.invalidateSize();
+			function fitWithRetry(retry = 0) {
+				const hPad = padding * 1.6;
+				const vPad = padding * 1.4;
+				map.fitBounds(bounds, {
+					paddingTopLeft:     [hPad, vPad],
+					paddingBottomRight: [hPad, vPad],
+					maxZoom: dynamicMaxZoom,
+					animate: false
+				});
+				requestAnimationFrame(() => {
+					const currentBounds = map.getBounds();
+					const safeB = currentBounds.pad(0.04);
+					let overflow = false;
+					const sampleStep = Math.max(1, Math.floor(validCoords.length / 300));
+					for (let i = 0; i < validCoords.length; i += sampleStep) {
+						const latlng = L.latLng(validCoords[i][0], validCoords[i][1]);
+						if (!safeB.contains(latlng)) {
+							overflow = true;
+							break;
+						}
+					}
+					if (overflow && retry < FIT_CONFIG.retryLimit) {
+						padding = Math.min(
+							padding * FIT_CONFIG.overflowFactor,
+							FIT_CONFIG.maxPadding
+						);
+						fitWithRetry(retry + 1);
+						return;
+					}
+					if (routeLayer) routeLayer.clearLayers();
+					drawHistoryRoute(validCoords);
+					requestAnimationFrame(() => {
+						enableMapInteraction();
+					});
+				});
+			}
+			fitWithRetry();
+		});
+	}
 
 
 	if (frozenTripLog.length === 0 && lastGpsLat != null && lastGpsLng != null) {
@@ -4553,231 +4657,6 @@ document.getElementById("batterySOCUsed")
 	startBtn.disabled = false;
 	stopBtn.disabled = true;
 }
-// ================ v56 POI search + map overview =====================
-let poiSearchLayer = null;
-let poiSearchCircle = null;
-let poiSearchSerial = 0;
-const poiSearchStatus = document.getElementById('poiSearchStatus');
-const poiSearchResults = document.getElementById('poiSearchResults');
-const poiChargingButton = document.getElementById('poiSearchChargersBtn');
-const poiDestinationButton = document.getElementById('poiSearchDestinationBtn');
-function setPoiStatus(message) {
-    if (poiSearchStatus) poiSearchStatus.textContent = message;
-}
-function clearPoiSearchResults() {
-    poiSearchSerial++;
-    if (poiSearchLayer && map) map.removeLayer(poiSearchLayer);
-    if (poiSearchCircle && map) map.removeLayer(poiSearchCircle);
-    poiSearchLayer = null;
-    poiSearchCircle = null;
-    if (poiSearchResults) poiSearchResults.replaceChildren();
-}
-function enterMapOverviewMode() {
-    if (!map) return;
-    if (smoothTransformAnimFrame) {
-        cancelAnimationFrame(smoothTransformAnimFrame);
-        smoothTransformAnimFrame = null;
-    }
-    hardClearMapRotation(map);
-    removeRotationWrapper(map);
-    rotationWrapperCache = null;
-    const container = document.getElementById('map-container');
-    container?.classList.add('trip-overview');
-    map.invalidateSize({pan: false});
-    const gpsButton = document.getElementById('gpsFollowBtn');
-    if (gpsButton && !isTracking) { gpsButton.classList.remove('active'); gpsButton.textContent = '📍'; }
-}
-function leaveMapOverviewMode() {
-    const container = document.getElementById('map-container');
-    if (!container?.classList.contains('trip-overview')) return;
-    container.classList.remove('trip-overview');
-    if (map) {
-        map.invalidateSize({pan: false});
-        ensureRotationWrapper(map);
-        setMapPaneTransformOriginToCenter(map);
-    }
-}
-function readSearchRadius() {
-    const n = Number(document.getElementById('poiRadiusKm')?.value);
-    if (!Number.isFinite(n) || n < 1 || n > 50) throw new Error('กำหนดรัศมีตั้งแต่ 1 ถึง 50 กม.');
-    return n;
-}
-function isValidGpsPair(lat, lon) {
-    return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
-}
-async function getPoiSearchCenter() {
-    if (isValidGpsPair(lastGpsLat, lastGpsLng)) return [lastGpsLat, lastGpsLng];
-    try {
-        const p = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(
-            resolve, reject, {enableHighAccuracy: true, timeout: 12000, maximumAge: 15000}
-        ));
-        const lat = p.coords.latitude, lon = p.coords.longitude;
-        if (!isValidGpsPair(lat, lon)) throw new Error('พิกัด GPS ไม่ถูกต้อง');
-        if (!map) {
-            initMap(lat, lon);
-            enterMapOverviewMode();
-            enableMapInteraction();
-        }
-        return [lat, lon];
-    } catch (error) {
-        if (map) {
-            const center = map.getCenter();
-            setPoiStatus('GPS ไม่พร้อม ใช้จุดกลางแผนที่แทน');
-            return [center.lat, center.lng];
-        }
-        throw new Error('ไม่สามารถรับ GPS ได้ โปรดอนุญาตตำแหน่งหรือเริ่ม Trip ก่อนค้นหา');
-    }
-}
-function getNearbyDistanceKm(origin, lat, lon) {
-    return getDistanceFromLatLonInKm(origin[0], origin[1], lat, lon);
-}
-function getSearchViewbox(origin, radiusKm) {
-    const latDelta = radiusKm / 111.32;
-    const lonDelta = radiusKm / (111.32 * Math.max(0.15, Math.cos(origin[0] * Math.PI / 180)));
-    return [origin[1]-lonDelta, origin[0]+latDelta, origin[1]+lonDelta, origin[0]-latDelta].join(',');
-}
-async function fetchJsonWithDeadline(url, timeout = 26000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    try {
-        const response = await fetch(url, { signal: controller.signal, headers: {'Accept': 'application/json'} });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return await response.json();
-    } finally { clearTimeout(timer); }
-}
-async function findChargingStations(origin, radiusKm) {
-    const meters = Math.round(radiusKm * 1000);
-    const [lat, lon] = origin.map(v => Number(v.toFixed(6)));
-    const q = `[out:json][timeout:24];(nwr["amenity"="charging_station"](around:${meters},${lat},${lon});nwr["amenity"="fuel"]["fuel:electricity"="yes"](around:${meters},${lat},${lon}););out center;`;
-    const servers = [
-        'https://overpass-api.de/api/interpreter',
-        'https://overpass.kumi.systems/api/interpreter'
-    ];
-    let lastError;
-    for (const server of servers) {
-        try {
-            const json = await fetchJsonWithDeadline(`${server}?data=${encodeURIComponent(q)}`);
-            if (!Array.isArray(json.elements)) throw new Error('ข้อมูลสถานีชาร์จผิดรูปแบบ');
-            const dedupe = new Set();
-            return json.elements.map(item => {
-                const lat = Number(item.lat ?? item.center?.lat);
-                const lon = Number(item.lon ?? item.center?.lon);
-                if (!isValidGpsPair(lat, lon)) return null;
-                const km = getNearbyDistanceKm(origin, lat, lon);
-                if (km > radiusKm) return null;
-                const key = `${lat.toFixed(4)}:${lon.toFixed(4)}`;
-                if (dedupe.has(key)) return null;
-                dedupe.add(key);
-                const t = item.tags || {};
-                return {lat, lon, km, name: t.name || t.operator || t.brand || 'สถานีชาร์จ EV',
-                    detail: [t.operator, t['socket:type2'], t['socket:ccs2'], t['socket:chademo']]
-                        .filter(Boolean).map(String).join(' · '), kind: 'charger'};
-            }).filter(Boolean).sort((a,b) => a.km - b.km).slice(0, 150);
-        } catch (error) { lastError = error; console.warn('Overpass failed', server, error); }
-    }
-    throw new Error(`ดึงข้อมูลสถานีชาร์จไม่ได้ (${lastError?.message || 'network error'})`);
-}
-async function findDestinations(origin, radiusKm, keyword) {
-    const params = new URLSearchParams({
-        format: 'jsonv2', q: keyword, addressdetails: '1', limit: '40',
-        viewbox: getSearchViewbox(origin, radiusKm), bounded: '1', 'accept-language': 'th'
-    });
-    const data = await fetchJsonWithDeadline(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
-    if (!Array.isArray(data)) throw new Error('ข้อมูลจุดหมายผิดรูปแบบ');
-    const dedupe = new Set();
-    return data.map(item => {
-        const lat = Number(item.lat), lon = Number(item.lon);
-        if (!isValidGpsPair(lat, lon)) return null;
-        const km = getNearbyDistanceKm(origin, lat, lon);
-        if (km > radiusKm) return null;
-        const key = `${lat.toFixed(5)}:${lon.toFixed(5)}`;
-        if (dedupe.has(key)) return null;
-        dedupe.add(key);
-        return {lat, lon, km, name: item.name || item.display_name?.split(',')[0] || keyword,
-            detail: item.display_name || '', kind: 'destination'};
-    }).filter(Boolean).sort((a,b) => a.km - b.km);
-}
-function focusPoi(item, origin) {
-    if (!map) return;
-    autoFollow = false;
-    autoRotate = false;
-    enterMapOverviewMode();
-    enableMapInteraction();
-    const btn = document.getElementById('gpsFollowBtn');
-    if (btn) { btn.classList.remove('active'); btn.textContent = '📍'; }
-    const latlngs = [ [item.lat, item.lon], origin ];
-    map.invalidateSize({pan:false});
-    map.fitBounds(L.latLngBounds(latlngs), { padding: [36, 36], maxZoom: 16, animate: false });
-    const layers = poiSearchLayer?.getLayers() || [];
-    const marker = layers.find(x => x.getLatLng && x.getLatLng().lat === item.lat && x.getLatLng().lng === item.lon);
-    marker?.openPopup?.();
-}
-function presentPoiSearch(items, origin, radiusKm, type) {
-    if (poiSearchLayer && map) map.removeLayer(poiSearchLayer);
-    if (poiSearchCircle && map) map.removeLayer(poiSearchCircle);
-    poiSearchLayer = L.layerGroup().addTo(map);
-    poiSearchCircle = L.circle(origin, {
-        radius: radiusKm * 1000, color: '#00c8ff', opacity: 0.65,
-        weight: 1.5, fillOpacity: 0.025, interactive: false
-    }).addTo(map);
-    poiSearchResults.replaceChildren();
-    const fragment = document.createDocumentFragment();
-    items.forEach(item => {
-        const icon = L.divIcon({html: item.kind === 'charger' ? '⚡' : '📍', className: '', iconSize: [30,30], iconAnchor: [15,15]});
-        L.marker([item.lat, item.lon], {icon}).bindPopup(
-            `${escapePoiText(item.name)}<br>${item.km.toFixed(1)} กม. (เส้นตรง)`
-        ).addTo(poiSearchLayer);
-        const entry = document.createElement('div'); entry.className = 'poi-result';
-        const info = document.createElement('div'); info.className = 'poi-result-info';
-        const headline = document.createElement('strong'); headline.textContent = item.name;
-        const detail = document.createElement('div');
-        detail.textContent = `${item.km.toFixed(1)} กม. · ${item.detail}`;
-        info.append(headline, detail);
-        const button = document.createElement('button'); button.type = 'button'; button.textContent = 'แสดงบนแผนที่';
-        button.addEventListener('click', () => focusPoi(item, origin));
-        entry.append(info, button); fragment.append(entry);
-    });
-    poiSearchResults.appendChild(fragment);
-    setPoiStatus(`พบ ${items.length} ${type === 'charger' ? 'สถานีชาร์จ' : 'จุดหมาย'} ในรัศมี ${radiusKm} กม. (ระยะเส้นตรงจาก ${origin[0].toFixed(5)}, ${origin[1].toFixed(5)})`);
-    if (!isTracking) {
-        enterMapOverviewMode(); enableMapInteraction();
-        map.invalidateSize({pan:false});
-        if (items.length) {
-            map.fitBounds(L.latLngBounds([origin, ...items.map(p => [p.lat, p.lon])]), {padding: [36,36], maxZoom: 15, animate: false});
-        } else {
-            map.setView(origin, 13, {animate:false});
-        }
-    }
-}
-function escapePoiText(text) {
-    return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-async function runPoiSearch(type) {
-    const token = ++poiSearchSerial;
-    let radius;
-    try { radius = readSearchRadius(); }
-    catch(error) { setPoiStatus(error.message); return; }
-    const keyword = document.getElementById('poiDestinationQuery').value.trim();
-    if (type === 'destination' && !keyword) { setPoiStatus('กรอกชื่อสถานที่หรือจุดหมายก่อนค้นหา'); return; }
-    poiChargingButton.disabled = true;
-    poiDestinationButton.disabled = true;
-    setPoiStatus(type === 'charger' ? 'กำลังค้นหาสถานีชาร์จจาก OpenStreetMap…' : 'กำลังค้นหาจุดหมาย…');
-    try {
-        const origin = await getPoiSearchCenter();
-        const items = type === 'charger' ? await findChargingStations(origin, radius) : await findDestinations(origin, radius, keyword);
-        if (token !== poiSearchSerial) return;
-        if (!map) { initMap(origin[0], origin[1]); enterMapOverviewMode(); enableMapInteraction(); }
-        presentPoiSearch(items, origin, radius, type);
-    } catch(error) {
-        if (token === poiSearchSerial) setPoiStatus(`${error.message} · ตรวจสอบอินเทอร์เน็ตหรือปรับรัศมีให้เล็กลง`);
-    } finally {
-        poiChargingButton.disabled = false;
-        poiDestinationButton.disabled = false;
-    }
-}
-poiChargingButton.addEventListener('click', () => runPoiSearch('charger'));
-poiDestinationButton.addEventListener('click', () => runPoiSearch('destination'));
-// =====================================================================
 (function bindUIOnce() {
 	if (window._uiBoundOnce) return;
 	window._uiBoundOnce = true;
