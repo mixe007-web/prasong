@@ -987,23 +987,12 @@ span[id^="wltpSegment"] {
   word-break: break-word; /* กันข้อความยาวล้น */
 }
 
-
-/* EV search: collapsed by default; independent of trip controls */
-#evSearchPanel { margin:8px 0; border:1px solid var(--border-dim); border-radius:10px; background:rgba(0,200,255,.035); }
-#evSearchPanel summary { cursor:pointer; padding:9px 12px; font-weight:700; color:var(--cyan); font-size:13px; }
-#evSearchBody { padding:8px 10px 12px; }
-#evSearchBody .ev-row { display:flex; gap:8px; align-items:center; margin:6px 0; }
-#evSearchBody input[type=number] { width:100px; }
-#evSearchResults { max-height:220px; overflow:auto; font-size:12px; }
-#evSearchResults .ev-result { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 3px; border-bottom:1px solid var(--border-dim); }
-#evSearchResults button { width:auto; padding:6px 9px; flex-shrink:0; }
-@media(max-width:480px) { #evSearchBody button {width:auto;} }
 </style>
 </head>
 <body>
 <div id="uiContainer">
 <div class="centered-text">
-<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v55.1</span></h2>
+<h2>⚡ Trip A-B <span style="font-size:0.6em;opacity:0.5;letter-spacing:0.05em">v55</span></h2>
 <div>
 	<div>
 		<label for="plateNumber">Traveling to</label>
@@ -1052,15 +1041,6 @@ span[id^="wltpSegment"] {
 		</div>
 		<div id="tripHistory"></div>
 	</div>
-
-<details id="evSearchPanel">
- <summary>⚡ ค้นหาสถานีชาร์จ EV (แตะเพื่อแสดง/ซ่อน)</summary>
- <div id="evSearchBody">
-  <div class="ev-row"><label for="evRadiusKm">รัศมี (กม.)</label><input id="evRadiusKm" type="number" min="1" max="50" step="1" value="10"/><button id="evSearchBtn" type="button">ค้นหา</button></div>
-  <div id="evSearchStatus" role="status" aria-live="polite">ค้นหาจากตำแหน่ง GPS ปัจจุบัน</div>
-  <div id="evSearchResults"></div>
- </div>
-</details>
 	<div id="speedometer-top">
 		<div id="speedometer">
 		
@@ -2537,70 +2517,6 @@ let lastPanTime = 0;
 let pathCoordinatesRender = [];
 let lastRenderLat = null;
 let lastRenderLon = null;
-
-// EV charging search (OpenStreetMap / Overpass). No changes to GPS tracking.
-let evChargingLayer = null;
-let evSearchController = null;
-const evSearchButton = document.getElementById('evSearchBtn');
-const evSearchStatus = document.getElementById('evSearchStatus');
-const evSearchResults = document.getElementById('evSearchResults');
-function evEscape(value) {
-    return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-async function searchEvCharging() {
-    const radius = Number(document.getElementById('evRadiusKm').value);
-    if (!Number.isFinite(radius) || radius < 1 || radius > 50) {
-        evSearchStatus.textContent = 'กำหนดรัศมี 1–50 กม.'; return;
-    }
-    evSearchButton.disabled = true;
-    evSearchStatus.textContent = 'กำลังอ่านตำแหน่ง...';
-    evSearchResults.replaceChildren();
-    try {
-        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:12000, maximumAge:15000}));
-        const lat = pos.coords.latitude, lon = pos.coords.longitude;
-        if (evSearchController) evSearchController.abort();
-        evSearchController = new AbortController();
-        const query = `[out:json][timeout:25];(node["amenity"="charging_station"](around:${Math.round(radius*1000)},${lat},${lon});way["amenity"="charging_station"](around:${Math.round(radius*1000)},${lat},${lon});relation["amenity"="charging_station"](around:${Math.round(radius*1000)},${lat},${lon}););out center tags;`;
-        evSearchStatus.textContent = 'กำลังค้นหาสถานีชาร์จ...';
-        let response, lastError;
-        for (const endpoint of ['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter']) {
-            try {
-                response = await fetch(endpoint, {method:'POST', body:new URLSearchParams({data:query}), signal:evSearchController.signal});
-                if (!response.ok) throw new Error('HTTP '+response.status);
-                break;
-            } catch(err) { lastError = err; if (err.name === 'AbortError') throw err; response = null; }
-        }
-        if (!response) throw lastError || new Error('Network error');
-        const data = await response.json();
-        const stations = (data.elements || []).map(e => {
-            const a = e.lat ?? e.center?.lat, b = e.lon ?? e.center?.lon;
-            if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-            const dist = haversineMeters(lat,lon,a,b)/1000;
-            return {id:e.type+'/'+e.id, lat:a, lon:b, dist, tags:e.tags||{}};
-        }).filter(x=>x && x.dist <= radius).sort((a,b)=>a.dist-b.dist);
-        const unique = [...new Map(stations.map(x=>[x.id,x])).values()];
-        if (evChargingLayer && map) map.removeLayer(evChargingLayer);
-        evChargingLayer = map ? L.layerGroup().addTo(map) : null;
-        const fragment = document.createDocumentFragment();
-        for (const item of unique) {
-            const name = item.tags.name || item.tags.operator || 'สถานีชาร์จ EV';
-            const plugs = Object.entries(item.tags).filter(([k,v])=>k.startsWith('socket:') && !k.endsWith(':output') && !k.endsWith(':current') && !k.endsWith(':voltage') && v !== 'no' && v !== '0').map(([k])=>k.slice(7).replaceAll('_',' ')).join(', ');
-            const line = document.createElement('div'); line.className='ev-result';
-            const info = document.createElement('span');
-            info.textContent = `${name} · ${item.dist.toFixed(1)} กม.${plugs ? ' · '+plugs : ''}`;
-            const btn = document.createElement('button'); btn.type='button'; btn.textContent='นำทาง';
-            btn.addEventListener('click',()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.lat+','+item.lon)}&travelmode=driving`,'_blank','noopener'));
-            line.append(info,btn); fragment.appendChild(line);
-            if (evChargingLayer) L.circleMarker([item.lat,item.lon],{radius:6,color:'#00c8ff',fillColor:'#00ff88',fillOpacity:.9,weight:2}).bindPopup(`${evEscape(name)}<br>${item.dist.toFixed(1)} กม.`).addTo(evChargingLayer);
-        }
-        evSearchResults.appendChild(fragment);
-        evSearchStatus.textContent = unique.length ? `พบ ${unique.length} แห่งในรัศมี ${radius} กม. (ระยะเส้นตรง)` : 'ไม่พบสถานีในข้อมูล OpenStreetMap ภายในรัศมีที่กำหนด';
-    } catch(err) {
-        evSearchStatus.textContent = err.code === 1 ? 'กรุณาอนุญาตการเข้าถึงตำแหน่ง GPS' : 'ค้นหาไม่สำเร็จ: ตรวจสอบอินเทอร์เน็ตหรือทดลองใหม่';
-        console.warn('EV station search failed',err);
-    } finally { evSearchButton.disabled=false; }
-}
-evSearchButton.addEventListener('click',searchEvCharging);
 const BASE_ZOOM = 17;
 const BASE_ICON_SIZE = 32;
 const POLYLINE_BATCH_SIZE = 200;
@@ -3515,7 +3431,6 @@ function bindFlyToUnlockEvents(targetMap) {
 }
 function destroyMap() {
 	if (!map) return;
-	evChargingLayer = null;
 	hardClearMapRotation(map);
 	removeRotationWrapper(map);
 	if (map._invalidateTimeout) {
@@ -4463,8 +4378,7 @@ async function stopTracking() {
 	if (tripLog.length === 0) {
 		console.warn("tripLog ว่าง แต่ยัง save skeleton");
 	}
-	const stopRouteSource = tripLog.some(p => p.coord) ? tripLog : pathCoordinates.map(p => ({coord: `${p[0]},${p[1]}`, speed: p[2] || 0}));
-	let validCoords = stopRouteSource
+	let validCoords = tripLog
 		.map(p => {
 			if (!p.coord) return null;
 			const [lat, lon] = p.coord.split(',').map(Number);
@@ -4484,7 +4398,7 @@ async function stopTracking() {
 		validCoords = reduced;
 	}
 	if (validCoords.length === 1) {
-		map.setView([validCoords[0][0], validCoords[0][1]], calculateTargetZoom(Math.max(0, lastGpsSpeedKmh || 0)));
+		map.setView([validCoords[0][0], validCoords[0][1]], 17);
 		drawHistoryRoute(validCoords);
 		enableMapInteraction();
 	} else if (validCoords.length > 1) {
