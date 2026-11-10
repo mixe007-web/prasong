@@ -4983,6 +4983,11 @@ function renderCompletedTripOnMap(validCoords) {
             if (!map.getSource('trip-completed-history-source')) {
                 map.addSource('trip-completed-history-source', { type:'geojson', data:{type:'FeatureCollection',features:[]} });
             }
+            if (!map.getLayer('trip-completed-history-outline')) {
+                map.addLayer({id:'trip-completed-history-outline',type:'line',source:'trip-completed-history-source',
+                  layout:{'line-cap':'round','line-join':'round'},
+                  paint:{'line-color':'#06101c','line-width':9,'line-opacity':0.92}});
+            }
             if (!map.getLayer('trip-completed-history-layer')) {
                 map.addLayer({
                     id:'trip-completed-history-layer', type:'line', source:'trip-completed-history-source',
@@ -5010,7 +5015,12 @@ function renderCompletedTripOnMap(validCoords) {
              const coordsLatLon=validCoords.map(p=>[p[0],p[1]]);
              const fitComplete=()=>{
                  if(!map||coordsLatLon.length<2)return;
-                 fitVisibleMapBounds(coordsLatLon,{top:55,right:40,bottom:75,left:40},14);
+                 hardClearMapRotation(map);
+                 const frame=document.getElementById('map-container');
+                 const w=Math.max(200,frame?.clientWidth||320),h=Math.max(200,frame?.clientHeight||370);
+                 const padX=Math.min(100,Math.max(32,Math.round(w*0.10)));
+                 const padY=Math.min(100,Math.max(42,Math.round(h*0.13)));
+                 fitVisibleMapBounds(coordsLatLon,{top:padY,right:padX,bottom:padY,left:padX},14);
              };
              fitComplete();
              setTimeout(fitComplete,320);
@@ -5252,8 +5262,7 @@ async function stopTracking() {
 	positions = [];
 	clearActiveTripDraft();
 	loadHistory();
-    // V5.59: redraw the completed trip after storage/history work as well.
-    try{ setTimeout(()=>{try{renderCompletedTripOnMap(validCoords);}catch(e){}},180); }catch(e){}
+    // Completed route was already rendered on Stop; avoid resetting user's overview zoom.
 	activeTripId = null;
     setTrackingStatus("TRIP COMPLETED — บันทึกแล้ว","good","Ready for next trip");
 	startBtn.disabled = false;
@@ -5708,6 +5717,7 @@ async function fetchMapTilerPlaces(query, signal, proximity=null){
   return (data.features||[]).map(f=>normalizeGeocoderResult(f,'maptiler')).filter(Boolean);
 }
 const ROUTE_POI_PATTERNS = [
+  {re:/สถานีชาร์จ|จุดชาร์จ|ที่ชาร์จ|ชาร์จรถ|ชาร์จไฟ|ev\s*charg|charging\s*station|charger|charge\s*point|\bEVSE\b/i, label:'สถานีชาร์จ EV', tags:['amenity="charging_station"']},
   {re:/ร้านอาหาร|ร้านกิน|ของกิน|อาหาร/i, label:'ร้านอาหาร', tags:['amenity~"^(restaurant|fast_food|food_court)$"']},
   {re:/คาเฟ่|กาแฟ|coffee|cafe/i, label:'คาเฟ่', tags:['amenity="cafe"']},
   {re:/ร้านค้า|ร้านขาย|shop|ช้อป/i, label:'ร้านค้า', tags:['shop']},
@@ -5758,6 +5768,37 @@ function normalizeOverpassResult(el, poiLabel){
   const address=[tags['addr:housenumber'],tags['addr:street'],tags['addr:subdistrict'],tags['addr:district'],tags['addr:province']].filter(Boolean).join(' ');
   return {lat,lon,name:address?`${name}, ${address}`:name,source:'overpass',poiLabel};
 }
+function isEVChargingQuery(q){
+  return /สถานีชาร์จ|จุดชาร์จ|ที่ชาร์จ|ชาร์จรถ|ชาร์จไฟ|ev\s*charg|charging\s*station|charger|charge\s*point|\bEVSE\b/i.test(String(q||''));
+}
+function evSearchOrigin(){
+  const candidates=[
+    {lat:lastGpsLat,lon:lastGpsLng},routePlan?.start,routePlan?.destination,
+    map?.getCenter?.()
+  ];
+  for(const p of candidates){const lat=Number(p?.lat),lon=Number(p?.lon??p?.lng);if(Number.isFinite(lat)&&Number.isFinite(lon)&&isThailandApproxPoint({lat,lon}))return {lat,lon};}
+  return null;
+}
+async function fetchNearbyEVCharging(query,signal){
+  const origin=evSearchOrigin();
+  if(!origin)return [];
+  const radius=25000; // nearby search: 25 km straight-line radius
+  const q=`[out:json][timeout:22];(nwr["amenity"="charging_station"](around:${radius},${origin.lat},${origin.lon}););out center tags 100;`;
+  let error=null;
+  for(const endpoint of ROUTE_OVERPASS_URLS){
+    try{
+      const r=await fetch(endpoint,{method:'POST',signal,mode:'cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},body:`data=${encodeURIComponent(q)}`});
+      if(!r.ok)throw new Error(`Overpass ${r.status}`);
+      const data=await r.json();
+      const places=(data.elements||[]).map(el=>normalizeOverpassResult(el,'สถานีชาร์จ EV')).filter(Boolean);
+      const rad=x=>x*Math.PI/180;
+      const distance=p=>{const a=rad(p.lat-origin.lat),b=rad(p.lon-origin.lon);const h=Math.sin(a/2)**2+Math.cos(rad(origin.lat))*Math.cos(rad(p.lat))*Math.sin(b/2)**2;return 12742*Math.asin(Math.min(1,Math.sqrt(h)));};
+      return places.sort((a,b)=>distance(a)-distance(b)).slice(0,ROUTE_SEARCH_RESULT_LIMIT);
+    }catch(e){if(e?.name==='AbortError')throw e;error=e;}
+  }
+  if(error)console.warn('[EV Charging Search]',error);
+  return [];
+}
 async function fetchOverpassPlaces(query, signal){
   const poi=detectRoutePoiSearch(query); if(!poi)return [];
   const nameQuery=stripPoiKeyword(query,poi);
@@ -5806,17 +5847,22 @@ async function showPlaceSearchResults(query,kind,index,inputEl){
   };
   try{
     const poi=detectRoutePoiSearch(q);
+    let evNearby=[];
+    if(isEVChargingQuery(q)){
+      evNearby=await withTimeout(sig=>fetchNearbyEVCharging(q,sig),8500);
+      if(signal.aborted)return;
+    }
     const [nom,mt]=await Promise.all([
       withTimeout(sig=>fetchNominatimPlaces(q,sig),4200),
       withTimeout(sig=>fetchMapTilerPlaces(q,sig,Number.isFinite(lastGpsLat)&&Number.isFinite(lastGpsLng)?{lat:lastGpsLat,lon:lastGpsLng}:null),4200)
     ]);
     if(signal.aborted)return;
     let over=[];
-    if(poi && nom.length+mt.length<5){
+    if(poi && evNearby.length+nom.length+mt.length<5){
       over=await withTimeout(sig=>fetchOverpassPlaces(q,sig),5000);
     }
     if(signal.aborted)return;
-    const fs=mergeGeocoderResults(mt,nom,over);
+    const fs=mergeGeocoderResults(evNearby,mt,nom,over);
     results.innerHTML='';
     if(!fs.length){
       const e=document.createElement('div');e.className='planner-result';
